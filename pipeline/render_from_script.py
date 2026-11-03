@@ -11,7 +11,7 @@ import edge_tts
 import imageio_ffmpeg
 
 VOICE = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-US-AndrewMultilingualNeural"}
-RATE = {"host": "-3%", "rowan": "-2%"}
+RATE = {"host": "-3%", "rowan": "+18%"}
 
 
 def spoken_text(text: str) -> str:

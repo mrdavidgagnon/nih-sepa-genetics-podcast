@@ -605,7 +605,7 @@ async def render_episode(episode: str, retries: int = MAX_RETRIES, force: bool =
             old.unlink()
     edge_tts, imageio_ffmpeg = _tts_imports()
     voices = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-US-AndrewMultilingualNeural", "guest": "en-US-AndrewMultilingualNeural"}
-    rates = {"host": "-3%", "rowan": "-2%", "guest": "-2%"}
+    rates = {"host": "-3%", "rowan": "+18%", "guest": "+18%"}
     with PipelineLock(timeout=0):
         ledger = load_ledger()
         record = ledger.setdefault("episodes", {}).setdefault(episode, {"status": "planned", "transitions": []})

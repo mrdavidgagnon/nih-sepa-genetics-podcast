@@ -28,34 +28,34 @@ The desired listening experience is:
 
 These are integrity requirements, not optional stylistic flourishes.
 
-### The correspondent is fictional
+### One short disclosure, said once
 
-Dr. Turing is a fictional research correspondent and composite translator
-of the literature. Turing is not an author, interviewee, or simulation of a
-specific scholar. Every episode must disclose this near the opening and again
-near the close. Dialogue paraphrases and synthesizes the research; it must not
+Dr. Rowan Field is a fictional research correspondent and composite translator
+of the literature — not an author, interviewee, or simulation of a specific
+scholar. Dialogue paraphrases and synthesizes the research; it must never
 invent quotations, statements, motives, or reactions for an author.
 
-Use natural variations in the spoken disclosure, but always communicate all of
-the following:
+**On this show the spoken disclosure is one sentence, said once, near the top,
+and never repeated at the close.** David's instruction 2026-11-03: minimize and
+shorten the whole AI apology. A disclaimer the listener skips protects nobody.
 
-- Turing is fictional and composite;
-- no cited author was interviewed or is speaking through Turing;
-- the discussion is synthesis and paraphrase;
-- the episode preserves evidence limits.
+Keep it to a single line that covers both required facts — Rowan is fictional,
+and the episode is AI-generated and fallible. Current form:
 
-Repeat the same disclosure in the episode notes and RSS description or extended
-content.
+> **Rowan:** Quick flag: I'm a fictional correspondent, and this is an
+> AI-generated summary of the papers — it can be wrong, so read them.
 
-### This is an AI summary
+Vary the wording freely, but every version must contain the words "fictional"
+and "correspondent" and the phrase "AI-generated" (the preflight gate greps for
+these), stay one sentence, and stay in Rowan's voice rather than becoming a
+read-aloud legal notice.
 
-Every episode must remind listeners near the opening and again near the close
-that the program is an AI-generated summary of the cited literature. Say this
-plainly: the episode can orient a listener and connect ideas, but it can contain
-errors and is not a substitute for reading the sources. This disclosure is
-required in addition to, rather than satisfied by, the fictional-correspondent
-disclosure. Repeat it in the episode notes and RSS description or extended
-content.
+Do **not** add: a second disclosure at the close, a separate
+"no-author-was-interviewed" sentence, a separate "synthesis and paraphrase"
+sentence, or an "evidence limits" promise. Those four facts live in the notes
+and the feed description, which is where a listener who cares can read them.
+The full disclosure text stays unabridged in `publish_feed.py`'s notes HTML —
+shortening applies to the audio, not the written record.
 
 ### Cite every source completely
 
@@ -172,8 +172,8 @@ The established structure is a default, not a stopwatch-driven formula.
 
 1. **Cold open and question.** Welcome the listener, introduce one vivid tension
    or metaphor, state the topic, and bring in Rowan.
-2. **Early disclosure.** Identify Rowan as fictional and the episode as a
-   paraphrased synthesis, not an author interview.
+2. **Early disclosure.** One sentence from Rowan: fictional correspondent,
+   AI-generated summary, can be wrong. Then move on — no close-out repeat.
 3. **Source sequence.** Group sources into an argument rather than reciting an
    annotated bibliography. Give each source its complete spoken citation,
    useful finding, and evidence boundary.
@@ -381,10 +381,10 @@ Review article by article, not merely episode by episode.
       authoritative sources; historical verbs and attributions are supported.
 - [ ] Every background source receives a complete citation in the audio and
       notes and is clearly distinguished from the focal article set.
-- [ ] Rowan's fictional/composite status is disclosed near the opening and close.
-- [ ] The episode is identified near the opening and close as an AI summary that
-      may contain errors and does not replace reading the sources; the same
-      warning appears in the notes and feed content.
+- [ ] Rowan's fictional status and the AI-generated/fallible warning are
+      covered by ONE sentence near the opening, and are not repeated at the
+      close. The full four-part disclosure appears in the notes and feed
+      content, not in the audio.
 - [ ] No fabricated quotation, author statement, or implication of an interview
       appears in the script, notes, description, or feed.
 - [ ] Sources are uniquely assigned within the production run.
