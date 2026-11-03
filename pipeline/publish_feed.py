@@ -8,12 +8,39 @@ import json
 ROOT=Path(__file__).resolve().parent.parent
 SITE=ROOT/'feed-site'
 BASE_URL='https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast'
-EP=[
-]
+def interview_episodes():
+    """Interview episodes to publish, derived from the manifest and the state
+    ledger. An episode is publishable only when the durable ledger shows a
+    passing render and its audio exists on disk, so a failed or partial render
+    can never reach the feed.
+    """
+    try:
+        manifest = json.loads((ROOT/'pipeline'/'manifest.json').read_text())
+    except (OSError, ValueError):
+        return []
+    try:
+        state = json.loads(STATE_PATH.read_text())
+    except (OSError, ValueError):
+        state = {}
+    out = []
+    for num, rec in sorted(manifest.get('episodes', {}).items()):
+        srec = state.get('episodes', {}).get(num, {})
+        if srec.get('status') not in ('rendered', 'published'):
+            continue
+        fn = f'episode-{num}.mp3'
+        if not (ROOT/'episodes'/num/fn).exists():
+            continue
+        title = rec.get('title', 'Untitled')
+        desc = rec.get('description', '')
+        out.append((num, title, fn, desc, f'episode-{num}', f'episode-{num}'))
+    return out
+
 
 STATE_PATH = ROOT/'pipeline'/'state.json'
 READ_MANIFEST = ROOT/'pipeline'/'read-episodes.json'
 LEGACY_PUB_DATE = 'Wed, 26 Aug 2026 03:45:00 +0000'
+
+EP = interview_episodes()
 
 def read_episodes():
     """Read-lane episodes (verbatim single-voice readings, numbered 501+).

@@ -1,4 +1,18 @@
 {
   "schema_version": 1,
-  "episodes": {}
+  "episodes": {
+    "001": {
+      "number": "001",
+      "title": "Should the Crowd Program the Car?",
+      "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on crowdsourced moral preferences for autonomous vehicles, and why a preference distribution is not a decision procedure.",
+      "sources": [
+        "4UDPRQZR",
+        "FFGWMS4C",
+        "BGWWIUWC",
+        "BW34V8PX",
+        "QNHR6NPF"
+      ],
+      "status": "planned"
+    }
+  }
 }

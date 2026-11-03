@@ -1,4 +1,66 @@
 {
+  "episodes": {
+    "001": {
+      "artifacts": {
+        "audio": "episodes/001/episode-001.mp3",
+        "audio_sha256": "3911eb020b1e4e993e92181586b8655ff4766fbf227cbc6b74deb2bcb82c6ac9",
+        "turns": 43
+      },
+      "attempts": 1,
+      "checks": {
+        "review_gate": {
+          "episode": "001",
+          "issues": [],
+          "ok": true,
+          "panel": "episodes/001/review-panel.md",
+          "reviewers": [
+            "Quantitative accuracy and source attribution",
+            "Evidence boundaries and overclaim control",
+            "Format, disclosure compliance, and listenability"
+          ]
+        }
+      },
+      "status": "published",
+      "transitions": [
+        {
+          "at": "2026-11-03T23:38:38Z",
+          "from": "planned",
+          "reason": "review submitted",
+          "to": "review_pending"
+        },
+        {
+          "at": "2026-11-03T23:38:38Z",
+          "from": "review_pending",
+          "reason": "three-reviewer gate passed",
+          "to": "reviewed"
+        },
+        {
+          "at": "2026-11-03T23:38:40Z",
+          "from": "reviewed",
+          "reason": "render started",
+          "to": "rendering"
+        },
+        {
+          "at": "2026-11-03T23:39:45Z",
+          "from": "rendering",
+          "reason": "atomic render complete",
+          "to": "rendered"
+        },
+        {
+          "at": "2026-11-03T23:40:11Z",
+          "from": "rendered",
+          "reason": "local feed checks passed",
+          "to": "verified"
+        },
+        {
+          "at": "2026-11-03T23:40:11Z",
+          "from": "verified",
+          "reason": "local feed built and verified; remote push remains manual",
+          "to": "published"
+        }
+      ]
+    }
+  },
   "schema_version": 1,
-  "episodes": {}
+  "updated_at": "2026-11-03T23:40:11Z"
 }

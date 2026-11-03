@@ -181,8 +181,10 @@ The established structure is a default, not a stopwatch-driven formula.
    what remains a human responsibility.
 5. **Compact takeaway.** Use a short, memorable formulation—a "2-sentence abstract," "closing thought," or similar—when
    it genuinely sharpens the episode's central distinction.
-6. **Closing disclosure and notes reminder.** Restate the dramatized nature of
-   the episode and say the required complete-citations/Zotero sentence verbatim.
+6. **Notes reminder.** Say the required complete-citations/Zotero sentence
+   verbatim. Do *not* restate the fictional-correspondent or AI-generated
+   disclosure here — it is given once in step 2, and repeating it is exactly the
+   padding this show cut.
 7. **Sign-off.** End with a topic-specific imperative followed by “keep the human
    in the loop.”
 
