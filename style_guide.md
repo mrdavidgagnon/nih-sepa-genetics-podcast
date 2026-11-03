@@ -342,6 +342,13 @@ complete title, publication location or venue, and year.
 ## Feed and publishing patterns
 
 - Show title: *Moral Machines*.
+- Voices (chosen by David 2026-11-03): Host `en-US-AvaMultilingualNeural` at
+  rate `-3%` — the same main voice as *Human in the Loop*, deliberately shared
+  so the two shows sound like siblings. Dr. Rowan Field
+  `en-US-AndrewMultilingualNeural` at rate `-2%`. This replaces HITL's
+  `en-GB-SoniaNeural` Rowan: Rowan is male on this show. Set in
+  `pipeline/robust_pipeline.py` and `pipeline/render_from_script.py`; the Read
+  lane stays single-voice Ava.
 - Project/repository name: `nih-sepa-genetics-podcast`.
 - Feed base URL: `https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/`.
 - GUID prefix: `moral-machines-` (the HITL feed uses `human-in-the-loop-`;

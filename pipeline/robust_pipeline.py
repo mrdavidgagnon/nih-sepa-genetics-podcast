@@ -604,7 +604,7 @@ async def render_episode(episode: str, retries: int = MAX_RETRIES, force: bool =
         for old in parts.glob("*.mp3"):
             old.unlink()
     edge_tts, imageio_ffmpeg = _tts_imports()
-    voices = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-GB-SoniaNeural", "guest": "en-GB-SoniaNeural"}
+    voices = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-US-AndrewMultilingualNeural", "guest": "en-US-AndrewMultilingualNeural"}
     rates = {"host": "-3%", "rowan": "-2%", "guest": "-2%"}
     with PipelineLock(timeout=0):
         ledger = load_ledger()
