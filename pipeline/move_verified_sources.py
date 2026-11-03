@@ -1,14 +1,18 @@
 import json, os, urllib.request, urllib.error, time
 
-KEY=os.environ['ZOTERO']
+KEY=os.environ.get('ZOTERO') or os.environ['ZOTERO_API_KEY']
 BASE='https://api.zotero.org/groups/2412036/items/'
 INCOMING='V4WXTY8M'
 PODCASTED='6P2KVFKQ'
 
-manifest=json.load(open('/data/.openclaw/workspace/media/zotero-podcast/pipeline/manifest.json'))
+import pathlib
+ROOT=pathlib.Path(__file__).resolve().parent
+manifest=json.load(open(ROOT/'manifest.json'))
+state=json.load(open(ROOT/'state.json'))
 SOURCES=[]
-for episode in manifest['episodes'].values():
- if episode.get('status') == 'published_pending_zotero_move':
+for num, episode in manifest['episodes'].items():
+ # The durable ledger, not the manifest, records whether the episode shipped.
+ if state.get('episodes', {}).get(num, {}).get('status') == 'published':
   SOURCES.extend(episode.get('sources', []))
 def get(k):
  req=urllib.request.Request(BASE+k,headers={'Zotero-API-Key':KEY})
