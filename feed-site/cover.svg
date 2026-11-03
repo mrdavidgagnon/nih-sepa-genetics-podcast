@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1400" height="1400" viewBox="0 0 1400 1400">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#181b2f"/>
+      <stop offset="1" stop-color="#384e74"/>
+    </linearGradient>
+  </defs>
+  <rect width="1400" height="1400" fill="url(#bg)"/>
+  <circle cx="700" cy="500" r="270" fill="none" stroke="#f5ca5c" stroke-width="28"/>
+  <path d="M600 390v220c0 75 45 120 100 120s100-45 100-120V390c0-75-45-120-100-120s-100 45-100 120z" fill="#f5ca5c"/>
+  <path d="M510 590c0 125 85 220 190 220s190-95 190-220M700 810v125M585 935h230" fill="none" stroke="#f5ca5c" stroke-width="28" stroke-linecap="round"/>
+  <text x="700" y="1100" text-anchor="middle" fill="#fff" font-family="sans-serif" font-size="104" font-weight="700">HUMAN IN THE LOOP</text>
+  <text x="700" y="1195" text-anchor="middle" fill="#dce5f2" font-family="sans-serif" font-size="46">PLAYFUL RESEARCH INTERVIEWS</text>
+</svg>
