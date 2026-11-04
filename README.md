@@ -1,4 +1,4 @@
-# Moral Machines — NIH SEPA Podcast
+# Human in the Loop: Moral Machine Edition — NIH SEPA Podcast
 
 Repository: `mrdavidgagnon/nih-sepa-genetics-podcast`
 Feed: `https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/feed.xml`

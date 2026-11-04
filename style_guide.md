@@ -1,6 +1,6 @@
-# Moral Machines style guide
+# Human in the Loop: Moral Machine Edition style guide
 
-This is the living design guide for *Moral Machines*, the 2026 NIH SEPA
+This is the living design guide for *Human in the Loop: Moral Machine Edition*, the 2026 NIH SEPA
 research-review podcast. It is inherited verbatim from the *Human in the Loop*
 style guide, whose craft rules, citation contract, reviewer gate and Read-lane
 rules all apply here unchanged. Episode-specific precedents below refer to that
@@ -10,7 +10,7 @@ standard.
 
 ## What the show is for
 
-*Moral Machines* is a private, unlisted research-review podcast that helps
+*Human in the Loop: Moral Machine Edition* is a private, unlisted research-review podcast that helps
 David Gagnon keep up with the 2026 NIH SEPA Zotero collection while walking his
 cockapoo or biking to work. It translates research about machine ethics, moral
 decision-making, autonomous systems, and human judgment into an engaging audio conversation without pretending that a
@@ -343,7 +343,7 @@ complete title, publication location or venue, and year.
 
 ## Feed and publishing patterns
 
-- Show title: *Moral Machines*.
+- Show title: *Human in the Loop: Moral Machine Edition*.
 - Voices (chosen by David 2026-11-03): Host `en-US-AvaMultilingualNeural` at
   rate `-3%` — the same main voice as *Human in the Loop*, deliberately shared
   so the two shows sound like siblings. Dr. Rowan Field

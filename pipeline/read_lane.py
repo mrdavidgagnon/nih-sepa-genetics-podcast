@@ -300,7 +300,7 @@ def full_citation(item: dict) -> str:
 # --------------------------------------------------------------------------
 
 DISCLOSURE = (
-    "This is Moral Machines, reading number {number}. "
+    "This is Human in the Loop: Moral Machine Edition, reading number {number}. "
     "What follows is a complete verbatim reading of the body text of the following work. {citation} "
     "Three things before we start. "
     "First, this is an automated text-to-speech reading, not a summary and not an interview; "
