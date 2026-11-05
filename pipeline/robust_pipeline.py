@@ -911,6 +911,111 @@ def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120) -
 
 
 
+def feed_coverage(feed: Path | str | None = None) -> dict[str, Any]:
+    """Audit that every episode recorded as published actually reaches the feed.
+
+    READ-ONLY. It grants nothing and writes nothing; it is not a publication
+    gate and does not replace preflight/review_gate/verify_feed. It exists
+    because the publish path and the bookkeeping can disagree in silence:
+    publish_feed.py derives its item list from the manifest plus the ledger
+    status, so an episode whose status falls outside the published family, or
+    whose manifest entry is missing, is skipped while `publish` still reports
+    ok: true.
+
+    Matching is on the episode number inside the item GUID, which is stable
+    across the interview naming scheme and the read lane's `-reading` suffix,
+    so constructing `episode-NNN.mp3` by hand cannot produce a false 404. Each
+    matched enclosure is additionally checked to exist on disk at exactly its
+    advertised byte length.
+    """
+    feed_path = Path(feed) if feed else (ROOT / "feed-site" / "feed.xml")
+    report: dict[str, Any] = {
+        "ok": True,
+        "feed": str(feed_path),
+        "feed_items": 0,
+        "published_episodes": 0,
+        "missing_from_feed": [],
+        "enclosure_issues": [],
+        "unrecorded_feed_items": [],
+        "issues": [],
+    }
+    if not feed_path.exists():
+        report["ok"] = False
+        report["issues"].append(f"feed not found: {feed_path}")
+        return report
+    try:
+        root = ET.fromstring(feed_path.read_text())
+    except ET.ParseError as exc:
+        report["ok"] = False
+        report["issues"].append(f"feed does not parse: {exc}")
+        return report
+
+    items = root.findall(".//item")
+    report["feed_items"] = len(items)
+
+    by_number: dict[str, list[tuple[str, str, str]]] = {}
+    for item in items:
+        guid = (item.findtext("guid") or "").strip()
+        enc = item.find("enclosure")
+        url = (enc.get("url") or "") if enc is not None else ""
+        length = (enc.get("length") or "") if enc is not None else ""
+        found = re.findall(r"episode-(\d+)", guid) or re.findall(r"episode-(\d+)", url)
+        if found:
+            by_number.setdefault(found[0], []).append((guid, url, length))
+        else:
+            report["unrecorded_feed_items"].append(guid or url or "<unidentified item>")
+
+    published: set[str] = set()
+    for path in (LEDGER_PATH, MANIFEST_PATH):
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError):
+            continue
+        for number, rec in (data.get("episodes") or {}).items():
+            if str(rec.get("status", "")).startswith("published"):
+                published.add(str(number))
+    try:
+        read_data = json.loads((PIPELINE / "read-episodes.json").read_text())
+    except (OSError, json.JSONDecodeError):
+        read_data = {}
+    for number, rec in (read_data.get("episodes") or {}).items():
+        if rec.get("verified"):
+            published.add(str(number))
+    report["published_episodes"] = len(published)
+
+    for number in sorted(published):
+        entries = by_number.get(number)
+        if not entries:
+            report["missing_from_feed"].append(number)
+            report["issues"].append(
+                f"episode {number} is recorded as published but has no feed item")
+            continue
+        for guid, url, length in entries:
+            name = url.rsplit("/", 1)[-1]
+            if not name:
+                report["enclosure_issues"].append(
+                    {"episode": number, "guid": guid, "problem": "no enclosure url"})
+                report["issues"].append(f"episode {number} feed item has no enclosure url")
+                continue
+            local = feed_path.parent / name
+            if not local.exists():
+                report["enclosure_issues"].append(
+                    {"episode": number, "file": name, "problem": "enclosure file absent"})
+                report["issues"].append(f"episode {number} enclosure {name} is not on disk")
+                continue
+            actual = local.stat().st_size
+            if length and str(actual) != str(length):
+                report["enclosure_issues"].append({
+                    "episode": number, "file": name, "problem": "length mismatch",
+                    "advertised": length, "actual": actual})
+                report["issues"].append(
+                    f"episode {number} enclosure {name} advertises {length} bytes "
+                    f"but is {actual}")
+
+    report["ok"] = not report["issues"]
+    return report
+
+
 def status() -> dict[str, Any]:
     ledger = load_ledger()
     report = {"generated_at": utc_now(), "ledger_updated_at": ledger.get("updated_at"), "episodes": {}, "healthy": True}
@@ -1000,6 +1105,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("publish"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--remote", help="optional deployed site base URL to verify; no upload is performed")
     p = sub.add_parser("push"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--wait", type=int, default=120, help="seconds to wait for GitHub Pages to go live")
     sub.add_parser("status")
+    p = sub.add_parser("coverage"); p.add_argument("feed", nargs="?", default=None)
     p = sub.add_parser("watchdog"); p.add_argument("--max-render-minutes", type=int, default=120)
     p.add_argument("--stall-seconds", type=int, default=DEFAULT_STALL_SECONDS)
     p = sub.add_parser("unlock"); p.add_argument("--force", action="store_true")
@@ -1039,6 +1145,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "publish": result = publish_local(args.episodes, args.remote)
         elif args.command == "push": result = push_to_remote(args.episodes, args.wait)
         elif args.command == "status": result = status()
+        elif args.command == "coverage": result = feed_coverage(args.feed)
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)
         elif args.command == "unlock": unlock(args.force); result = {"unlocked": True}
         elif args.command == "attempt":
@@ -1054,7 +1161,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = {"ok": True, "attempts": attempts_report(load_ledger())}
         print_result(result)
-        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt"}:
+        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage"}:
             return 0 if result.get("ok", result.get("healthy", True)) else 1
         return 0
     except Exception as exc:

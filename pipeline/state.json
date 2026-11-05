@@ -305,9 +305,29 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-05T14:37:55.443945Z"
+        },
+        {
+          "attempt_id": "003-1793904531",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-05T18:48:51.251536Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-05T18:52:03.684463Z",
+              "detail": "publish_feed status filter accepted only rendered/published, silently dropping documented end state published_and_moved; ported coverage audit",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-05T19:13:51.251536Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-05T18:48:51.251536Z"
         }
       ],
-      "attempts": 3,
+      "attempts": 4,
       "checks": {
         "review_gate": {
           "episode": "003",
@@ -363,5 +383,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T14:44:49Z"
+  "updated_at": "2026-11-05T18:52:03Z"
 }

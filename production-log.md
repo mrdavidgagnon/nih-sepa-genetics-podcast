@@ -249,3 +249,59 @@ inherited branding and ledger drift rather than re-proving a known-good feed.
   three enclosure lengths still equal to the on-disk byte sizes, all three
   descriptions non-empty, and all three GUIDs still `moral-machines-episode-00N`.
   `py_compile` clean on publish_feed.py.
+
+## Run 005 — 2026-11-05 — no production unit; two silent-publication defects closed
+
+Both intake lanes empty again: Summerize (V4WXTY8M) 0 items, Read (DV6F4ILX) 0
+items, all ten sources from episodes 001-003 still in Produced (6P2KVFKQ). Live
+feed byte-identical to `feed-site/feed.xml` (md5
+9fc23235fcb49ca809059092da619b54, 3 items). Per the HITL skill's "spend the
+slice on a durable defect" rule the slice went to two latent defects rather than
+re-proving a known-good feed.
+
+- **`publish_feed.py` would have silently erased a shipped episode from the
+  feed.** `interview_episodes()` filtered the ledger status against the literal
+  tuple `('rendered', 'published')`. But the documented end state for a fully
+  shipped interview episode is **`published_and_moved`** (002's convention,
+  recorded in the skill), and the pre-move state is
+  `published_pending_zotero_move`. Neither matched, so the first `publish` run
+  after a Zotero move would have dropped that episode's item while still
+  reporting `ok: true`. Proven, not inferred: running the pre-fix module with
+  002 at `published_and_moved` returns `['001','003']` — 002 gone — while
+  `published` returns all three. This is exactly the HITL `EP`-list silent-skip
+  class, and it was armed, because run 004 had just set 002 and 003 to
+  `published_and_moved` in the **manifest**; only the fact that `state.json`
+  still read `published` kept the feed intact. The filter now accepts
+  `rendered` plus any status in the `published*` family; a genuinely
+  non-published status is still excluded (verified: `failed` yields
+  `['001','003']`).
+- **Ported the deterministic `coverage` audit from HITL.** This tree had no
+  `coverage` subcommand even though both skills say to run it as the first
+  command of every slice. `feed_coverage()` plus its CLI wiring is now present:
+  read-only, matches on the episode number inside the item GUID (stable across
+  the interview scheme and the read lane's `-reading` suffix, so a hand-built
+  `episode-NNN.mp3` false 404 cannot recur), and checks every enclosure exists
+  on disk at exactly its advertised byte length. It grants nothing and is not a
+  publication gate. Current reading: `ok: true`, 3 feed items, 3 published
+  episodes, no missing items and no enclosure issues. Exit code is 1 on any
+  issue, so the production cron can now open each slice with a deterministic
+  coverage check instead of a hand-rolled audit script.
+- Safety: each anchor asserted to occur exactly once before the write, backups
+  to `*.bak-run005`, atomic writes (temp + fsync + os.replace), `py_compile`
+  clean on both files. The "no original non-blank line may be lost" assertion
+  **fired correctly** on the one deliberately reworded line (the exit-code
+  command set gaining `"coverage"`); it was whitelisted explicitly via
+  `RP_EXPECTED_REWORDS` plus an assertion that the new form is present, rather
+  than relaxing the guard. After a full `publish` of 001-003, `feed.xml` is
+  **byte-identical** to its pre-change copy and still carries 3 items — the fix
+  changes behaviour only in the states that were previously dropped.
+- **Standing blocker for David, unchanged and now the only one:** both intake
+  lanes are empty, so there is no production unit. 18 on-topic sources sit
+  directly in the parent collection `YF84AUZK` (bioethics / genome-editing
+  governance / socioscientific-reasoning instruments — e.g. *Heritable Human
+  Genome Editing*, *Human genome editing: recommendations*, *Exploring
+  Bioethics*, the SDM-Q-9 and CollaboRATE measures), filed in no subcollection
+  and therefore invisible to both lanes. Seven of them already carry a PDF
+  child. Moving any of them into Summerize (V4WXTY8M) or Read (DV6F4ILX) gives
+  the pipeline work immediately; the worker deliberately does not file them
+  itself, since lane assignment decides interview-vs-verbatim treatment.

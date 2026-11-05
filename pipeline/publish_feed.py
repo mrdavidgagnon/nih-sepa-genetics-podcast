@@ -25,7 +25,13 @@ def interview_episodes():
     out = []
     for num, rec in sorted(manifest.get('episodes', {}).items()):
         srec = state.get('episodes', {}).get(num, {})
-        if srec.get('status') not in ('rendered', 'published'):
+        # Any status in the published family counts. The literal tuple
+        # ('rendered','published') silently dropped the documented end states
+        # `published_and_moved` and `published_pending_zotero_move`, which would
+        # erase a live episode from the feed on the next publish while publish
+        # still reported ok: true -- the same silent-skip class as the EP list.
+        status = str(srec.get('status', ''))
+        if status != 'rendered' and not status.startswith('published'):
             continue
         fn = f'episode-{num}.mp3'
         if not (ROOT/'episodes'/num/fn).exists():
