@@ -1,10 +1,8 @@
 {
-  "schema_version": 1,
   "episodes": {
     "001": {
-      "number": "001",
-      "title": "Should the Crowd Program the Car?",
       "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on crowdsourced moral preferences for autonomous vehicles, and why a preference distribution is not a decision procedure.",
+      "number": "001",
       "sources": [
         "4UDPRQZR",
         "FFGWMS4C",
@@ -12,7 +10,21 @@
         "BW34V8PX",
         "QNHR6NPF"
       ],
-      "status": "published"
+      "status": "published",
+      "title": "Should the Crowd Program the Car?"
+    },
+    "002": {
+      "audio": "episode-002.mp3",
+      "slug": "episode-002-building-the-decider",
+      "sources": [
+        "W5Q7PFMK",
+        "W9D57F3R",
+        "VDWW52G6",
+        "2WH5N968"
+      ],
+      "status": "published_and_moved",
+      "title": "Building the Decider"
     }
-  }
+  },
+  "schema_version": 1
 }

@@ -3,3 +3,5 @@ __pycache__/
 .pipeline.lock
 parts-*/
 check_zotero.py
+*.bak-*
+*.tmp

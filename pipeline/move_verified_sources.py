@@ -38,4 +38,4 @@ for k in SOURCES:
     time.sleep(1+attempt); continue
    raise
 print(json.dumps(results,indent=2))
-open('/data/.openclaw/workspace/media/zotero-podcast/pipeline/move-results.json','w').write(json.dumps(results,indent=2)+'\n')
+open(ROOT/'move-results.json','w').write(json.dumps(results,indent=2)+'\n')

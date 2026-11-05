@@ -1,0 +1,78 @@
+[
+  {
+    "key": "4UDPRQZR",
+    "status": "already-moved",
+    "version": 10017,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "FFGWMS4C",
+    "status": "already-moved",
+    "version": 9988,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "BGWWIUWC",
+    "status": "already-moved",
+    "version": 10011,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "BW34V8PX",
+    "status": "already-moved",
+    "version": 10014,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "QNHR6NPF",
+    "status": "already-moved",
+    "version": 10013,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "W5Q7PFMK",
+    "status": "moved",
+    "from_version": 10012,
+    "to_version": null,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "W9D57F3R",
+    "status": "moved",
+    "from_version": 10018,
+    "to_version": null,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "VDWW52G6",
+    "status": "moved",
+    "from_version": 10010,
+    "to_version": null,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "2WH5N968",
+    "status": "moved",
+    "from_version": 10015,
+    "to_version": null,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  }
+]

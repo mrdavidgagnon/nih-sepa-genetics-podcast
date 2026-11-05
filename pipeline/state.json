@@ -59,8 +59,176 @@
           "to": "published"
         }
       ]
+    },
+    "002": {
+      "artifacts": {
+        "audio": "episodes/002/episode-002.mp3",
+        "audio_sha256": "7da8ddbc107cd1f4b9d0351d247d79a8a24571b7eb4be7581e5697efbf533844",
+        "turns": 67
+      },
+      "attempt_log": [
+        {
+          "attempt_id": "002-1793823387",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-04T20:16:27.370834Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-04T20:18:56.290299Z",
+              "detail": "4 PDFs extracted (W9D57F3R Noothigattu, W5Q7PFMK Kim, VDWW52G6 Awad CACM, 2WH5N968 Takemoto 2025); EIUADNKU no PDF attachment, excluded",
+              "stage": "sources_extracted"
+            },
+            {
+              "at": "2026-11-04T20:36:43.404894Z",
+              "detail": "3587-word script, 67 turns, 4 sources; notes with citations+boundaries",
+              "stage": "script_drafted"
+            },
+            {
+              "at": "2026-11-04T20:38:05.896776Z",
+              "detail": "preflight clean on all content checks; sole issue = review panel missing. Next: 3 parallel reviewer subagents with full texts in /opt/data/tmp/mm002/",
+              "stage": "preflight_content_clean"
+            }
+          ],
+          "deadline_at": "2026-11-04T20:41:27.370834Z",
+          "detail": "script+notes drafted and registered; content preflight clean; stopped before reviewer panel on budget",
+          "finished_at": "2026-11-04T20:38:09.351568Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-04T20:16:27.370834Z"
+        },
+        {
+          "attempt_id": "002-1793839177",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-05T00:39:37.120814Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-05T01:14:41.956051Z",
+              "detail": "reviewer 3 (format/disclosure/listenability) returned FAIL on spoken-number form; all 7 fixes applied atomically, 6 lines reworded, zero digits remain in spoken turns, disclosure intact once, 67 turns preserved",
+              "stage": "tts_fixes_applied"
+            },
+            {
+              "at": "2026-11-05T01:15:23.828442Z",
+              "detail": "r3 PASS after fixes, saved to episodes/002/review-r3-complete.md; r1 (quant accuracy) + r2 (overclaim) died on output-token limits with no verdict - MUST re-run with low reasoning effort, verdict-first output; full texts cached /opt/data/tmp/mm002/",
+              "stage": "reviewer_3_passed"
+            }
+          ],
+          "deadline_at": "2026-11-05T01:04:37.120814Z",
+          "detail": "TTS fixes applied+verified; reviewer 3 PASS banked; blocked on reviewers 1+2 token-limit failures. Next: re-dispatch r1+r2 verdict-first, assemble review-panel.md with exact gate labels, then render",
+          "finished_at": "2026-11-05T01:15:24.264154Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-05T00:39:37.120814Z"
+        },
+        {
+          "attempt_id": "002-1793855804",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-05T05:16:44.701060Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-05T05:44:37.316858Z",
+              "detail": "r1 PASS (quant accuracy, 12 claim families verified vs full text); r2 FAIL->6 revisions applied atomically (7 lines reworded, 67 turns preserved); r3 PASS banked earlier",
+              "stage": "reviewers_complete"
+            },
+            {
+              "at": "2026-11-05T05:47:01.843014Z",
+              "detail": "review-panel.md assembled, 3 distinct reviewers all PASS; gate ok:true. Note: gate counts EVERY 'verdict:' match and needs exactly 3 - use one 'Final verdict: PASS.' line per reviewer, never Initial+Post-revision pairs",
+              "stage": "review_gate_passed"
+            },
+            {
+              "at": "2026-11-05T05:49:55.205208Z",
+              "detail": "episode-002.mp3 20.2MB / 21m03s / 67 turns, sha256 7da8ddbc; locked voices Ava -3% + Andrew +18%",
+              "stage": "rendered"
+            },
+            {
+              "at": "2026-11-05T05:52:12.146064Z",
+              "detail": "feed 1->2 items, enclosure 20217260 == disk, live md5 identical to local, remote 206/200 both eps, verify ok; 4 sources confirmed in Produced 6P2KVFKQ, Summerize V4WXTY8M stripped, no other memberships touched",
+              "stage": "published_and_pushed"
+            }
+          ],
+          "deadline_at": "2026-11-05T05:41:44.701060Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-05T05:16:44.701060Z"
+        }
+      ],
+      "attempts": 4,
+      "checks": {
+        "review_gate": {
+          "episode": "002",
+          "issues": [],
+          "ok": true,
+          "panel": "episodes/002/review-panel.md",
+          "reviewers": [
+            "Quantitative accuracy and source attribution",
+            "Evidence boundaries and overclaim control",
+            "Format, disclosure compliance, and listenability"
+          ]
+        }
+      },
+      "sources": [
+        "W5Q7PFMK",
+        "W9D57F3R",
+        "VDWW52G6",
+        "2WH5N968"
+      ],
+      "status": "published",
+      "title": "Building the Decider",
+      "transitions": [
+        {
+          "at": "2026-11-04T20:36:58.063377Z",
+          "reason": "run 002: sources extracted from full text, script + notes drafted (4 sources; EIUADNKU excluded, no full text). Next: 3-reviewer panel.",
+          "to": "planned"
+        },
+        {
+          "at": "2026-11-05T05:45:29Z",
+          "from": "planned",
+          "reason": "review gate failed; revisions required",
+          "to": "review_pending"
+        },
+        {
+          "at": "2026-11-05T05:46:54Z",
+          "from": "review_pending",
+          "reason": "three-reviewer gate passed",
+          "to": "reviewed"
+        },
+        {
+          "at": "2026-11-05T05:47:59Z",
+          "from": "reviewed",
+          "reason": "render started",
+          "to": "rendering"
+        },
+        {
+          "at": "2026-11-05T05:49:35Z",
+          "from": "rendering",
+          "reason": "atomic render complete",
+          "to": "rendered"
+        },
+        {
+          "at": "2026-11-05T05:49:55Z",
+          "from": "rendered",
+          "reason": "local feed checks passed",
+          "to": "verified"
+        },
+        {
+          "at": "2026-11-05T05:49:55Z",
+          "from": "verified",
+          "reason": "local feed built and verified; remote push remains manual",
+          "to": "published"
+        }
+      ]
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-03T23:40:11Z"
+  "updated_at": "2026-11-05T05:52:12Z"
 }
