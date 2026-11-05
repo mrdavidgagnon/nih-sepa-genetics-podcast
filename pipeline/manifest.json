@@ -15,6 +15,8 @@
     },
     "002": {
       "audio": "episode-002.mp3",
+      "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on what it takes to turn crowdsourced moral preferences into a machine that actually decides: a utility model fit to human judgements, a voting rule that aggregates them, and the gap between an aggregate that can be computed and one that can only be estimated.",
+      "number": 2,
       "slug": "episode-002-building-the-decider",
       "sources": [
         "W5Q7PFMK",
