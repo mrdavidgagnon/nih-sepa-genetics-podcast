@@ -234,8 +234,127 @@
           "to": "published"
         }
       ]
+    },
+    "003": {
+      "artifacts": {
+        "audio": "episodes/003/episode-003.mp3",
+        "audio_sha256": "9e2e6729ee1b161dd405ccb342a6dbb359a1721ca568a92ba2c2c101ed783672",
+        "turns": 65
+      },
+      "attempt_log": [
+        {
+          "attempt_id": "003-1793872791",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-05T09:59:51.998496Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-05T10:00:50.533414Z",
+              "detail": "EIUADNKU Awad 2019 NatHumBehav: no Zotero PDF; arXiv 1803.07170v2 submitted version (40pp, 49k chars) extracted to /opt/data/cache/scratch/mm003/awad2019_full.txt. NOTE preprint title differs from published title - must label on air.",
+              "stage": "sources_extracted"
+            },
+            {
+              "at": "2026-11-05T10:10:17.091099Z",
+              "detail": "script 65 turns 2858w + notes + manifest registered; source EIUADNKU via arXiv preprint",
+              "stage": "scripted"
+            },
+            {
+              "at": "2026-11-05T10:32:00.306650Z",
+              "detail": "panel PASS x3 after 17 script + 9 notes revisions; 3 blocking attribution fixes; preflight ok",
+              "stage": "reviewed"
+            },
+            {
+              "at": "2026-11-05T10:33:33.808459Z",
+              "detail": "episode-003.mp3 17:18, 16.6MB; notes runtime reconciled to measured",
+              "stage": "rendered"
+            }
+          ],
+          "deadline_at": "2026-11-05T10:24:51.998496Z",
+          "detail": "published + verified live; EIUADNKU -> Produced; 17:18",
+          "finished_at": "2026-11-05T10:35:35.044855Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-05T09:59:51.998496Z"
+        },
+        {
+          "attempt_id": "003-1793889475",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-05T14:37:55.443945Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-05T14:40:24.235875Z",
+              "detail": "feed title -> Moral Machines; cover art rebranded; manifest 003 -> published_and_moved",
+              "stage": "rebrand_and_ledger_fix"
+            }
+          ],
+          "deadline_at": "2026-11-05T15:02:55.443945Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-05T14:37:55.443945Z"
+        }
+      ],
+      "attempts": 3,
+      "checks": {
+        "review_gate": {
+          "episode": "003",
+          "issues": [],
+          "ok": true,
+          "panel": "episodes/003/review-panel.md",
+          "reviewers": [
+            "fact-checker",
+            "evidence boundaries",
+            "craft and house rules"
+          ]
+        }
+      },
+      "status": "published",
+      "transitions": [
+        {
+          "at": "2026-11-05T10:31:55Z",
+          "from": "planned",
+          "reason": "review submitted",
+          "to": "review_pending"
+        },
+        {
+          "at": "2026-11-05T10:31:55Z",
+          "from": "review_pending",
+          "reason": "three-reviewer gate passed",
+          "to": "reviewed"
+        },
+        {
+          "at": "2026-11-05T10:32:07Z",
+          "from": "reviewed",
+          "reason": "render started",
+          "to": "rendering"
+        },
+        {
+          "at": "2026-11-05T10:33:24Z",
+          "from": "rendering",
+          "reason": "atomic render complete",
+          "to": "rendered"
+        },
+        {
+          "at": "2026-11-05T10:33:43Z",
+          "from": "rendered",
+          "reason": "local feed checks passed",
+          "to": "verified"
+        },
+        {
+          "at": "2026-11-05T10:33:43Z",
+          "from": "verified",
+          "reason": "local feed built and verified; remote push remains manual",
+          "to": "published"
+        }
+      ]
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T05:58:05Z"
+  "updated_at": "2026-11-05T14:40:24Z"
 }

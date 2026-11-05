@@ -175,3 +175,77 @@ take `--episode`. There is no `coverage` subcommand in this tree and no
 Queue after this run: Summerize holds one unworked item, EIUADNKU — Awad et al.
 2019, "Drivers are blamed more than their automated cars when both make
 mistakes", Nature Human Behaviour, DOI 10.1038/s41562-019-0762-8. Read is empty.
+
+## 2026-11-05 — Episode 003 "Who Gets Blamed When Both Are Wrong" (published)
+
+Focal source: Awad et al., "Drivers are blamed more than their automated cars when
+both make mistakes," *Nature Human Behaviour* 4 (2020), 134–143. Zotero EIUADNKU,
+moved to Produced.
+
+- **Paywalled focal source, preprint substituted.** No PDF in Zotero; Unpaywall and
+  OpenAlex found no OA copy of the published version. Read the authors' own
+  preprint, arXiv:1803.07170v2 (40pp, same authors, same three studies, different
+  title). The version difference is disclosed on air and in the notes, and listeners
+  are told to cite the preprint for any figure. Precedent: a preprint substitution is
+  acceptable when disclosed this explicitly; coefficients are hedged as approximate.
+- **Single-focal-source episode.** One paper against the style guide's ~five-article
+  target, as a deliberate one-paper deep read. Recorded here as precedent, not drift.
+  Four background sources are cited on air (Dietvorst et al. 2015; Malle et al. 2015;
+  Nader 1965; German Ethics Commission 2017) and listed in a Background sources
+  section in the notes.
+- **Reviewer panel caught three attribution defects, all pointing the same way.**
+  Round one: fact-checker PASS with two precision fixes, evidence-boundary reviewer
+  FAIL, craft reviewer FAIL. The blocking items were (1) a closing that asserted a
+  causal mechanism the authors expressly call an open question, (2) a "liability
+  insulation" claim built from 0–100 rating scales with no liability variable
+  measured, and (3) a boundary list crediting the authors with three limits that are
+  not theirs — including two they argue against. Every defect flattered the paper.
+  17 script revisions + 9 notes revisions applied; raw findings retained in
+  episodes/003/review-round1-findings.md.
+- **Runtime estimates are unreliable from word count.** Notes first said fourteen
+  minutes, projection said sixteen, rendered audio is 17:18. Notes now carry the
+  measured duration. Reconcile against ffprobe after render, not before.
+- Rendered 17:18 / 16.6MB. Feed published with 3 items, pushed, and independently
+  verified live: guid moral-machines-episode-003, audio HTTP 206, notes HTTP 200.
+
+## Run 004 — 2026-11-05 — no production unit; show rebranded off Human in the Loop
+
+Both intake lanes empty: Summerize (V4WXTY8M) 0 items, Read (DV6F4ILX) 0 items.
+All ten sources from episodes 001-003 confirmed live in Produced (6P2KVFKQ). Live
+feed byte-identical to `feed-site/feed.xml` (md5 d4ddcfac50b1bbd7064d6927356192dd,
+3 items), ep-003 audio HTTP 206 and notes HTTP 200. No production unit existed, so
+per the HITL skill's "spend the slice on a durable defect" rule the slice went to
+inherited branding and ledger drift rather than re-proving a known-good feed.
+
+- **The feed was still published under the other show's name.** `publish_feed.py`
+  hardcoded `Human in the Loop: Moral Machine Edition` in four slots — the channel
+  `<title>`, the channel `<image><title>`, and the index page's `<title>` and `<h1>`.
+  All four now read **Moral Machines**, matching the skill's locked show title and
+  the `moral-machines-` GUID prefix. The two shows are supposed to be fully
+  independent; a shared channel title is exactly the cross-show confusion the
+  separation rule exists to prevent.
+- **Cover art rebranded.** `cover.svg`/`cover.png` (both at tree root and in
+  `feed-site/`) read "HUMAN IN THE LOOP" with the HITL headphone glyph — flagged in
+  the skill as blocking real distribution. Replaced with a Moral Machines cover: dark
+  purple gradient, teal balance-scale/decision glyph with gold pans, title
+  "MORAL MACHINES" over subtitle "MACHINE ETHICS RESEARCH INTERVIEWS". There is no
+  SVG rasterizer in this container (no rsvg-convert/inkscape/convert/magick, no
+  cairosvg in either venv), so the PNG is drawn directly with PIL 13 + DejaVu from
+  the matplotlib bundle at /opt/data/.venv-img/.../mpl-data/fonts/ttf. The SVG is
+  kept as the editable source of record; the two are drawn to match but are not
+  machine-derived from each other — **edit both when changing the cover.**
+- **Manifest/state drift on 003.** `manifest.json` said `scripted` while
+  `state.json` said `published`, the episode was live, and its source EIUADNKU was
+  already in Produced. Set to `published_and_moved`, matching 002's end state. This
+  is the mismatch class the HITL skill says to diff every slice: here the feed was
+  fine and only the bookkeeping lagged, but the same signature is what exposed
+  HITL's two-month publication gap, so it should not be left sitting.
+- Safety: every edit asserted its anchor count first, backed up to `*.bak-run004`,
+  wrote atomically (temp + fsync + os.replace), and was proved minimal afterward.
+  The anchor-count guard **fired correctly** on the first attempt — the script
+  asserted 3 title occurrences and found 4, which stopped the write; all four were
+  then confirmed to be show-title slots before the count was corrected. Post-publish
+  `diff` of feed.xml shows exactly **1 changed line** (the channel title), with all
+  three enclosure lengths still equal to the on-disk byte sizes, all three
+  descriptions non-empty, and all three GUIDs still `moral-machines-episode-00N`.
+  `py_compile` clean on publish_feed.py.

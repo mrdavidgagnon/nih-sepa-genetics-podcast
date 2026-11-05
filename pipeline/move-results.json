@@ -41,35 +41,40 @@
   },
   {
     "key": "W5Q7PFMK",
-    "status": "moved",
-    "from_version": 10012,
-    "to_version": null,
+    "status": "already-moved",
+    "version": 10037,
     "collections": [
       "6P2KVFKQ"
     ]
   },
   {
     "key": "W9D57F3R",
-    "status": "moved",
-    "from_version": 10018,
-    "to_version": null,
+    "status": "already-moved",
+    "version": 10038,
     "collections": [
       "6P2KVFKQ"
     ]
   },
   {
     "key": "VDWW52G6",
-    "status": "moved",
-    "from_version": 10010,
-    "to_version": null,
+    "status": "already-moved",
+    "version": 10039,
     "collections": [
       "6P2KVFKQ"
     ]
   },
   {
     "key": "2WH5N968",
+    "status": "already-moved",
+    "version": 10040,
+    "collections": [
+      "6P2KVFKQ"
+    ]
+  },
+  {
+    "key": "EIUADNKU",
     "status": "moved",
-    "from_version": 10015,
+    "from_version": 10016,
     "to_version": null,
     "collections": [
       "6P2KVFKQ"
