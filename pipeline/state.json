@@ -322,7 +322,9 @@
             }
           ],
           "deadline_at": "2026-11-05T19:13:51.251536Z",
-          "outcome": null,
+          "detail": "no intake unit; fixed publish_feed dropping published_and_moved from feed, ported coverage audit, verified live",
+          "finished_at": "2026-11-05T18:53:02.646264Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-05T18:48:51.251536Z"
         }
@@ -383,5 +385,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T18:52:03Z"
+  "updated_at": "2026-11-05T18:53:02Z"
 }
