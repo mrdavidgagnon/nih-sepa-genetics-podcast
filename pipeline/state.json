@@ -292,10 +292,17 @@
               "at": "2026-11-05T14:40:24.235875Z",
               "detail": "feed title -> Moral Machines; cover art rebranded; manifest 003 -> published_and_moved",
               "stage": "rebrand_and_ledger_fix"
+            },
+            {
+              "at": "2026-11-05T14:44:49.303929Z",
+              "detail": "live feed md5-identical, title=Moral Machines, new cover live, verify ok 8 checks",
+              "stage": "deployed_verified"
             }
           ],
           "deadline_at": "2026-11-05T15:02:55.443945Z",
-          "outcome": null,
+          "detail": "no intake unit; rebranded show off HITL (feed title + cover), fixed 003 manifest drift, deployed + verified live",
+          "finished_at": "2026-11-05T14:44:49.770303Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-05T14:37:55.443945Z"
         }
@@ -356,5 +363,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T14:40:24Z"
+  "updated_at": "2026-11-05T14:44:49Z"
 }
