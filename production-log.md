@@ -305,3 +305,75 @@ re-proving a known-good feed.
   child. Moving any of them into Summerize (V4WXTY8M) or Read (DV6F4ILX) gives
   the pipeline work immediately; the worker deliberately does not file them
   itself, since lane assignment decides interview-vs-verbatim treatment.
+
+## Run 006 — 2026-11-05 — no production unit; Read lane's on-air show name retargeted
+
+Opened with the deterministic `coverage` audit per both skills: `ok: true`,
+3 feed items, 3 published episodes, no `missing_from_feed`, no
+`enclosure_issues`, no `unrecorded_feed_items`. Live feed
+(`https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/feed.xml`) returns
+HTTP 200 and is **byte-identical** to `feed-site/feed.xml`
+(md5 `9fc23235fcb49ca809059092da619b54`) — zero deploy drift.
+
+Both intake lanes empty for the third consecutive run: Summerize (V4WXTY8M) 0
+items, Read (DV6F4ILX) 0 items, Produced (6P2KVFKQ) holding all 10 sources from
+episodes 001-003, parent `YF84AUZK` still carrying 18 unfiled items. No
+production unit exists, so per the HITL skill's "spend the slice on a durable
+defect" rule the slice went to a latent retargeting defect rather than
+re-proving a known-good feed.
+
+Stale `pipeline/.pipeline.lock` from run 005's `attempt finish` was confirmed
+dead both ways before clearing (owner pid 1350812 absent from `/proc`,
+non-blocking `fcntl.flock` acquired successfully, `status` reporting
+`lock.present: true` / `lock.active: false`) — the documented normal steady
+state, not an overlapping run.
+
+- **The Read lane would have announced the WRONG SHOW on air.**
+  `read_lane.py`'s `DISCLOSURE` string — the spoken intro of every verbatim
+  reading — opened with *"This is Human in the Loop: Moral Machine Edition,
+  reading number N."* Run 004 fixed the four HITL leftovers in
+  `publish_feed.py` (channel title, channel image title, index title, index h1)
+  and the cover art, but `read_lane.py` was never audited because no reading has
+  ever been produced on this show. The first reading David files would have
+  shipped audio naming the sibling show, inside the one lane whose fidelity gate
+  cannot catch it: the gate compares the READING block word-for-word against
+  `source.txt` and deliberately ignores the intro and outro. Now reads
+  *"This is Moral Machines, reading number N."*
+  - Proven functionally, not just textually: loaded the patched module under the
+    HITL venv and called `build_script('501', ...)`, asserting the first
+    `**Reader:**` line contains `Moral Machines` and no `Human in the Loop`.
+  - Checked first that **no gate asserts the old string** (`grep "Moral Machine
+    Edition" --include=*.py` returned only the definition itself), so the edit
+    cannot weaken a check.
+- **Retargeted the show title in `README.md` (1 reference) and
+  `style_guide.md` (4 references).** The style guide is the document the
+  production cron reads on every run, so it was still telling each slice the
+  show was called *Human in the Loop: Moral Machine Edition*.
+- **Deliberately KEPT four remaining "Human in the Loop" references** —
+  `style_guide.md:4` and `README.md:80` (clone provenance / inherited traps),
+  `style_guide.md:348` (the Host voice is *deliberately* shared with the sibling
+  show), `README.md:8` (same format, different library). These are accurate prose
+  about a sibling show, not branding defects. Per the skill's instruction, hits
+  were reviewed individually rather than bulk-replaced.
+- Safety on every write: anchor asserted to occur **exactly once** before
+  substitution, an explicit `EXPECTED_REWORDS` whitelist for the
+  "no original non-blank line may be lost" assertion (never relaxed to
+  "mostly additive"), identical line counts pre/post, backups to `*.bak-run006`,
+  atomic writes (temp + `os.fsync` + `os.replace`). `diff -u` on
+  `read_lane.py` shows **1 removal / 1 addition** — a pure one-line
+  substitution. `py_compile` clean on all of `pipeline/*.py`.
+- No code path touching the feed, any gate, or any published artifact was
+  modified: `feed-site/feed.xml` md5 unchanged at
+  `9fc23235fcb49ca809059092da619b54`, still 3 items, `coverage` still `ok: true`
+  after the edits.
+
+**Standing blocker for David, unchanged and still the only one:** both intake
+lanes are empty, so there is no production unit. 18 on-topic sources sit directly
+in the parent collection `YF84AUZK` with `collections: ['YF84AUZK']` and no
+subcollection, invisible to both lanes — bioethics, genome-editing governance
+(*Heritable Human Genome Editing*, *Human genome editing: recommendations*) and
+socioscientific-reasoning instruments (SDM-Q-9, CollaboRATE, ESIT). Seven already
+carry a PDF child. Moving any of them into Summerize (V4WXTY8M) or Read
+(DV6F4ILX) gives the pipeline work immediately. The worker deliberately does not
+file them itself: lane assignment decides interview-vs-verbatim treatment and is
+David's call. The Read lane is now safe to receive its first item.
