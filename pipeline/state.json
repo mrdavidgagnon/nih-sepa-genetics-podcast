@@ -154,10 +154,17 @@
               "at": "2026-11-05T05:52:12.146064Z",
               "detail": "feed 1->2 items, enclosure 20217260 == disk, live md5 identical to local, remote 206/200 both eps, verify ok; 4 sources confirmed in Produced 6P2KVFKQ, Summerize V4WXTY8M stripped, no other memberships touched",
               "stage": "published_and_pushed"
+            },
+            {
+              "at": "2026-11-05T05:58:05.129156Z",
+              "detail": "manifest 002 lacked a description key so the feed item shipped empty; added, republished, repushed. Live feed md5 c3661d23 == local, both items have descriptions, remote 206/200",
+              "stage": "feed_description_fixed"
             }
           ],
           "deadline_at": "2026-11-05T05:41:44.701060Z",
-          "outcome": null,
+          "detail": "Ep 002 Building the Decider shipped live: 3-reviewer gate passed (R2 six boundary revisions applied), 21m03s render, feed 1->2 items, live==local md5, 4 sources moved to Produced; fixed move_verified_sources HITL-path bug, manifest status lag and missing feed description",
+          "finished_at": "2026-11-05T05:58:05.602263Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-05T05:16:44.701060Z"
         }
@@ -230,5 +237,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T05:54:53Z"
+  "updated_at": "2026-11-05T05:58:05Z"
 }
