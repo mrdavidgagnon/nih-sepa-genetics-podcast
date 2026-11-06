@@ -833,3 +833,69 @@ Both lanes are empty; the 18 on-topic items remain unfiled in `YF84AUZK`. Moving
 any one into Summerize or Read gives the pipeline work immediately. As of run 010
 a Read item needs nothing but the move, and as of this run its source will also
 reach Produced correctly afterwards. Lane assignment stays David's call.
+
+## Run 012 — 2026-11-06 — read-lane `render` audited on real TTS (37/37)
+
+No intake unit: Summerize `V4WXTY8M` **0**, Read `DV6F4ILX` **0**, the same
+**18** items still unfiled directly in `YF84AUZK`. `coverage` opened `ok: true`
+(3 items / 3 published), manifest and state agree at `published_and_moved` for
+001-003, and the lock was the normal dead-owner artifact (pid 1558003 gone,
+`flock` free) — cleared with `unlock --force`.
+
+Spent the slice on the last unaudited read-lane stage, per the idle-slice rule.
+
+### Why `render` was the remaining gap
+
+Runs 006-011 verified the lane's spoken show name, publish path, durable-state
+sync, Zotero PDF intake and the Produced mover. **Every one of them either used a
+silent `anullsrc` stub (run 007) or produced no audio at all.** So
+`render_episode()` had never executed in this tree, and neither had the
+**audio-duration branch** of the fidelity gate — the half that cannot be tested
+without real audio, and the half that is the lane's only protection against a
+truncated or padded render. Run 010's lesson applies to itself: verifying stages
+around a stage is not verifying the stage.
+
+### Proof
+
+Harness `/opt/data/tmp/mm_render_proof_run012.py`, **37/37**, scratch reading
+**990**, real Edge TTS (5 parts, 1,515,788 bytes, 126.3 s). It never calls
+`build()`/`register()`, so no registry write path is involved.
+
+- **A — locked voice:** `en-US-AvaMultilingualNeural` at `-3%`, and the read lane
+  contains no Rowan voice at all (single-voice invariant holds in code).
+- **B — script:** real `build_script()`; intro reads *"This is Moral Machines,
+  reading number 990."* and the file contains **no** sibling-show substring.
+- **C — gate refuses pre-render:** `ok: false` with exactly `no audio rendered
+  yet` while word coverage is already **1.0**. Word fidelity passing is not the
+  episode passing; the audio check is what withholds it.
+- **D — render:** 5/5 parts above the 500-byte floor, reported part count matches
+  disk, `audio_seconds()` parses ffmpeg stderr correctly (**126.3 s**).
+- **E — duration gate on honest audio:** `ok: true`, `issues: []`. Measured ratio
+  **0.968** against the gate's 0.650-1.450 window; effective rate **154.9 wpm**
+  against the assumed `WORDS_PER_MINUTE = 150.0`. The 3% constant error is
+  nowhere near either edge, so the window is correctly sized for Ava at `-3%` —
+  a real reading would false-fail only below 85 s or above 189 s for 326 spoken
+  words. Confirms the run-007-era note that the baseline must count
+  intro+reading+outro (326 words) and not the reading block alone (121).
+- **F — gate not weakened:** truncating the audio to 3 s is **rejected** naming
+  the duration; deleting one source sentence is **rejected** at coverage 0.909;
+  injecting 20 words of editorial commentary is **rejected** as text added. Gate
+  green again after each restore.
+- **G + teardown:** `state.json`, `manifest.json`, `read-episodes.json` and
+  `feed-site/feed.xml` all **md5-identical** before, during and after; no `990`
+  in either registry; scratch dir removed.
+
+### Net
+
+The read lane is now exercised end to end on real audio — intake, script,
+disclosure, render, both halves of the fidelity gate, publish, durable state and
+the Produced move have each been proven in this tree. No code changed this run;
+nothing was pushed. The lane is ready for the first real Read item.
+
+### Standing blocker for David, unchanged
+
+Both lanes are empty; the 18 on-topic items remain unfiled in `YF84AUZK`
+(bioethics, genome-editing governance, socioscientific-reasoning instruments —
+7 already carry a PDF child). Moving any one into Summerize or Read gives the
+pipeline work immediately; a Read item needs nothing but the move. Lane
+assignment stays David's call.
