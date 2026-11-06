@@ -1,43 +1,43 @@
 {
- "episodes": {
-  "001": {
-   "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on crowdsourced moral preferences for autonomous vehicles, and why a preference distribution is not a decision procedure.",
-   "number": "001",
-   "sources": [
-    "4UDPRQZR",
-    "FFGWMS4C",
-    "BGWWIUWC",
-    "BW34V8PX",
-    "QNHR6NPF"
-   ],
-   "status": "published",
-   "title": "Should the Crowd Program the Car?"
+  "episodes": {
+    "001": {
+      "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on crowdsourced moral preferences for autonomous vehicles, and why a preference distribution is not a decision procedure.",
+      "number": "001",
+      "sources": [
+        "4UDPRQZR",
+        "FFGWMS4C",
+        "BGWWIUWC",
+        "BW34V8PX",
+        "QNHR6NPF"
+      ],
+      "status": "published_and_moved",
+      "title": "Should the Crowd Program the Car?"
+    },
+    "002": {
+      "audio": "episode-002.mp3",
+      "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on what it takes to turn crowdsourced moral preferences into a machine that actually decides: a utility model fit to human judgements, a voting rule that aggregates them, and the gap between an aggregate that can be computed and one that can only be estimated.",
+      "number": "002",
+      "slug": "episode-002-building-the-decider",
+      "sources": [
+        "W5Q7PFMK",
+        "W9D57F3R",
+        "VDWW52G6",
+        "2WH5N968"
+      ],
+      "status": "published_and_moved",
+      "title": "Building the Decider"
+    },
+    "003": {
+      "audio": "episode-003.mp3",
+      "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on who the public blames when a human driver and an automated system both make mistakes \u2014 and why that blame pattern may quietly weaken the liability pressure meant to force safer designs.",
+      "number": "003",
+      "slug": "episode-003-who-gets-blamed-when-both-are-wrong",
+      "sources": [
+        "EIUADNKU"
+      ],
+      "status": "published_and_moved",
+      "title": "Who Gets Blamed When Both Are Wrong"
+    }
   },
-  "002": {
-   "audio": "episode-002.mp3",
-   "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on what it takes to turn crowdsourced moral preferences into a machine that actually decides: a utility model fit to human judgements, a voting rule that aggregates them, and the gap between an aggregate that can be computed and one that can only be estimated.",
-   "number": 2,
-   "slug": "episode-002-building-the-decider",
-   "sources": [
-    "W5Q7PFMK",
-    "W9D57F3R",
-    "VDWW52G6",
-    "2WH5N968"
-   ],
-   "status": "published_and_moved",
-   "title": "Building the Decider"
-  },
-  "003": {
-   "audio": "episode-003.mp3",
-   "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on who the public blames when a human driver and an automated system both make mistakes \u2014 and why that blame pattern may quietly weaken the liability pressure meant to force safer designs.",
-   "number": 3,
-   "slug": "episode-003-who-gets-blamed-when-both-are-wrong",
-   "sources": [
-    "EIUADNKU"
-   ],
-   "status": "published_and_moved",
-   "title": "Who Gets Blamed When Both Are Wrong"
-  }
- },
- "schema_version": 1
+  "schema_version": 1
 }

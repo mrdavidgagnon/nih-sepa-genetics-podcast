@@ -2,9 +2,10 @@
   "episodes": {
     "001": {
       "artifacts": {
-        "audio": "episodes/001/episode-001.mp3",
-        "audio_sha256": "3911eb020b1e4e993e92181586b8655ff4766fbf227cbc6b74deb2bcb82c6ac9",
-        "turns": 43
+        "audio": [
+          "episodes/001/episode-001.mp3"
+        ],
+        "notes": "episodes/001/episode-notes.md"
       },
       "attempts": 1,
       "checks": {
@@ -20,7 +21,7 @@
           ]
         }
       },
-      "status": "published",
+      "status": "published_and_moved",
       "transitions": [
         {
           "at": "2026-11-03T23:38:38Z",
@@ -57,14 +58,21 @@
           "from": "verified",
           "reason": "local feed built and verified; remote push remains manual",
           "to": "published"
+        },
+        {
+          "at": "2026-11-06T03:05:36Z",
+          "from": "published",
+          "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
+          "to": "published_and_moved"
         }
       ]
     },
     "002": {
       "artifacts": {
-        "audio": "episodes/002/episode-002.mp3",
-        "audio_sha256": "7da8ddbc107cd1f4b9d0351d247d79a8a24571b7eb4be7581e5697efbf533844",
-        "turns": 67
+        "audio": [
+          "episodes/002/episode-002.mp3"
+        ],
+        "notes": "episodes/002/episode-notes.md"
       },
       "attempt_log": [
         {
@@ -189,7 +197,7 @@
         "VDWW52G6",
         "2WH5N968"
       ],
-      "status": "published",
+      "status": "published_and_moved",
       "title": "Building the Decider",
       "transitions": [
         {
@@ -232,14 +240,21 @@
           "from": "verified",
           "reason": "local feed built and verified; remote push remains manual",
           "to": "published"
+        },
+        {
+          "at": "2026-11-06T03:05:36Z",
+          "from": "published",
+          "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
+          "to": "published_and_moved"
         }
       ]
     },
     "003": {
       "artifacts": {
-        "audio": "episodes/003/episode-003.mp3",
-        "audio_sha256": "9e2e6729ee1b161dd405ccb342a6dbb359a1721ca568a92ba2c2c101ed783672",
-        "turns": 65
+        "audio": [
+          "episodes/003/episode-003.mp3"
+        ],
+        "notes": "episodes/003/episode-notes.md"
       },
       "attempt_log": [
         {
@@ -343,7 +358,7 @@
           ]
         }
       },
-      "status": "published",
+      "status": "published_and_moved",
       "transitions": [
         {
           "at": "2026-11-05T10:31:55Z",
@@ -380,6 +395,12 @@
           "from": "verified",
           "reason": "local feed built and verified; remote push remains manual",
           "to": "published"
+        },
+        {
+          "at": "2026-11-06T03:05:36Z",
+          "from": "published",
+          "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
+          "to": "published_and_moved"
         }
       ]
     },
@@ -406,16 +427,65 @@
             }
           ],
           "deadline_at": "2026-11-05T23:20:47.668044Z",
-          "outcome": null,
+          "detail": "no intake unit (both lanes 0); fixed read_lane.py on-air show name HITL->Moral Machines (first reading would have named sibling show; fidelity gate ignores intro), retargeted README+style_guide titles, feed/gates untouched, pushed and verified live",
+          "finished_at": "2026-11-05T22:57:38.924702Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-05T22:55:47.668044Z"
+        },
+        {
+          "attempt_id": "501-1793934093",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-06T03:01:33.857741Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-06T03:04:07.909415Z",
+              "detail": "scratch reading 990 exercised publish_feed read path: 11 assertions pass (GUID prefix moral-machines-, no HITL collision, non-empty desc, enclosure size match, duration, notes disclosure, coverage figure, index link, interviews unmutated, coverage audit ok); feed restored byte-identical 9fc23235",
+              "stage": "read_lane_publish_e2e_verified"
+            },
+            {
+              "at": "2026-11-06T03:06:41.578892Z",
+              "detail": "001/002/003 -> published_and_moved in state+manifest, manifest number fields normalized to 003-digit; all sources confirmed in Produced via live Zotero; feed md5 unchanged, coverage ok 3/3, verify --remote ok, live==local md5",
+              "stage": "bookkeeping_reconciled"
+            }
+          ],
+          "deadline_at": "2026-11-06T03:26:33.857741Z",
+          "detail": "no intake unit (both lanes 0); proved read-lane publish path end to end with scratch reading 990 (11 assertions incl. no cross-show GUID collision) and rolled back byte-identical; reconciled 001-003 to published_and_moved + number fields; no published artifact changed, nothing pushed",
+          "finished_at": "2026-11-06T03:06:42.034287Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-06T03:01:33.857741Z"
+        },
+        {
+          "attempt_id": "501-1793948917",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-06T07:08:37.524541Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-06T07:10:22.522046Z",
+              "detail": "ported HITL run-459 de-dup extend into reconcile(); reproduced 1-2-3 growth on scratch 991, post-fix 3-3-3, new distinct issue still recorded; feed md5 unchanged",
+              "stage": "reconcile_errors_dedupe_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-06T07:33:37.524541Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-06T07:08:37.524541Z"
         }
       ],
-      "attempts": 1,
+      "attempts": 3,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-05T22:57:15Z"
+  "updated_at": "2026-11-06T07:10:22Z"
 }

@@ -422,7 +422,18 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
         rec["artifacts"] = artifacts
         if issues:
             report["ok"] = False
-            rec.setdefault("errors", []).extend(issues)
+            # De-duplicating extend (ported from the HITL tree, run 459 there).
+            # reconcile(write=True) runs every slice, so an issue that stays
+            # true must not be re-stored each time: an unconditional extend()
+            # grew this list without bound (218 exact copies of one accurate
+            # issue on HITL stubs 017/018/020). Every DISTINCT issue is still
+            # recorded and report["ok"] is still False -- no gate changes.
+            stored = rec.setdefault("errors", [])
+            seen = {e for e in stored if isinstance(e, str)}
+            for issue in issues:
+                if issue not in seen:
+                    stored.append(issue)
+                    seen.add(issue)
         report["episodes"][number] = {"status": rec.get("status"), "issues": issues, "artifacts": artifacts}
     if write:
         save_ledger(ledger)

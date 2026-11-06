@@ -377,3 +377,188 @@ carry a PDF child. Moving any of them into Summerize (V4WXTY8M) or Read
 (DV6F4ILX) gives the pipeline work immediately. The worker deliberately does not
 file them itself: lane assignment decides interview-vs-verbatim treatment and is
 David's call. The Read lane is now safe to receive its first item.
+
+
+## Run 007 — 2026-11-06 — read-lane publish path proven end to end; bookkeeping reconciled
+
+Both intake lanes were empty again (Summerize `V4WXTY8M` 0 items, Read
+`DV6F4ILX` 0 items), `coverage` opened `ok: true` (3 items / 3 published), and
+the lock file on disk was the usual stale artifact — owner pid 1375758 gone and
+the advisory `flock` free, so `unlock --force` was safe. No production unit
+existed, so per the skill's standing instruction the slice went to a durable
+defect rather than re-proving a known block.
+
+### Chosen defect: the Read lane had still never been exercised end to end
+
+Run 006 fixed `read_lane.py`'s spoken `DISCLOSURE` (it named the sibling show on
+air) and proved that one line by calling `build_script()`. But everything
+*downstream* of the script — `publish_feed.py`'s `read_episodes()` copy step,
+the feed item it emits, `read_notes_html()`, the index entry, and how `coverage`
+treats a live reading — had never run on this show, because no reading has ever
+been produced here. That is exactly the "a lane that has never been exercised is
+unaudited" lesson from run 006, one stage further down the pipe. The highest
+stake is the one the skill calls a hard bug: a **cross-show GUID collision**
+with Human in the Loop.
+
+Method: built a scratch reading **990** (two seconds of real `anullsrc` mp3 via
+the vendored ffmpeg — no TTS spend), registered it in `read-episodes.json` with
+`verified: true`, ran the real `publish_feed.py`, asserted against the **parsed
+XML**, then rolled everything back and proved restoration byte-identical. This
+is the HITL skill's "verify feed changes without publishing junk" pattern, which
+had not previously been applied to this tree's read path.
+
+Eleven assertions, all passing:
+
+1. GUID is `moral-machines-episode-990-reading-SCRATCH7` — correct prefix, and
+   **no `human-in-the-loop` substring anywhere**, so the two shows cannot
+   collide through the read lane.
+2. `<description>` non-empty (173 chars) — the ep-002 empty-description class
+   does not reach readings, because `publish_feed.py` *synthesizes* a reading
+   description from the citation instead of reading a manifest field.
+3. `feed-site/episode-990-reading.mp3` was actually copied (the `-reading`
+   suffix naming, not the bare `episode-NNN.mp3` of the false-404 trap).
+4. `enclosure length` equals the real on-disk byte size.
+5. `enclosure url` ends in the `-reading.mp3` published name.
+6. `itunes:duration` rendered as `00:00:02`, not empty or zero.
+7. `itunes:episode` is `990`.
+8. The read disclosure is present in `content:encoded` ("Dr. Rowan Field does
+   not appear") and the interview disclosure did **not** leak into it.
+9. The coverage figure renders as `99.72%` rather than `0.00%`.
+10. `index.html` lists the reading.
+11. `coverage` saw the live reading and reported `ok: true` with empty
+    `unrecorded_feed_items` and `enclosure_issues` — it did not mistake a
+    reading for an unrecorded item or hunt for a bare `episode-990.mp3`.
+
+One assertion fired on the first pass — *"existing item mutated by read publish:
+moral-machines-episode-003"*. **It was a harness artifact, not a defect.** When
+ep-003 stops being the final `<item>`, its XML `tail` whitespace changes from
+`'\n'` to `'\n      '`; `ET.tostring` includes the tail, so a naive string
+compare flags it. Re-ran with tail whitespace normalized: existing items are
+**content-identical**, and readings append after interviews. Recorded here
+because the naive form of that check will fire again for whoever adds the first
+real reading.
+
+Rollback proof: `feed.xml` md5 back to `9fc23235fcb49ca809059092da619b54`,
+`read-episodes.json` byte-identical, scratch episode dir and all
+`feed-site/episode-990*` files gone. Harnesses kept at
+`/opt/data/tmp/mm_read_e2e_run007.py` and `…_run007b.py`.
+
+### Reconciled the manifest/state status lag flagged since run 006
+
+The skill's "diff manifest status against state every slice" check found drift,
+and the rule is to check the feed before touching the ledger. Evidence first:
+all three episodes feed-present, `preflight` `ok: true` for each, and a live
+Zotero read confirming **every** source parent of 001/002/003 sits in Produced
+(`6P2KVFKQ`) with no remaining `V4WXTY8M` membership. Feed-present plus
+sources-moved means this was bookkeeping lag, not a publication gap.
+
+Advanced all three to the documented end state `published_and_moved` in both
+registries, and normalized `manifest` `number` fields `'2'`/`'3'` to
+`'002'`/`'003'` (001 already correct) — a latent inconsistency, since
+`publish_feed.py` keys on the dict key rather than that field.
+
+Safety: both consumers of these status strings (`interview_episodes()` and
+`coverage()`) accept the whole `published*` family, so the change cannot drop an
+episode from the feed — which is precisely the bug run 005 fixed. Proven rather
+than assumed: republished and `feed.xml` md5 is **unchanged**, `coverage` still
+`ok: true` at 3/3. Per-key invariants asserted that no field outside
+`status`/`number`/`transitions` moved, `sources` is identical, and the
+transition history only grew. Backups at `*.bak-run007`.
+
+### Verification
+
+- `coverage`: `ok: true`, 3 items / 3 published, all issue lists empty.
+- `verify --remote`: `ok: true`, `issues: []` — 206 on all three audio
+  enclosures, 200 on all three notes.
+- Live-vs-local `feed.xml` md5 identical (`9fc23235…`) — zero deploy drift, so
+  the reconcile needed no push.
+- Manifest-wide duplicate-source scan: 10 sources, no duplicate ownership.
+- `py_compile` clean on `pipeline/*.py`.
+
+Nothing was pushed this slice: no published artifact changed, and the live feed
+already matches local byte for byte.
+
+**Standing blocker for David, unchanged and still the only one:** both intake
+lanes are empty, so there is no production unit. 18 on-topic sources sit directly
+in the parent collection `YF84AUZK` with `collections: ['YF84AUZK']` and no
+subcollection, invisible to both lanes — bioethics (*Exploring Bioethics*),
+genome-editing governance (*Heritable Human Genome Editing*, *Human genome
+editing: recommendations*) and socioscientific-reasoning instruments (SDM-Q-9,
+CollaboRATE, ESIT). Seven already carry a PDF child. Moving any of them into
+Summerize (`V4WXTY8M`) or Read (`DV6F4ILX`) gives the pipeline work immediately.
+The worker deliberately does not file them itself: lane assignment decides
+interview-vs-verbatim treatment and is David's call. As of this run the Read
+lane is not merely "safe to receive its first item" on the strength of a grep —
+its publish path is **verified end to end**, including the cross-show GUID check.
+
+## Run 008 — 2026-11-06 — no intake unit; fixed the append-only `errors` extend in `reconcile()`
+
+Both lanes empty again (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0, parent
+`YF84AUZK` still 18 unfiled, Produced `6P2KVFKQ` 10). Per the idle-slice rule,
+spent the slice closing a durable inherited defect rather than re-probing a
+known block.
+
+### The defect: `reconcile()` stored issues unboundedly (HITL run-459 bug, unported)
+
+This tree was still running the pre-fix line at `pipeline/robust_pipeline.py`
+~425: `rec.setdefault("errors", []).extend(issues)`, unconditional. Because every
+slice runs `reconcile(write=True)`, any issue that stays true (e.g. a planned
+stub genuinely having no notes) is re-stored forever — the mechanism that reached
+655 entries / 218 exact copies in the HITL tree and pinned `status.healthy` false.
+
+It was **latent** here only because no current episode directory has an issue:
+001-003 are complete, and 501 is a bare ledger stub with no `episodes/501/`
+directory, so `episode_dirs()` never visits it. Three `reconcile --write` passes
+on real state left the total at 0, 0, 0 — which is exactly why a grep-only audit
+would have called this tree clean.
+
+Reproduced before fixing, with a scratch `episodes/991/`: error count went
+**1 -> 2 -> 3** across three passes, distinct count stayed **1**. Post-fix the
+same entry held at **3 -> 3 -> 3**, and introducing a genuinely new issue
+(flipping 991 to `rendered` with no mp3) still appended `ledger says audio exists
+but no MP3 is present`. So dedupe without suppression: `report["ok"]` is still
+False, the live issue list is still returned in full, every distinct issue is
+still stored, and structured non-string error records are never merged or dropped
+(the `seen` set only considers `str` entries).
+
+Safety pattern: single-occurrence anchor assertion, an explicit expected-removal
+whitelist (one line, the replaced `extend` call), an assertion that the new text
+is present, backup to `robust_pipeline.py.bak-run008`, atomic temp + `fsync` +
+`os.replace`, then `diff -u | grep -c '^-[^-]'` returning **1** — the single
+intended removal, nothing else lost.
+
+Scratch `episodes/991/` removed and its ledger entry deleted; 001-003 asserted
+identical to the pre-run snapshot on `status` and `sources`; total stored errors
+back to 0; ledger episode set back to 001/002/003/501.
+
+Lesson worth carrying: **a bug fixed in the sibling tree is not fixed here.**
+This pipeline is a clone, so every HITL code fix is a candidate port, and a
+latent instance shows no symptom at all until the first episode with a standing
+issue. The same audit should be repeated for other HITL fixes landed after the
+clone date.
+
+### Verification
+
+- Pre-fix reproduction 1/2/3 and post-fix hold 3/3/3, plus new-distinct-issue
+  acceptance — all on real state with a restore snapshot.
+- `coverage`: `ok: true`, 3 items / 3 published, all issue lists empty.
+- `verify --remote`: `ok: true`, `issues: []` — 206 on all three audio
+  enclosures, 200 on all three notes.
+- Live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`),
+  unchanged from run 007 — no feed byte moved, nothing to push beyond the code
+  commit.
+- `py_compile` clean on all `pipeline/*.py`.
+- Stale lock from run 007 (pid 1401935) confirmed dead via `/proc` plus a
+  non-blocking `flock` that succeeded — normal steady state, not an active run.
+
+### Standing blocker for David, unchanged
+
+Both intake lanes are empty, so there is no production unit. 18 on-topic sources
+sit directly in parent collection `YF84AUZK` with no subcollection, invisible to
+both lanes — bioethics (*Exploring Bioethics*), genome-editing governance
+(*Heritable Human Genome Editing*, *Human genome editing: recommendations*) and
+socioscientific-reasoning instruments (SDM-Q-9, CollaboRATE, ESIT); seven already
+carry a PDF child. Moving any of them into Summerize (`V4WXTY8M`) or Read
+(`DV6F4ILX`) gives the pipeline work immediately. The worker deliberately does
+not file them itself: lane assignment decides interview-vs-verbatim treatment and
+is David's call.
