@@ -556,10 +556,17 @@
               "at": "2026-11-06T23:33:24.301205Z",
               "detail": "",
               "stage": "started"
+            },
+            {
+              "at": "2026-11-06T23:38:20.156799Z",
+              "detail": "render_episode() + duration gate exercised on REAL Edge TTS for first time in this tree; scratch 990, 37/37; ratio 0.968 in 0.65-1.45 window, 154.9 vs 150 wpm; truncate/drop/inject all still rejected; 4 registries md5-identical, scratch removed",
+              "stage": "read_lane_render_audited"
             }
           ],
           "deadline_at": "2026-11-06T23:58:24.301205Z",
-          "outcome": null,
+          "detail": "no intake unit (Summerize 0, Read 0, 18 still unfiled in YF84AUZK); audited the last unexercised read-lane stage: render_episode() + the audio-duration half of the fidelity gate on REAL Edge TTS (scratch 990, 37/37). Ratio 0.968 in the 0.65-1.45 window, 154.9 vs assumed 150 wpm, so window correctly sized for Ava -3%. Gate still rejects truncation, dropped text and injected commentary. No code chan",
+          "finished_at": "2026-11-06T23:38:40.332638Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-06T23:33:24.301205Z"
         }
@@ -570,5 +577,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T23:33:24Z"
+  "updated_at": "2026-11-06T23:38:40Z"
 }
