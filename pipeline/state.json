@@ -498,16 +498,60 @@
             }
           ],
           "deadline_at": "2026-11-06T11:39:04.671286Z",
-          "outcome": null,
+          "detail": "no intake unit (Summerize 0, Read 0); ported HITL run-422 sync_durable_state into read_lane.py register() with GUID prefix retargeted to this show; pre-fix silent no-write reproduced, 15/15 post-fix assertions, 4/4 merge safety; coverage 3/3, verify --remote ok, feed md5 unchanged live and local, code commit 52484dd pushed",
+          "finished_at": "2026-11-06T11:16:30.723315Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-06T11:14:04.671286Z"
+        },
+        {
+          "attempt_id": "501-1793978327",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-06T15:18:47.346045Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-06T15:21:46.489957Z",
+              "detail": "build() now pulls the Zotero PDF attachment itself; pre-fix hard stop reproduced, 31/31 post-fix assertions, live registries byte-identical",
+              "stage": "read_lane_attachment_pull_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-06T15:43:47.346045Z",
+          "detail": "no intake unit (Summerize 0, Read 0); fixed read_lane build() hard stop by adding Zotero PDF attachment pull + provenance; pre-fix raise reproduced, 31/31 post-fix assertions, fidelity gate still ok:false without audio; port census found no backlog; coverage 3/3, verify --remote ok, feed md5 unchanged, commit 5e183d6 pushed",
+          "finished_at": "2026-11-06T15:23:12.705008Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-06T15:18:47.346045Z"
+        },
+        {
+          "attempt_id": "501-1793993186",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-06T19:26:26.986449Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-06T19:29:17.367076Z",
+              "detail": "move_verified_sources.py: published* family + read_source + both-lane strip; 33/33 proof; live run 10 already-moved, no PUTs",
+              "stage": "mover_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-06T19:51:26.986449Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-06T19:26:26.986449Z"
         }
       ],
-      "attempts": 4,
+      "attempts": 6,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T11:15:56Z"
+  "updated_at": "2026-11-06T19:29:17Z"
 }

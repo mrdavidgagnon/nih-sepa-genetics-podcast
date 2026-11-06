@@ -746,3 +746,90 @@ and as of this run a Read item needs **nothing** but the move: `build` fetches t
 PDF, scripts, gates and registers on its own. Seven of the 18 already have a PDF
 child. The worker still does not file them itself: lane assignment decides
 interview-vs-verbatim treatment and is David's call.
+
+
+## Run 011 — 2026-11-06 — `move_verified_sources.py` had three silent no-ops
+
+Both intake lanes empty again (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the
+same 18 items still sit unfiled in parent `YF84AUZK`). No production unit, so the
+slice went to a durable defect per the HITL rule — and the one it found is the
+step that runs *immediately after* a publish, which run 010's intake fix made
+newly reachable.
+
+### Three defects, all silent
+
+`pipeline/move_verified_sources.py` selected its sources with a literal
+`status == 'published'` over manifest `sources`, then stripped only Summerize:
+
+1. **Status gate too narrow.** The documented end state `published_and_moved`
+   (002's convention) and the pre-move `published_pending_zotero_move` both
+   failed `== 'published'`. Re-running the mover after a status bump moved
+   nothing and still exited 0. This is the run-005 `interview_episodes()` class
+   in a second location — when a status string is a gate, test it against
+   **every** status the docs tell you to write.
+2. **Readings were invisible to it.** `read_lane.py` registers a reading's Zotero
+   key under **`read_source`**, deliberately, so `preflight()`'s interview
+   source-ownership model does not report a false duplicate. The mover read only
+   `sources`, so a published reading's source could never reach Produced.
+3. **The wrong lane was stripped.** A reading's source lives in **Read**, not
+   Summerize. After a "successful" move the item kept its `DV6F4ILX` membership,
+   so `read_lane.py zotero-read` would re-offer a paper already published as a
+   reading — a duplicate-reading loop.
+
+Fix: accept any `published*` status, union `sources` + `read_source` with
+de-duplication, and strip both lanes via a new `LANES=(INCOMING, READ)` while
+preserving every other membership.
+
+### Why it looked clean
+
+Pre-fix selection against **live** state returns `[]` — 001-003 are all
+`published_and_moved`, which the old gate rejected. So the mover had been a
+complete no-op on real state and three passes would have shown nothing wrong.
+Defect 2 and 3 were latent only because no reading has ever been published here.
+Same lesson as run 008: a clean-looking state proves nothing about this class.
+
+### Proof on real code, both sides
+
+Harness `/opt/data/tmp/mm_mover_proof_run011.py`, **33/33 assertions**. It
+executes each version's own selection block and strip line extracted from source
+text (the module issues PUTs at import, so it is never imported) against scratch
+copies of the registries:
+
+- **A — pre-fix reproduction:** published reading selects nothing; both
+  `published_and_moved` and `published_pending_zotero_move` select nothing; strip
+  leaves `DV6F4ILX` in place; live state selects nothing. All four bugs real here.
+- **B — post-fix:** reading *and* interview sources selected at all three
+  `published*` statuses.
+- **C — gate not weakened:** `planned`, `built`, `verified`, `rendered`,
+  `scripted`, `failed` and `''` still excluded.
+- **D — de-duplication** and the 10 live sources now selected where pre-fix 0 were.
+- **E — strip:** Read stripped, Produced added, unrelated memberships
+  (`YF84AUZK`, a decoy) preserved, Summerize regression intact, an item in both
+  lanes loses both, an already-moved item is idempotent.
+- **F — guards:** no sibling-show substring, results JSON lands in **this** tree,
+  no hardcoded key.
+
+### Live run
+
+With the fix in place the real mover selected **10** sources and reported
+`already-moved` for all 10, each with `collections: ['6P2KVFKQ']` — **zero PUTs
+issued**. That is the correct idempotent outcome and confirms 001-003's sources
+are still exactly where run 007 left them.
+
+### Verification
+
+- Write script: 3 removals (all whitelisted) / 20 additions; backup
+  `move_verified_sources.py.bak-run011`; atomic temp + `fsync` + `os.replace`;
+  `py_compile` clean on all `pipeline/*.py`.
+- `coverage`: `ok: true`, 3 items / 3 published.
+- `verify --remote`: `ok: true`, `issues: []`.
+- `feed-site/feed.xml`, `state.json`, `manifest.json`, `read-episodes.json` all
+  **md5-identical** before and after the slice. No feed byte, no gate, no ledger
+  status moved.
+
+### Standing blocker for David, unchanged
+
+Both lanes are empty; the 18 on-topic items remain unfiled in `YF84AUZK`. Moving
+any one into Summerize or Read gives the pipeline work immediately. As of run 010
+a Read item needs nothing but the move, and as of this run its source will also
+reach Produced correctly afterwards. Lane assignment stays David's call.

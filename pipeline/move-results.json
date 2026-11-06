@@ -73,9 +73,8 @@
   },
   {
     "key": "EIUADNKU",
-    "status": "moved",
-    "from_version": 10016,
-    "to_version": null,
+    "status": "already-moved",
+    "version": 10041,
     "collections": [
       "6P2KVFKQ"
     ]
