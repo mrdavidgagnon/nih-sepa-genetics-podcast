@@ -476,16 +476,38 @@
             }
           ],
           "deadline_at": "2026-11-06T07:33:37.524541Z",
-          "outcome": null,
+          "detail": "no intake unit (both lanes 0); ported HITL run-459 de-duplicating errors extend into reconcile() (was append-only here, latent); reproduced+proved fix, scratch rolled back, feed md5 unchanged live and local, coverage 3/3, code commit pushed",
+          "finished_at": "2026-11-06T07:11:39.485050Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-06T07:08:37.524541Z"
+        },
+        {
+          "attempt_id": "501-1793963644",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-06T11:14:04.671286Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-06T11:15:56.103754Z",
+              "detail": "ported HITL run-422 sync_durable_state into read_lane.py register(); GUID prefix retargeted to moral-machines (sibling literal would be cross-show collision); pre-fix bug reproduced, 15/15 post-fix, 4/4 merge safety; live registries untouched, feed md5 unchanged",
+              "stage": "read_lane_durable_state_ported"
+            }
+          ],
+          "deadline_at": "2026-11-06T11:39:04.671286Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-06T11:14:04.671286Z"
         }
       ],
-      "attempts": 3,
+      "attempts": 4,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T07:10:22Z"
+  "updated_at": "2026-11-06T11:15:56Z"
 }

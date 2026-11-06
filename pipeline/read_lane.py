@@ -39,6 +39,7 @@ VENDOR = "/data/.openclaw/workspace/vendor/two-voice-tts"
 EPISODES = ROOT / "episodes"
 READ_MANIFEST = ROOT / "pipeline" / "read-episodes.json"
 STATE_PATH = ROOT / "pipeline" / "state.json"
+MANIFEST_PATH = ROOT / "pipeline" / "manifest.json"
 
 ZOTERO_GROUP = "2412036"
 READ_COLLECTION = "DV6F4ILX"
@@ -616,6 +617,107 @@ def save_read_manifest(manifest: dict) -> None:
     os.replace(name, READ_MANIFEST)
 
 
+
+def _atomic_write_json(path: Path, payload: dict) -> None:
+    """Write JSON atomically: temp file in the same dir + fsync + os.replace."""
+    fd, name = tempfile.mkstemp(dir=str(path.parent), text=True)
+    with os.fdopen(fd, "w") as handle:
+        json.dump(payload, handle, indent=1, sort_keys=True)
+        handle.flush()
+        os.fsync(handle.fileno())
+    os.replace(name, path)
+
+
+def _load_json(path: Path, default: dict) -> dict:
+    if path.exists():
+        return json.loads(path.read_text())
+    return dict(default)
+
+
+READ_DESCRIPTION = (
+    "Single-voice verbatim reading of the paper's body text. Front matter, "
+    "figures, tables, equations, acknowledgements, appendices and references "
+    "are not read."
+)
+READ_MANIFEST_NOTE = (
+    "verbatim reading; registry of record is pipeline/read-episodes.json. "
+    "Registered under read_source rather than sources so preflight()'s "
+    "interview source-ownership model does not report a false duplicate."
+)
+
+
+def sync_durable_state(number: str, entry: dict) -> dict:
+    """Mirror a read-lane manifest entry into state.json and manifest.json.
+
+    read_lane.py's own registry (read-episodes.json) is the registry of record
+    for a reading, but omitting the episode from state.json/manifest.json makes
+    it invisible to robust_pipeline status, the watchdog and duplicate
+    detection -- in the sibling Human in the Loop tree a reading was published
+    and pushed live in exactly that state. Both writes are merges: an existing
+    record keeps its status, attempt_log, errors, transitions and checks, and a
+    published status is never downgraded.
+
+    GUID prefix note: publish_feed.py in this tree prepends "moral-machines-"
+    itself, so the stored manifest guid must carry THIS show's prefix. Copying
+    the sibling show's prefix literal across when porting this function would
+    plant a cross-show GUID collision, which is a hard bug.
+    """
+    item_key = entry.get("item_key", "")
+    verified = bool(entry.get("verified"))
+    staged = "verified" if verified else "built"
+    now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    touched = {}
+
+    state = _load_json(STATE_PATH, {"schema_version": 1, "episodes": {}})
+    episodes = state.setdefault("episodes", {})
+    rec = episodes.setdefault(number, {})
+    rec["kind"] = "read"
+    rec["read_source"] = [item_key] if item_key else []
+    rec.setdefault("artifacts", {})
+    rec["artifacts"].update({
+        "script": f"episodes/{number}/script.md",
+        "notes": f"episodes/{number}/episode-notes.md",
+        "source_pdf": f"episodes/{number}/source-{item_key}.pdf",
+    })
+    rec.setdefault("checks", {})["fidelity_gate"] = {
+        "at": now,
+        "ok": verified,
+        "coverage": entry.get("coverage"),
+        "source_words": entry.get("source_words"),
+        "note": ("read-lane automated fidelity gate; replaces the "
+                 "three-reviewer panel for verbatim readings"),
+    }
+    # Never downgrade a published reading back to a build status.
+    if not str(rec.get("status", "")).startswith("published"):
+        rec["status"] = staged
+    rec.setdefault("transitions", []).append({
+        "at": now,
+        "to": rec["status"],
+        "reason": (f"read_lane register: reading {number} built from {item_key}, "
+                   f"fidelity gate ok={verified}. Durable state synced by "
+                   f"read_lane.sync_durable_state."),
+    })
+    state["updated_at"] = now
+    _atomic_write_json(STATE_PATH, state)
+    touched["state"] = rec["status"]
+
+    manifest = _load_json(MANIFEST_PATH, {"schema_version": 1, "episodes": {}})
+    mepisodes = manifest.setdefault("episodes", {})
+    mrec = mepisodes.setdefault(number, {})
+    mrec["kind"] = "read"
+    mrec["title"] = entry.get("title", "Untitled")
+    mrec["guid"] = f"moral-machines-{entry.get('guid', '')}"
+    mrec["read_source"] = [item_key] if item_key else []
+    mrec.setdefault("description", READ_DESCRIPTION)
+    mrec["note"] = READ_MANIFEST_NOTE
+    if not str(mrec.get("status", "")).startswith("published"):
+        mrec["status"] = staged
+    manifest["updated_at"] = now
+    _atomic_write_json(MANIFEST_PATH, manifest)
+    touched["manifest"] = mrec["status"]
+    return touched
+
+
 def register(number: str, item: dict, citation: str, extraction: dict,
              verification: dict) -> None:
     data = item.get("data", item)
@@ -636,6 +738,7 @@ def register(number: str, item: dict, citation: str, extraction: dict,
         "built_at": datetime.now(timezone.utc).isoformat(),
     }
     save_read_manifest(manifest)
+    sync_durable_state(number, manifest["episodes"][number])
 
 
 def next_number() -> str:

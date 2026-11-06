@@ -562,3 +562,85 @@ carry a PDF child. Moving any of them into Summerize (`V4WXTY8M`) or Read
 (`DV6F4ILX`) gives the pipeline work immediately. The worker deliberately does
 not file them itself: lane assignment decides interview-vs-verbatim treatment and
 is David's call.
+
+
+## Run 009 — 2026-11-06 — ported HITL's read-lane durable-state sync
+
+No intake unit again: Summerize (`V4WXTY8M`) and Read (`DV6F4ILX`) both returned
+**0 items** live, Produced holds 10, and the same **18 unfiled sources** sit
+directly in parent `YF84AUZK`. Slice spent on the next unported sibling fix, per
+the run-008 lesson that every HITL code fix landed after this tree's clone date
+is a candidate port.
+
+### The defect
+
+`read_lane.py register()` wrote **only** `pipeline/read-episodes.json`. It
+defined `STATE_PATH` and never used it, and `MANIFEST_PATH` did not exist in
+this tree at all — so a reading built here would be absent from `state.json`,
+`manifest.json` and the attempt ledger while being fully publishable. This is
+HITL's run-422 bug, where reading 501 went **live and pushed** in exactly that
+state, invisible to `status`, the watchdog and duplicate detection. HITL fixed it
+with `sync_durable_state()`; this clone never received the port. Latent only
+because no reading has ever been produced here — identical in shape to run 008's
+finding.
+
+### Retargeting that mattered
+
+HITL's version hardcodes `f"human-in-the-loop-{guid}"` for the manifest guid.
+`publish_feed.py` in **this** tree prepends `moral-machines-` itself, so copying
+that line verbatim would have written a cross-show GUID into this show's
+registry — the collision both skills call a hard bug. The port stores
+`moral-machines-<guid>` and the write script asserts the file contains **no**
+sibling-show substring anywhere. That assertion fired on the first attempt,
+against my own explanatory docstring quoting the sibling prefix; the comment was
+reworded rather than the guard relaxed. `MANIFEST_PATH` was also added, since it
+was absent here.
+
+### Proof (real code, not greps)
+
+Harness `/opt/data/tmp/mm_sync_state_proof_run009.py` loads the **pre-fix
+backup** and the **post-fix live module** against scratch copies of the
+registries:
+
+- **A — pre-fix reproduction:** the backup's `register()` wrote the reading into
+  `read-episodes.json` while `state.json` and `manifest.json` stayed
+  byte-unchanged. The bug is real here, not theoretical.
+- **B — post-fix:** 15/15 assertions, including both registries populated,
+  `kind: read`, `status: verified`, the fidelity-gate check recorded with its
+  coverage figure, the key under **`read_source`** (not `sources`, which would
+  trip `preflight()`'s false duplicate-ownership report), a non-empty
+  description, the `moral-machines-` GUID with no sibling substring, and 001-003
+  untouched.
+- **C — merge safety:** re-registering over a `published_and_moved` record does
+  **not** downgrade it and preserves `attempt_log` and `errors`.
+
+The harness never writes the live registries: `manifest.json` is byte-identical
+to its pre-run snapshot, and `state.json` differs only by this run's
+`attempt start`. Scratch 992 exists nowhere in live state.
+
+### Verification
+
+- Write script: **0 removals / 103 additions**, backup `read_lane.py.bak-run009`,
+  atomic temp + `fsync` + `os.replace`, `py_compile` clean on all `pipeline/*.py`.
+- `coverage`: `ok: true`, 3 items / 3 published, all four issue lists empty.
+- `verify --remote`: `ok: true`, `issues: []`, 8 checks.
+- Live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`,
+  unchanged since run 007) — no feed byte moved; nothing to publish or push
+  beyond the code commit.
+- Stale lock from run 008 (pid 1459176) confirmed dead via `/proc` plus a
+  successful non-blocking `flock` before `unlock --force` — normal steady state.
+
+### Note for the first real reading
+
+`sync_durable_state()` is now called from `register()`, so the manual
+"write state.json and manifest.json yourself after every build+render+publish"
+step in the HITL skill is **no longer required in this tree**. Verify the two
+registries after the first real reading anyway, since the path has never run
+against a non-scratch reading.
+
+### Standing blocker for David, unchanged
+
+Both intake lanes are empty. Moving any of the 18 parent-collection items into
+Summerize (`V4WXTY8M`) or Read (`DV6F4ILX`) gives the pipeline work immediately.
+The worker does not file them itself: lane assignment decides
+interview-vs-verbatim treatment and is David's call.
