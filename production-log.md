@@ -644,3 +644,105 @@ Both intake lanes are empty. Moving any of the 18 parent-collection items into
 Summerize (`V4WXTY8M`) or Read (`DV6F4ILX`) gives the pipeline work immediately.
 The worker does not file them itself: lane assignment decides
 interview-vs-verbatim treatment and is David's call.
+
+## Run 010 — 2026-11-06 — no intake unit; `read_lane.py build` can now pull its own PDF
+
+Both intake lanes empty again (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the
+same 18 items sit unfiled in parent `YF84AUZK`). Stale lock from run 009
+(pid 1496553) confirmed dead via `/proc` plus a successful non-blocking `flock`
+before `unlock --force` — normal steady state, not an overlapping run. Slice
+spent on a durable defect per the skill's "both lanes idle" rule.
+
+### Port census first: no backlog in `robust_pipeline.py`
+
+Run 009 flagged the sibling-tree line-count gap as a port backlog, so I diffed
+all five shared modules against `/data/.openclaw/workspace/media/zotero-podcast/pipeline/`.
+Every difference is legitimate retargeting, not a missing fix:
+
+- `robust_pipeline.py` (11 lines short) — feed/repo URLs, git identity, the
+  locked voices (`AndrewMultilingualNeural` +18% vs HITL's `SoniaNeural` -2%),
+  `ET` vs `ElementTree` import style, and comment rewording. The run-008 `errors`
+  dedupe is present on both sides.
+- `publish_feed.py` — this tree's `interview_episodes()` derivation vs HITL's
+  hardcoded `EP` list. **This tree is the better design**; the EP-list silent-skip
+  class cannot occur here.
+- `move_verified_sources.py`, `render_from_script.py`, `read_lane.py` — collection
+  keys, voices, show name, and run-009's retargeted GUID prefix.
+- HITL-only files (`render_episodes.py`, `_check_incoming.py`,
+  `check_incoming_live.py`) are intentionally absent.
+
+So the line-count heuristic from run 009 is **exhausted**: treat it as closed
+rather than re-running it every slice.
+
+### The defect: `build()` could not fetch a Zotero attachment
+
+`build()` raised `SystemExit("no --pdf given: download the Zotero attachment
+first (read_lane.py cannot yet pull attachments)")` whenever `--pdf` was omitted.
+That is the single remaining hard stop between David filing an item in Read and
+a reading existing — and it bites the **unattended cron specifically**, because
+no pipeline stage puts a PDF on disk before `build`, and the cron has no human to
+hand it a path. Runs 006/007/009 verified the lane's disclosure, publish path and
+durable-state sync; all of that sat behind a step the cron cannot execute.
+
+Fix: `fetch_pdf_attachment()` + `zotero_get_bytes()`. `build()` now downloads the
+item's stored PDF child when `--pdf` is absent and records provenance
+(`attachment_key`, `filename`, `bytes`, `source`, `extra_pdf_attachments`) into
+the extraction report. Design choices worth keeping:
+
+- `zotero_get()` json-decodes, which a PDF body cannot survive, hence a separate
+  bytes helper. The `/file` endpoint 302s to a storage host; urllib follows it and
+  the key header is not needed on the redirect target.
+- `linked_url` attachments are **skipped**, not downloaded — they have no stored
+  file and would yield an empty extraction that looks like a bad PDF.
+- A non-`%PDF-` body raises with the byte count rather than being extracted, and
+  "no stored PDF" names the item key, so the failure is actionable instead of
+  surfacing later as mysteriously empty body text.
+
+### Proof on real code, both sides
+
+Harness `/opt/data/tmp/mm_attachment_proof_run010.py`, 31/31 assertions, against
+item `N4Q66RCJ` (Kinslow 2020, one `imported_file` PDF child):
+
+- **A — pre-fix reproduction:** the `read_lane.py.bak-run010` backup raises the
+  hard stop with `--pdf` omitted. The block was real here, not theoretical.
+- **B — post-fix auto-pull:** 23 pages / 8,284 body words extracted from a
+  2,269,920-byte download, `provenance.source == 'zotero'`, byte count matching
+  the file on disk, `source.txt` / `extraction-report.json` / `script.md` written,
+  script announces **"This is Moral Machines"** with no sibling-show substring,
+  manifest guid `moral-machines-…`, source key under **`read_source`** (not
+  `sources`, which would trip `preflight()`'s false duplicate-ownership report).
+- **Gate still gates:** with no audio rendered, `verify` returned `ok: false`
+  while computing word coverage `1.0`. Word fidelity passing does **not** pass the
+  episode — the audio-duration check correctly withheld it. A fix to the intake
+  step did not weaken the fidelity gate.
+- **C — `--pdf` regression:** an explicit local path still works, records
+  `source: 'local'`, and extracts the identical word count.
+- **Live registries byte-identical** (`read-episodes.json`, `state.json`,
+  `manifest.json`); no live `episodes/993` or `episodes/994`. The harness runs
+  entirely against scratch copies under `/opt/data/cache/scratch/mm_run010_proof/`.
+
+Harness pitfall for next time: a module copied into scratch resolves `ROOT`
+relative to **its own** location, so `ZOTERO_KEY_FILE` points at a nonexistent
+`check_zotero.py` and `zotero_key()` dies with `FileNotFoundError`. Export
+`ZOTERO_API_KEY` in the harness before loading a relocated copy.
+
+### Verification
+
+- Write script: **7 removals, all whitelisted** (the old hard-stop raise plus two
+  reflowed copy lines) / 70 additions; backup `read_lane.py.bak-run010`; atomic
+  temp + `fsync` + `os.replace`; `py_compile` clean on all `pipeline/*.py`.
+- `coverage`: `ok: true`, 3 items / 3 published, all four issue lists empty.
+- `verify --remote`: `ok: true`, `issues: []`, 8 checks.
+- `feed-site/feed.xml` md5 `9fc23235fcb49ca809059092da619b54` — unchanged since
+  run 007. No feed byte moved; nothing to publish or push beyond the code commit.
+- Docs synced: `read_lane.py` usage docstring and `README.md` line 55 no longer
+  claim `--pdf` is required.
+
+### Standing blocker for David, unchanged
+
+Both intake lanes are empty. Moving any of the 18 parent-collection items into
+Summerize (`V4WXTY8M`) or Read (`DV6F4ILX`) gives the pipeline work immediately —
+and as of this run a Read item needs **nothing** but the move: `build` fetches the
+PDF, scripts, gates and registers on its own. Seven of the 18 already have a PDF
+child. The worker still does not file them itself: lane assignment decides
+interview-vs-verbatim treatment and is David's call.

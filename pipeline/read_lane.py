@@ -15,6 +15,7 @@ and are registered in pipeline/read-episodes.json, which publish_feed.py reads.
 Usage:
   read_lane.py extract --pdf PATH [--out TXT]
   read_lane.py build --episode 501 --item KEY [--pdf PATH]
+  (--pdf is optional: without it the Zotero PDF attachment is downloaded)
   read_lane.py render --episode 501 [--force]
   read_lane.py verify --episode 501
   read_lane.py zotero-read          # list live Read collection items
@@ -758,6 +759,71 @@ def sha256(path: Path) -> str:
 
 
 # --------------------------------------------------------------------------
+# Zotero attachment retrieval
+# --------------------------------------------------------------------------
+
+def zotero_get_bytes(path: str) -> bytes:
+    """GET a Zotero endpoint and return the raw body (for /file downloads).
+
+    zotero_get() json-decodes, which a PDF body cannot survive. The /file
+    endpoint answers with a 302 to a storage host; urllib follows it and the
+    API key header is not needed on the redirect target.
+    """
+    url = f"https://api.zotero.org/groups/{ZOTERO_GROUP}/{path}"
+    request = urllib.request.Request(url)
+    request.add_header("Zotero-API-Key", zotero_key())
+    with urllib.request.urlopen(request, timeout=120) as response:
+        return response.read()
+
+
+def fetch_pdf_attachment(item_key: str, dest: Path) -> dict:
+    """Download item_key's PDF attachment to dest.
+
+    The read lane previously demanded a local --pdf path, which the unattended
+    cron cannot supply: it has no step that puts a file on disk before build.
+    An imported_file/imported_url attachment with contentType application/pdf
+    is preferred; a linked_url attachment has no stored file and is skipped
+    rather than silently producing an empty download.
+
+    Returns provenance for the notes/extraction report. Raises SystemExit with
+    an actionable message when no stored PDF exists, so the failure names the
+    item instead of surfacing as an empty extraction.
+    """
+    children, _ = zotero_get(f"items/{item_key}/children?format=json")
+    candidates = []
+    for child in children or []:
+        data = child.get("data", {})
+        if data.get("itemType") != "attachment":
+            continue
+        if data.get("contentType") != "application/pdf":
+            continue
+        if data.get("linkMode") == "linked_url":
+            continue
+        candidates.append(child)
+    if not candidates:
+        raise SystemExit(
+            f"item {item_key} has no stored PDF attachment in Zotero; "
+            "attach one to the item or pass --pdf with a local file"
+        )
+    attachment = candidates[0]
+    blob = zotero_get_bytes(f"items/{attachment['key']}/file")
+    if not blob.startswith(b"%PDF-"):
+        raise SystemExit(
+            f"attachment {attachment['key']} of item {item_key} downloaded "
+            f"{len(blob)} bytes that are not a PDF; refusing to extract"
+        )
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    dest.write_bytes(blob)
+    return {
+        "attachment_key": attachment["key"],
+        "filename": attachment["data"].get("filename", ""),
+        "bytes": len(blob),
+        "source": "zotero",
+        "extra_pdf_attachments": len(candidates) - 1,
+    }
+
+
+# --------------------------------------------------------------------------
 # build
 # --------------------------------------------------------------------------
 
@@ -772,16 +838,22 @@ def build(number: str | None, item_key: str, pdf: Path | None) -> dict:
     directory = EPISODES / number
     directory.mkdir(parents=True, exist_ok=True)
 
-    if pdf is None:
-        raise SystemExit(
-            "no --pdf given: download the Zotero attachment first "
-            "(read_lane.py cannot yet pull attachments)"
-        )
     target = directory / f"source-{item_key}.pdf"
-    if Path(pdf).resolve() != target.resolve():
-        target.write_bytes(Path(pdf).read_bytes())
+    if pdf is None:
+        provenance = fetch_pdf_attachment(item_key, target)
+    else:
+        if Path(pdf).resolve() != target.resolve():
+            target.write_bytes(Path(pdf).read_bytes())
+        provenance = {
+            "attachment_key": "",
+            "filename": Path(pdf).name,
+            "bytes": target.stat().st_size,
+            "source": "local",
+            "extra_pdf_attachments": 0,
+        }
 
     extraction = body_text(target)
+    extraction["pdf_provenance"] = provenance
     (directory / "source.txt").write_text(extraction["text"])
     (directory / "extraction-report.json").write_text(
         json.dumps({k: v for k, v in extraction.items() if k != "text"}, indent=1)

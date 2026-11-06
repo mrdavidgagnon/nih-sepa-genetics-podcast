@@ -52,7 +52,9 @@ Read-lane commands:
 
 ```
 pipeline/read_lane.py zotero-read                      # what is waiting in Read
-pipeline/read_lane.py build --item KEY --pdf PATH      # extract + script + notes + gate
+pipeline/read_lane.py build --item KEY [--pdf PATH]  # extract + script + notes + gate
+                                                     # --pdf optional; omit to pull the
+                                                     # PDF attachment from Zotero
 pipeline/read_lane.py render --episode 501             # single-voice TTS
 pipeline/read_lane.py verify --episode 501             # fidelity gate (exit 1 = fail)
 ```
