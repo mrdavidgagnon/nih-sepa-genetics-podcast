@@ -542,7 +542,9 @@
             }
           ],
           "deadline_at": "2026-11-06T19:51:26.986449Z",
-          "outcome": null,
+          "detail": "no intake unit (Summerize 0, Read 0, 18 still unfiled in YF84AUZK); fixed 3 silent no-ops in move_verified_sources.py (published* family, read_source union, strip both lanes); pre-fix reproduced + 33/33 proof; live mover 10 already-moved/0 PUTs; coverage 3/3, verify --remote ok, feed md5 unchanged; commit ccd44d5 pushed",
+          "finished_at": "2026-11-06T19:30:20.754632Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-06T19:26:26.986449Z"
         }
@@ -553,5 +555,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T19:29:17Z"
+  "updated_at": "2026-11-06T19:30:20Z"
 }
