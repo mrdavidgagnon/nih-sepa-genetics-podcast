@@ -989,3 +989,61 @@ genome-editing governance, socioscientific-reasoning instruments; 7 already carr
 a PDF child). Moving any one into Summerize or Read gives the pipeline work
 immediately — a Read item now needs nothing but the move. Lane assignment is
 David's call.
+
+---
+
+## Run 014 — no intake unit; ported the stale ROBUST_PIPELINE.md (docs-only)
+
+### Intake state (live Zotero read)
+
+Summarize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. 18 on-topic items
+still sit directly in `YF84AUZK` with no subcollection membership -- the
+standing blocker for David (lane assignment is his call), unchanged since run
+005. No production unit available.
+
+### The defect
+
+`pipeline/ROBUST_PIPELINE.md` was the **pre-run-457 clone** of the sibling
+show's doc (107 lines vs 204), and the cron reads it on every run. It:
+
+* listed no `push` or `coverage` subcommands (both exist here; `push` is the
+  only correct ship path, `coverage` the mandated first command of every
+  slice),
+* had no intake-lane or Read-lane section at all, so a slice could not learn
+  the collection keys, the reading flow, or the fidelity-gate thresholds from
+  the doc,
+* told the worker to run `python3 -m unittest discover -s tests`, which dies
+  with *Start directory is not importable* in this tree (no `tests/` here),
+* described the read-lane `build` as requiring `--pdf` (stale since run 010:
+  `build` now pulls the Zotero PDF attachment itself), and the mover as
+  keying on exactly `published_pending_zotero_move` (stale since run 011: it
+  accepts the whole `published*` family plus `read_source`).
+
+### Fix
+
+Ported the sibling's run-457 sections and retargeted every coordinate against
+**verified local facts**, not the sibling's: the CLI subcommand list
+(`robust_pipeline.py --help`), `read_lane.py --help` (build auto-pull,
+`--pdf` optional), `move_verified_sources.py` source (published* family +
+`sources`/`read_source` union), the live Zotero collection names (Summarize /
+Read / Produced / 2026 NIH SEPA), and this tree's absence of `tests/`. The
+`preflight()` open-issue note is carried over and marked latent: no reading
+has been published here yet.
+
+### Proof
+
+Atomic write with `pipeline/ROBUST_PIPELINE.md.bak-run014`; the
+alignment-independent line-multiset check shows exactly **3** lost lines (the
+stale tests-section sentence + the `unittest` command line) and 98 new
+non-blank lines added -- nothing else touched. `py_compile pipeline/*.py`
+clean; `feed-site/feed.xml` md5 `9fc23235` unchanged; `coverage` 3/3
+`ok: true`; live feed md5 identical to local. Commit `1d6e0c7` pushed via
+token URL (docs-only slice; `robust_pipeline.py push` intentionally not used
+so no feed-site sync commit was created); remote `main` confirmed at
+`1d6e0c7` by `git ls-remote`.
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summarize or Read gives the pipeline work immediately -- a Read item
+needs nothing but the move.

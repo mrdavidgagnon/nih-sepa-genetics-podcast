@@ -613,7 +613,9 @@
             }
           ],
           "deadline_at": "2026-11-07T08:24:45.764464Z",
-          "outcome": null,
+          "detail": "no intake unit (Summarize 0, Read 0, 18 unfiled in YF84AUZK); ported stale ROBUST_PIPELINE.md from sibling run-457 doc with retargeted+verified coordinates (push/coverage commands, intake/Read-lane sections, tests section fixed, mover+build descriptions updated); 3 stale lines lost, 98 added, feed md5 9fc23235 unchanged live and local, coverage 3/3, commit 1d6e0c7 pushed and confirmed on remote",
+          "finished_at": "2026-11-07T08:03:07.516761Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T07:59:45.764464Z"
         }
@@ -624,5 +626,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T08:01:32Z"
+  "updated_at": "2026-11-07T08:03:07Z"
 }
