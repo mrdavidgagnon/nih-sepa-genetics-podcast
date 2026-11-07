@@ -25,6 +25,17 @@ def interview_episodes():
     out = []
     for num, rec in sorted(manifest.get('episodes', {}).items()):
         srec = state.get('episodes', {}).get(num, {})
+        # Lane filter. read_lane.sync_durable_state() writes a manifest+ledger
+        # record for a reading too, and a reading renders to exactly
+        # episodes/NNN/episode-NNN.mp3 -- so once a reading reaches the
+        # published family BOTH tests below pass and the reading is emitted a
+        # second time as an interview item, with notes_html()'s
+        # synthetic-interview / Dr. Rowan Field disclosure that the style guide
+        # forbids on a verbatim reading. read_episodes() already publishes it
+        # correctly from read-episodes.json. Interviews have no `kind` key, so
+        # the test is "anything not explicitly a reading".
+        if str(rec.get('kind', '')) == 'read':
+            continue
         # Any status in the published family counts. The literal tuple
         # ('rendered','published') silently dropped the documented end states
         # `published_and_moved` and `published_pending_zotero_move`, which would

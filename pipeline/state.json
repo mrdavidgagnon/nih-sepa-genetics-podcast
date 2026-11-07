@@ -569,13 +569,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-06T23:33:24.301205Z"
+        },
+        {
+          "attempt_id": "501-1794023022",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-07T03:43:42.669188Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-07T03:44:50.371398Z",
+              "detail": "run013: interview_episodes() lacks a kind filter; a published reading is emitted twice (correct -reading item + bogus episode-NNN item carrying the forbidden Rowan interview disclosure). Proven on real publish_feed.py, scratch reading 990, 11/11",
+              "stage": "bug_reproduced"
+            },
+            {
+              "at": "2026-11-07T03:46:40.542070Z",
+              "detail": "run013: kind=='read' lane filter added to interview_episodes(); 20/20 both-sides proof, 0 diff removals, live feed byte-identical 9fc23235, coverage 3/3, verify --remote ok",
+              "stage": "bug_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-07T04:08:42.669188Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-07T03:43:42.669188Z"
         }
       ],
-      "attempts": 7,
+      "attempts": 8,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-06T23:38:40Z"
+  "updated_at": "2026-11-07T03:46:40Z"
 }

@@ -899,3 +899,93 @@ Both lanes are empty; the 18 on-topic items remain unfiled in `YF84AUZK`
 7 already carry a PDF child). Moving any one into Summerize or Read gives the
 pipeline work immediately; a Read item needs nothing but the move. Lane
 assignment stays David's call.
+
+## Run 013 — 2026-11-07 — a published reading was also emitted as an INTERVIEW item (fixed)
+
+Both intake lanes empty again (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0, the
+same 18 items still unfiled directly in `YF84AUZK`), so the slice went to a
+durable defect. Opening state clean: `coverage` 3/3 `ok: true`, manifest and
+ledger agree `published_and_moved` on 001-003, `verify --remote ok: true`, live
+feed md5 `9fc23235` identical to local. Stale lock with dead pid 1599144
+(`flock` free) — the normal steady state; `unlock --force`.
+
+### The defect
+
+`publish_feed.py`'s `interview_episodes()` had **no lane filter**. It selects an
+episode on two tests: the ledger status is in the published family, and
+`episodes/NNN/episode-NNN.mp3` exists. A reading satisfies **both**:
+
+* `read_lane.sync_durable_state()` (ported run 009) writes a `manifest.json` and
+  `state.json` record for the reading, by design.
+* `read_lane.render_episode()` writes its audio to exactly
+  `episodes/NNN/episode-NNN.mp3` (line ~415). The published *name* gains the
+  `-reading` suffix only later, inside `publish_feed.py`.
+
+So the first reading to reach `published` would appear in the feed **twice**: the
+correct `episode-NNN-reading.mp3` item from `read_episodes()`, plus a bogus
+`episode-NNN.mp3` interview item whose `<content:encoded>` is `notes_html()` —
+the synthetic-interview disclosure naming **Dr. Rowan Field**, which the style
+guide forbids on a verbatim reading, and which `read_notes_html()` exists
+specifically to replace. It would also 404 on the asset, since nothing copies a
+bare `episode-NNN.mp3` to `feed-site/` for a reading.
+
+This is the third instance of the same class in this file: a status/shape string
+is used as a gate and the *other* lane's records slip through it (run 005's
+`('rendered','published')` tuple, run 009's cross-show GUID prefix). The lanes
+share the manifest and they share the on-disk audio filename; only `kind`
+separates them.
+
+**Latent, and invisible to every green check.** No reading has ever been
+published here, so `coverage` 3/3, `verify ok: true` and `publish ok: true` were
+all accurate and all blind to it — the run-008 lesson again: a clean state proves
+nothing about a class that needs a record no registry holds yet. It would have
+fired on the *first real reading*, which is exactly the unit the last seven runs
+of read-lane auditing were preparing for.
+
+### Fix
+
+`interview_episodes()` now skips any manifest record whose `kind` is `read`
+(interviews carry no `kind` key, so the test is "not explicitly a reading").
+Eleven comment lines plus the two-line guard; `diff` shows **0 removed lines**.
+Backup `pipeline/publish_feed.py.bak-run013`, atomic temp+`fsync`+`replace`,
+`py_compile` clean.
+
+### Proof, on real code, both sides
+
+`/opt/data/tmp/mm_dup_item_proof_run013.py` — 11/11, reproduces the bug against
+the **unmodified** module: scratch reading 990 registered the way the real lane
+registers one, `EP` returns `['001','002','003','990']`, the bogus tuple
+advertises `episode-990.mp3` with GUID suffix `episode-990`, and `notes_html()`
+for it names Rowan while `read_notes_html()` correctly says he does not appear.
+
+`/opt/data/tmp/mm_fix_proof_run013.py` — 20/20:
+
+- **A** the pre-fix `.bak` module *still* reproduces the duplicate, so the bug
+  was real here and not a harness artifact.
+- **B** post-fix `EP` drops 990 while `read_episodes()` **still** returns it —
+  the read lane is not weakened, only the interview lane is corrected.
+- **C** the three interview tuples are byte-identical pre/post, same order.
+- **D** the real `main()` emits **4** items for 3 interviews + 1 reading: exactly
+  one `-reading-` GUID, no bare `moral-machines-episode-990` GUID, no
+  `episode-990.mp3` enclosure, every `<description>` non-empty, the reading's
+  content carries the read disclosure, and no GUID contains any sibling-show
+  substring (the hard-bug check).
+- **E** `state.json`, `manifest.json`, `read-episodes.json` and `feed.xml`
+  md5-identical throughout; scratch removed.
+
+Then on live state: `publish_feed.py` republished to a **byte-identical**
+`feed.xml` (`9fc23235`, 3 items), `coverage` 3/3 `ok: true`, `verify --remote`
+`ok: true` `issues: []`, and the live feed still md5-matches local. A fix near
+the publish path must prove the existing feed did not move.
+
+Note `spec_from_file_location` returns `None` for a `.bak-runNNN` suffix — the
+harness copies the backup to a `.py` name inside its own scratch tree first
+(run-009 pitfall, hit again).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK` (bioethics,
+genome-editing governance, socioscientific-reasoning instruments; 7 already carry
+a PDF child). Moving any one into Summerize or Read gives the pipeline work
+immediately — a Read item now needs nothing but the move. Lane assignment is
+David's call.
