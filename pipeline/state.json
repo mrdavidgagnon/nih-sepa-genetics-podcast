@@ -618,13 +618,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T07:59:45.764464Z"
+        },
+        {
+          "attempt_id": "501-1794053229",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-07T12:07:09.382366Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-07T12:07:09.844258Z",
+              "detail": "Summerize 0, Read 0 live-verified (keys from API); 18 unfiled items + 8 attachment children in YF84AUZK, all dateAdded 2026-11-03, unchanged since run 014; no new work, no new defect; coverage 3/3 ok: true, feed md5 unchanged",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-07T12:32:09.382366Z",
+          "detail": "no intake unit (Summarize 0, Read 0; 18 unfiled in YF84AUZK, unchanged); no durable defect to spend the slice on (port census closed run 010, docs ported run 014, read lane fully exercised runs 006-013); coverage 3/3, feed md5 9fc23235 unchanged local and live",
+          "finished_at": "2026-11-07T12:07:10.344225Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-07T12:07:09.382366Z"
         }
       ],
-      "attempts": 9,
+      "attempts": 10,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T08:03:07Z"
+  "updated_at": "2026-11-07T12:07:10Z"
 }
