@@ -596,13 +596,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T03:43:42.669188Z"
+        },
+        {
+          "attempt_id": "501-1794038385",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-07T07:59:45.764464Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-07T08:01:32.417511Z",
+              "detail": "ROBUST_PIPELINE.md was the pre-run-457 clone: no push/coverage commands, no intake-lane/Read-lane sections, stale tests/ section (no tests/ here), wrong read_lane CLI (build now auto-pulls Zotero PDF), stale mover description (published* family + read_source). Ported+retargeted from sibling with verified local facts (CLI subcommands, read_lane --help, mover source, live collection names); lost exa",
+              "stage": "docs_ported"
+            }
+          ],
+          "deadline_at": "2026-11-07T08:24:45.764464Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-07T07:59:45.764464Z"
         }
       ],
-      "attempts": 8,
+      "attempts": 9,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T03:47:11Z"
+  "updated_at": "2026-11-07T08:01:32Z"
 }

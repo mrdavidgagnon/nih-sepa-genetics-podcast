@@ -35,6 +35,8 @@ python3 pipeline/robust_pipeline.py preflight 007
 python3 pipeline/robust_pipeline.py render 007
 python3 pipeline/robust_pipeline.py publish --episode 007
 python3 pipeline/robust_pipeline.py verify pipeline/../feed-site/feed.xml
+python3 pipeline/robust_pipeline.py coverage
+python3 pipeline/robust_pipeline.py push --episode 007 --wait 240
 python3 pipeline/robust_pipeline.py status
 python3 pipeline/robust_pipeline.py watchdog
 python3 pipeline/robust_pipeline.py attempt start 020 --budget-seconds 1500
@@ -56,7 +58,113 @@ provided) HTTP audio range and notes responses. It never commits, pushes, or
 uploads. A remote deployment is considered verified only when these explicit
 checks pass.
 
+`coverage` is a read-only audit that every episode the project records as
+published actually reaches the feed, plus the enclosure file existing on disk
+at exactly its advertised byte length. It exists because the publish path and
+the bookkeeping can disagree silently: an episode missing from a registry is
+skipped while `publish` still returns `ok: true`, and read-lane artifacts are
+published as `episode-NNN-reading.mp3`, so an audit that constructs the bare
+`episode-NNN.mp3` name reports a **false 404** for a reading that is in fact
+live. Matching is done on the episode number in each item's GUID, which is
+stable across the interview scheme and the `-reading` suffix. A reading counts
+as required only when its `read-episodes.json` entry is `verified: true` -- the
+audit never inverts that gate into a publication requirement. `coverage`
+writes nothing and declares no gate satisfied; it only reports disagreement
+between the registries and the feed. **Run it as the first command of every
+slice**, and after any publish or push.
+
+`push --episode NNN --wait 240` is the only correct way to ship: it clones the
+repo, copies `feed-site/*` to the repo root, commits, pushes `main`, then
+polls the live feed until the remote checks pass. A manual `git push` updates
+`feed-site/` locally but leaves the **repo-root feed stale**, so Pages builds
+fine while every new asset 404s. `ok: false` with `pushed: true` is a
+successful deploy (the in-push live-verify window is shorter than the
+1-3 minute GitHub Pages lag); re-probe separately instead of re-pushing.
+
+## Intake lanes and sinks (Zotero group 2412036)
+
+Episodes do not originate in this repo; they originate in the Field Day group
+library, under the parent collection `YF84AUZK` ("2026 NIH SEPA"). There are
+two intake collections and one sink:
+
+- **Summarize** `V4WXTY8M` -- feeds two-voice interview episodes, numbered
+  from **001**.
+- **Read** `DV6F4ILX` -- feeds single-voice verbatim readings, numbered from
+  **501**.
+- **Produced** `6P2KVFKQ` -- the sink. A source parent is moved here only
+  after every publication check passes, preserving all other collection
+  memberships. Items are never deleted.
+
+Both lanes are read on every production run. Readings are preferred when any
+item waits in Read, because a reading is cheaper than an interview. Items
+sitting directly in the parent `YF84AUZK` are invisible to both lanes; filing
+one into Summarize or Read is David's call (lane assignment decides
+interview-versus-verbatim treatment).
+
+The version-guarded move is **not** a `robust_pipeline.py` subcommand; it lives
+in `pipeline/move_verified_sources.py`, which moves the `sources` and
+`read_source` keys of every manifest episode whose ledger status is in the
+`published*` family (it needs `ZOTERO_API_KEY` exported).
+
+## The Read lane
+
+A Read item is not summarized or interviewed -- it is read aloud verbatim in the
+main voice by `pipeline/read_lane.py`. Readings bypass the three-reviewer gate
+described below and are governed by an automated fidelity gate instead.
+
+```sh
+python3 pipeline/read_lane.py zotero-read
+python3 pipeline/read_lane.py build --item KEY
+python3 pipeline/read_lane.py build --item KEY --pdf PATH
+python3 pipeline/read_lane.py render --episode 501
+python3 pipeline/read_lane.py verify --episode 501
+```
+
+`--pdf` is optional: without it `build` downloads the item's stored Zotero PDF
+attachment itself (linked-URL attachments are skipped, not downloaded). `render`
+runs single-voice Edge TTS (Host Ava, locked rate).
+
+**Fidelity gate (replaces the reviewer panel).** Verbatim text carries no
+paraphrase risk, so the gate targets silent omission instead: >=99.5% of
+extracted body words present, in source order, no added words, and audio
+duration within 0.65-1.45x of the spoken word count (baselined on
+intro+reading+outro, not the reading block alone). `verify` can report word
+coverage 1.0 with `ok: false` while no audio exists -- word fidelity passing is
+never the episode passing. `publish_feed.py` emits only readings whose
+`pipeline/read-episodes.json` entry has `verified: true`; set that flag only
+from a `verify` run that exits 0.
+
+**Scope.** Body text only. Front matter, running heads, page numbers, figures,
+tables and captions, equations, acknowledgements, funding, appendices and
+references are excluded, and the gap is disclosed rather than filled -- a figure
+or table is never described or summarized to cover it. The fictional
+correspondent never appears in a reading and the synthetic-interview disclosure
+is never applied to one; `publish_feed.py` emits a separate reading disclosure.
+
+**Bookkeeping.** `register()` calls `sync_durable_state()`, which writes
+`state.json` and `manifest.json` alongside `read-episodes.json`; a reading is
+therefore visible to `status`, the watchdog and duplicate detection. A
+reading's Zotero key is registered under a `read_source` field, never
+`sources`: `preflight()` derives source ownership from `sources` and a paper
+with both an interview and a reading otherwise reports a false
+`source assigned to multiple episodes` conflict. The feed description of a
+reading is synthesized from the citation by `publish_feed.py`, not read off a
+manifest field.
+
+**Open issue (escalated, latent here).** `preflight()` and `status` score
+readings against interview-only rules (Host/Rowan turns, correspondent
+disclosure, AI-summary disclosure) and would fail a reading for correctly
+following the style guide, which also holds `status.healthy` at false. No
+reading has been published in this tree yet, so it is latent; the first real
+reading will trip it. The fix is a `kind == "read"` branch that defers to the
+fidelity gate, mirroring the existing read-notes branch in
+`publish_feed.py`. `preflight()` is a publication gate, so this is escalated
+rather than silenced.
+
 ## Review and preflight contract
+
+This contract governs **interview** episodes only; verbatim readings are gated
+by the fidelity check described above.
 
 `review` requires exactly three distinct reviewer sections, a pass verdict for
 each, required revisions, and a revision record with no unresolved/blocking
@@ -77,12 +185,15 @@ with JSON output; callers should treat `healthy: false` as an alert.
 ## Tests
 
 ```sh
-PYTHONPATH=. python3 -m unittest discover -s tests -v
 python3 -m py_compile pipeline/*.py
+python3 pipeline/robust_pipeline.py coverage
 ```
 
-The tests cover atomic state writes, transition safety, the three-reviewer
-gate, deterministic source preflight, and local enclosure verification.
+This tree has **no `tests/` directory** (the sibling show's suite is
+HITL-only); `python3 -m unittest discover -s tests` dies with
+*Start directory is not importable*, which is expected here, not breakage.
+`py_compile` plus the read-only `coverage` audit are the standing sanity
+checks.
 
 ## Production attempts
 
