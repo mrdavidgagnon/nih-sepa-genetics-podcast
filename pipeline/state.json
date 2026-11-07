@@ -591,7 +591,9 @@
             }
           ],
           "deadline_at": "2026-11-07T04:08:42.669188Z",
-          "outcome": null,
+          "detail": "run013: no intake unit (Summerize 0, Read 0, 18 still unfiled in YF84AUZK). Found+fixed a latent hard bug: interview_episodes() had no lane filter, so the first published reading would ALSO be emitted as a bogus episode-NNN interview item carrying the forbidden Rowan disclosure and a 404 enclosure. kind=='read' guard added; proven on real code both sides (11/11 repro pre-fix, 20/20 post-fix), 0 di",
+          "finished_at": "2026-11-07T03:47:11.517111Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T03:43:42.669188Z"
         }
@@ -602,5 +604,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T03:46:40Z"
+  "updated_at": "2026-11-07T03:47:11Z"
 }
