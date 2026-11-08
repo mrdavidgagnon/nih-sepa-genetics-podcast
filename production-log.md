@@ -1074,3 +1074,38 @@ remains closed.
 `coverage` 3/3 `ok: true`; `feed-site/feed.xml` md5 `9fc23235` unchanged
 local and live (identical). No code, gate, or feed byte moved; no
 publication attempted.
+
+---
+
+## Run 018 — no intake unit; steady state re-confirmed on live checks
+
+### Intake state (live Zotero read)
+
+Summarize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items (both LMV 10103).
+Parent `YF84AUZK` direct: 18 on-topic items + 7 attachment children, all
+dateAdded 2026-11-03, unchanged since run 005 — the standing blocker for
+David: lane assignment (interview vs verbatim) is his call, and neither lane
+reads the parent collection. No production unit available.
+
+### Drift checks (live, this run)
+
+- Live feed md5 == local `feed-site/feed.xml` md5 (`9fc23235`) — zero deploy
+  drift; `coverage` 3/3 `ok: true` (empty issue lists).
+- Remote `main` head == local HEAD (`14ba974`) — no missing commits.
+- Sibling tree's newest `pipeline/*.py` is 2026-11-06 01:02
+  (`publish_feed.py`), predating run 010's census (2026-11-06 15:21): run 010's
+  verdict stands, no new port candidate. Port backlog remains closed.
+- No logged, deferred durable defect available to spend the slice on (port
+  census closed run 010/017, ROBUST_PIPELINE.md ported run 014, preflight
+  read-scoring issue is latent here and already recorded as David's call).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summarize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.

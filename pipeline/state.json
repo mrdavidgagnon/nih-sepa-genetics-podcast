@@ -684,13 +684,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-08T00:22:32.868060Z"
+        },
+        {
+          "attempt_id": "501-1794112376",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T04:32:56.514409Z",
+              "detail": "",
+              "stage": "reconciled"
+            },
+            {
+              "at": "2026-11-08T04:32:57.028684Z",
+              "detail": "Summerize 0 / Read 0 live-verified (LMV 10103); parent YF84AUZK direct = 18 items + 7 attachments, unchanged since run 005; coverage 3/3 ok; feed md5 9fc23235 local==live; remote main head == local 14ba974; sibling newest pipeline/*.py 2026-11-06 01:02 predates run-010 census (15:21), no new port candidate; no durable defect available",
+              "stage": "reconciled"
+            }
+          ],
+          "deadline_at": "2026-11-08T04:57:56.514409Z",
+          "detail": "no intake unit (Summerize 0, Read 0 live-verified; 18 unfiled + 7 attachments in YF84AUZK unchanged since run 005); coverage 3/3, feed md5 9fc23235 local==live, remote==local 14ba974; sibling unchanged since run-010 census, no durable defect",
+          "finished_at": "2026-11-08T04:34:02.089272Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T04:32:56.514409Z"
         }
       ],
-      "attempts": 12,
+      "attempts": 13,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T00:22:55Z"
+  "updated_at": "2026-11-08T04:34:02Z"
 }
