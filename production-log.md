@@ -1047,3 +1047,30 @@ so no feed-site sync commit was created); remote `main` confirmed at
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summarize or Read gives the pipeline work immediately -- a Read item
 needs nothing but the move.
+
+---
+
+## Run 017 — no intake unit; no durable defect to spend the slice on
+
+### Intake state (live Zotero read)
+
+Summarize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Produced
+`6P2KVFKQ`: 10 episode sources + 9 attachment children, all confirmed on
+live `collections`. The 18 on-topic items still sit directly in
+`YF84AUZK` (all `dateAdded` 2026-11-03, unchanged since run 005) — the
+standing blocker for David: lane assignment (interview vs verbatim) is his
+call, and neither lane reads the parent collection.
+
+### Port census re-check
+
+Sibling tree's `pipeline/*.py` mtimes all predate run 010's census
+(2026-11-06 15:21) — the sibling has not changed since, so the run-010
+verdict stands: every remaining diff in the five shared modules is
+legitimate retargeting, and there is no new port candidate. Port backlog
+remains closed.
+
+### State
+
+`coverage` 3/3 `ok: true`; `feed-site/feed.xml` md5 `9fc23235` unchanged
+local and live (identical). No code, gate, or feed byte moved; no
+publication attempted.

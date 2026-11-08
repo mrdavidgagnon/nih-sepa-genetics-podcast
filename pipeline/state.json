@@ -662,13 +662,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T20:18:34.833973Z"
+        },
+        {
+          "attempt_id": "501-1794097352",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T00:22:32.868060Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-08T00:22:47.843376Z",
+              "detail": "live: Summerize 0, Read 0, Produced 10 sources+9 children confirmed; 18 unfiled in YF84AUZK unchanged since 2026-11-03; sibling mtimes predate run-010 census so no new port candidate; coverage 3/3, feed md5 9fc23235 unchanged local and live",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-08T00:47:32.868060Z",
+          "detail": "no intake unit (Summerize 0, Read 0 live-verified; 18 unfiled in YF84AUZK unchanged); sibling tree unchanged since run-010 census so no new port candidate; coverage 3/3, feed md5 9fc23235 unchanged local and live",
+          "finished_at": "2026-11-08T00:22:55.611642Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T00:22:32.868060Z"
         }
       ],
-      "attempts": 11,
+      "attempts": 12,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T20:18:35Z"
+  "updated_at": "2026-11-08T00:22:55Z"
 }
