@@ -640,13 +640,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-07T12:07:09.382366Z"
+        },
+        {
+          "attempt_id": "501-1794082714",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-07T20:18:34.833973Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-07T20:18:35.301110Z",
+              "detail": "live: Summerize 0, Read 0 (LMV 10077); 18 unfiled in YF84AUZK, all dateAdded 2026-11-03, unchanged since run 015; no intake unit, no new defect; coverage 3/3, feed md5 9fc23235 unchanged",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-07T20:43:34.833973Z",
+          "detail": "no intake unit (Summarize 0, Read 0 live-verified); 18 unfiled in YF84AUZK unchanged; no durable defect to spend slice on (port census closed 010, docs ported 014, read lane fully exercised 006-013); coverage 3/3, feed md5 9fc23235 unchanged local and live",
+          "finished_at": "2026-11-07T20:18:35.759861Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-07T20:18:34.833973Z"
         }
       ],
-      "attempts": 10,
+      "attempts": 11,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-07T12:07:10Z"
+  "updated_at": "2026-11-07T20:18:35Z"
 }
