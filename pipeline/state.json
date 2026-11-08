@@ -728,13 +728,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-08T08:47:35.267988Z"
+        },
+        {
+          "attempt_id": "501-1794142542",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T12:55:42.901138Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-08T12:55:43.434283Z",
+              "detail": "Summerize 0, Read 0, parent 18+7 unchanged; no intake unit; no deferred durable defect (census closed 010/017, docs 014); live drift checks clean (feed md5 local==live 9fc23235, remote==local d5a73f5, coverage 3/3)",
+              "stage": "intake_reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-08T13:20:42.901138Z",
+          "detail": "no intake unit (both lanes 0, 18 unfiled + 7 attachments unchanged since run 005); no deferred durable defect; live drift checks clean (coverage 3/3, feed md5 local==live 9fc23235, remote==local d5a73f5)",
+          "finished_at": "2026-11-08T12:56:09.397714Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T12:55:42.901138Z"
         }
       ],
-      "attempts": 14,
+      "attempts": 15,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T08:47:50Z"
+  "updated_at": "2026-11-08T12:56:09Z"
 }

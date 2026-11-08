@@ -1142,3 +1142,35 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summerize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+
+## Run 020 — 2026-11-08 — no intake unit; steady state re-confirmed (18 unfiled unchanged)
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`:
+18 on-topic items direct + 7 attachment children (filtered by itemType, per
+run 019's correction of the raw-fetch double-count), unchanged since run 005.
+No production unit available.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` (empty issue lists) — first command of the slice.
+- Live feed md5 == local `feed-site/feed.xml` md5 (`9fc23235`) — zero deploy
+  drift.
+- Remote `main` head == local HEAD (`d5a73f5`) — no missing commits.
+- Stale lock file present (run 019 owner pid dead, advisory lock free) — the
+  normal steady state, not an active run.
+- No logged, deferred durable defect available to spend the slice on (port
+  census closed 010/017, ROBUST_PIPELINE.md ported 014, preflight
+  read-scoring issue is latent here and already recorded as David's call).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summerize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.
