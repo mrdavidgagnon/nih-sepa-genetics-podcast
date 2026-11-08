@@ -1174,3 +1174,50 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summerize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+
+## Run 021 — 2026-11-08 — no intake unit; steady state re-confirmed (18 unfiled unchanged)
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items — both confirmed via
+direct collection query (counting returned items, not a raw-fetch total). Parent
+`YF84AUZK`: 18 on-topic items direct + 7 attachment children, unchanged since
+run 005. No production unit available.
+
+### A false alarm this run, and the lesson
+
+My first reconcile script reported "0 items" for **every** SEPA collection —
+Summerize, Read, Parent *and* Produced — which looked like a library wipe. It
+was a bug in the script, not the library: the `X-Zotero-TotalResults` response
+header was **absent** on those responses and the script's
+`int(header.get("X-Zotero-TotalResults", "0"))` silently defaulted to 0. Direct
+single-item lookups of all ten published source keys (001-003) returned each one
+present in `6P2KVFKQ` with `deleted=False`, and the Parent still lists the 18
+on-topic items. **Lesson: do not read a missing `X-Zotero-TotalResults` header
+as an empty collection — count the returned items or look keys up directly.**
+The group LMV advanced (10103 -> 10149) only because this is the shared Field
+Day group library (HITL also writes to it), not because SEPA's collections
+changed.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` (empty issue lists) — first command of the slice.
+- Live feed md5 == local `feed-site/feed.xml` md5 (`9fc23235`) — zero deploy
+  drift.
+- Remote `main` head == local HEAD (`5d10925`) — no missing commits.
+- Stale lock file present (run 020 owner pid dead, advisory lock free) — the
+  normal steady state, not an active run.
+- No logged, deferred durable defect available to spend the slice on (port
+  census closed 010/017, ROBUST_PIPELINE.md ported 014, read lane fully
+  exercised 006-013).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summerize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.

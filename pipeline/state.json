@@ -750,13 +750,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-08T12:55:42.901138Z"
+        },
+        {
+          "attempt_id": "501-1794157590",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T17:06:30.670941Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-08T17:06:31.162907Z",
+              "detail": "run021: live Summerize 0 / Read 0 (direct query); parent YF84AUZK 18 unfiled + attachments unchanged since run 005; Produced holds all published sources (10 parent keys present, deleted=False); feed md5 local==live 9fc23235. NOTE: my first reconcile script mis-read '0 items' for every collection because the X-Zotero-TotalResults header was absent and it defaulted to 0; direct key lookups confirmed",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-08T17:31:30.670941Z",
+          "detail": "no intake unit (Summerize 0, Read 0 live-verified by direct query; 18 unfiled + attachments in YF84AUZK unchanged since run 005; Produced holds all published sources); no new defect; feed md5 local==live 9fc23235, remote==local 5d10925; verified library intact after a false all-zero header reading",
+          "finished_at": "2026-11-08T17:06:40.153980Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T17:06:30.670941Z"
         }
       ],
-      "attempts": 15,
+      "attempts": 16,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T12:56:09Z"
+  "updated_at": "2026-11-08T17:06:40Z"
 }
