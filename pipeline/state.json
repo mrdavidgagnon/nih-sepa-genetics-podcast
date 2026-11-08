@@ -706,13 +706,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-08T04:32:56.514409Z"
+        },
+        {
+          "attempt_id": "501-1794127655",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T08:47:35.267988Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-08T08:47:50.237075Z",
+              "detail": "run-019: Summerize 0 / Read 0 live (LMV 10103); parent YF84AUZK strict-direct 18 unfiled + 7 attachments all dateAdded 2026-11-03 unchanged since run 005 (an earlier '25' was an attachment double-count, not new items); Produced 10 sources + 9 children; feed md5 9fc23235 local==live; remote main 65def27==local; sibling newest pipeline/*.py 2026-11-06 01:02 predates run-010 census, no new port candi",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-08T09:12:35.267988Z",
+          "detail": "no intake unit (both lanes 0, 18 unfiled unchanged); no durable defect (port census closed 010, docs 014, read lane fully exercised 006-013); feed md5 local==live, remote==local 65def27; steady state re-confirmed on live checks",
+          "finished_at": "2026-11-08T08:47:50.748609Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T08:47:35.267988Z"
         }
       ],
-      "attempts": 13,
+      "attempts": 14,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T04:34:02Z"
+  "updated_at": "2026-11-08T08:47:50Z"
 }

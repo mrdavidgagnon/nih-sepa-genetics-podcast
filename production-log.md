@@ -1109,3 +1109,36 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summarize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+
+## Run 019 — 2026-11-08 — no intake unit; steady state re-confirmed (18 unfiled unchanged)
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items (both LMV 10103).
+Parent `YF84AUZK` strict-direct: 18 on-topic items + 7 attachment children,
+all dateAdded 2026-11-03, unchanged since run 005. NOTE: a raw collection
+fetch returns 25 "in-tree" items, but 7 of those are the PDF attachment
+children (they carry no `collections` array), so the correct unfiled-parent
+count is 18 — matching every prior run; the 25 was an attachment double-count
+in this run's first script, not new items. No production unit available.
+
+### Drift checks (live, this run)
+
+- Live feed md5 == local `feed-site/feed.xml` md5 (`9fc23235`) — zero deploy
+  drift; `coverage` 3/3 `ok: true` (empty issue lists).
+- Remote `main` head == local HEAD (`65def27`) — no missing commits.
+- Sibling tree's newest `pipeline/*.py` is 2026-11-06 01:02, predating run
+  010's census (2026-11-06 15:21): no new port candidate; port backlog closed.
+- No logged, deferred durable defect to spend the slice on (port census closed
+  010, ROBUST_PIPELINE.md ported 014, read lane fully exercised 006-013).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summerize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.
