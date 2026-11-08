@@ -772,13 +772,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-08T17:06:30.670941Z"
+        },
+        {
+          "attempt_id": "501-1794172386",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-08T21:13:06.408350Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-08T21:13:06.934919Z",
+              "detail": "run022: live Summerize 0 / Read 0 (item-list counts, not headers); parent YF84AUZK 18 unfiled + 7 attachments, Produced 10 sources + 9 children, all 10 published keys live in 6P2KVFKQ deleted=None; LMV 10149 unchanged since run 021; feed md5 local==live 9fc23235; origin/main==HEAD db66737; sibling newest pipeline py Nov 6 01:02 predates run-010 census, no port candidate; stale lock pid dead",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-08T21:38:06.408350Z",
+          "detail": "no intake unit (both lanes 0, 18 unfiled unchanged, LMV 10149); no durable defect (census closed 010/017, docs 014, read lane 006-013, mover 011); drift checks clean: coverage 3/3, feed md5 local==live, remote==local db66737",
+          "finished_at": "2026-11-08T21:13:07.431670Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-08T21:13:06.408350Z"
         }
       ],
-      "attempts": 16,
+      "attempts": 17,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-08T17:06:40Z"
+  "updated_at": "2026-11-08T21:13:07Z"
 }
