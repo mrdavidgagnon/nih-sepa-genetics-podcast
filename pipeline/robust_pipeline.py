@@ -820,7 +820,8 @@ def load_deploy_token() -> str:
                         return val
     raise ValueError("deploy token not set (GITHUB_PODCAST_TOKEN or GITHUB_TOKEN)")
 
-def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120) -> dict[str, Any]:
+def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120,
+                   push_timeout: int | None = None) -> dict[str, Any]:
     """Deploy the verified local feed-site to the GitHub Pages site and confirm live.
 
     Standalone CLI command; publish_local() does not call it automatically.
@@ -895,8 +896,30 @@ def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120) -
         push_env = dict(os.environ)
         if not push_env.get("GITHUB_PODCAST_TOKEN"):
             push_env["GITHUB_PODCAST_TOKEN"] = token
+        # Size-aware push window. The old code used a hardcoded 300s, which is
+        # ample for a ~20 MB interview episode but not for a long verbatim
+        # reading: the sibling tree's 66 MB reading 501 really did exceed it,
+        # and because TimeoutExpired fell into the broad handler below it was
+        # reported identically to a credential failure and misdiagnosed as one.
+        # Derive the window from the bytes actually staged, at a pessimistic
+        # assumed floor rate, and keep 300s as a FLOOR so this can only ever
+        # grant more time than before, never less.
+        staged_bytes = 0
+        for name in staged:
+            f = repo / name
+            if f.is_file():
+                staged_bytes += f.stat().st_size
+        if push_timeout is None:
+            assumed_bytes_per_s = 120 * 1024  # deliberately pessimistic floor
+            derived = int(staged_bytes / assumed_bytes_per_s) + 120
+            effective_timeout = max(300, derived)
+        else:
+            effective_timeout = max(1, int(push_timeout))
+        result["staged_bytes"] = staged_bytes
+        result["push_timeout"] = effective_timeout
         sp.run(["git", "-C", str(repo), "push", "--quiet", "origin", "HEAD:main"],
-               check=True, capture_output=True, timeout=300, env=push_env)
+               check=True, capture_output=True, timeout=effective_timeout,
+               env=push_env)
         result["pushed"] = True
         # GitHub Pages propagates within a couple of minutes; verify live feed.
         deadline = time.time() + wait_seconds
@@ -909,6 +932,25 @@ def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120) -
         result["ok"] = bool(result["live"]) and not result["live"]["issues"]
         if not result["ok"]:
             result["issues"] = result["live"]["issues"]
+        return result
+    except sp.TimeoutExpired as exc:
+        # A timed-out push is NOT a failed push: git may have finished
+        # server-side after the client stopped waiting. Reporting it as a
+        # generic failure is what caused the sibling tree to hunt credentials
+        # on what was really a slow upload of a large reading. Say so, and
+        # tell the operator to establish the remote state before retrying --
+        # a blind retry risks a non-fast-forward rejection.
+        err = str(exc)
+        err = err.replace(token, "[redacted]") if token else err
+        result["timed_out"] = True
+        result["remote_state"] = "indeterminate"
+        result["error"] = (
+            f"push exceeded its {result.get('push_timeout', 'configured')}s window "
+            f"after staging {result.get('staged_bytes', 0)} bytes; the remote may "
+            "or may not have the commit. This is a TIMEOUT, not an authentication "
+            "failure: check `git ls-remote origin main` before retrying, and "
+            "re-run with a larger --push-timeout. Underlying: " + err
+        )
         return result
     except Exception as exc:
         err = str(exc)
@@ -1114,7 +1156,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("render"); p.add_argument("episode"); p.add_argument("--force", action="store_true"); p.add_argument("--retries", type=int, default=MAX_RETRIES)
     p = sub.add_parser("verify"); p.add_argument("feed", nargs="?", default=str(ROOT / "feed-site" / "feed.xml")); p.add_argument("--remote")
     p = sub.add_parser("publish"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--remote", help="optional deployed site base URL to verify; no upload is performed")
-    p = sub.add_parser("push"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--wait", type=int, default=120, help="seconds to wait for GitHub Pages to go live")
+    p = sub.add_parser("push"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--wait", type=int, default=120, help="seconds to wait for GitHub Pages to go live"); p.add_argument("--push-timeout", type=int, default=None, dest="push_timeout", help="seconds to allow the git push itself (default: derived from staged bytes, floor 300)")
     sub.add_parser("status")
     p = sub.add_parser("coverage"); p.add_argument("feed", nargs="?", default=None)
     p = sub.add_parser("watchdog"); p.add_argument("--max-render-minutes", type=int, default=120)
@@ -1154,7 +1196,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "render": result = {"ok": True, "output": str(asyncio.run(render_episode(args.episode, args.retries, args.force)))}
         elif args.command == "verify": result = verify_feed(args.feed, args.remote)
         elif args.command == "publish": result = publish_local(args.episodes, args.remote)
-        elif args.command == "push": result = push_to_remote(args.episodes, args.wait)
+        elif args.command == "push": result = push_to_remote(args.episodes, args.wait, getattr(args, "push_timeout", None))
         elif args.command == "status": result = status()
         elif args.command == "coverage": result = feed_coverage(args.feed)
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)

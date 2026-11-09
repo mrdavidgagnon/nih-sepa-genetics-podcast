@@ -914,13 +914,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T17:39:44.787345Z"
+        },
+        {
+          "attempt_id": "501-1794260983",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-09T21:49:43.911003Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-09T21:57:42.088921Z",
+              "detail": "run028: size-aware push timeout + timeout-vs-auth reporting in push_to_remote; 17/17 repro + 32/32 proof; 7 gate fns byte-identical",
+              "stage": "code_fix_verified"
+            }
+          ],
+          "deadline_at": "2026-11-09T22:14:43.911003Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-09T21:49:43.911003Z"
         }
       ],
-      "attempts": 22,
+      "attempts": 23,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T17:46:33Z"
+  "updated_at": "2026-11-09T21:57:42Z"
 }

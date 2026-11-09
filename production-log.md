@@ -1462,3 +1462,59 @@ no-work key 501.
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing one into
 Summerize or Read gives the pipeline work immediately — but **file into Summerize
 until the preflight branch lands**, since a Read item would hit the blocker above.
+
+## Run 028 - 2026-11-09 - fixed a latent deploy-path defect: push timeout vs auth failure
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`: 18
+unfiled parents, same keys since run 005. Produced `6P2KVFKQ`: 10 source
+parents. Thirteenth consecutive run with no intake unit.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` - first command of the slice.
+- Manifest status == state status for 001/002/003, all `published_and_moved`.
+- Live feed md5 == local `feed-site/feed.xml` (`9fc23235`).
+- Stale lock with dead owner pid 2160985, advisory lock free (normal steady
+  state); cleared with `unlock --force`.
+- Local HEAD == `origin/main` (`e5d06b2`) before this run's commit.
+
+### The defect (latent, proved on real code both sides)
+
+Run 027 proved the mandated `publish` command had never been exercised against a
+reading. The same question applied to the **next** mandated command, `push` - and
+it carries a hardcoded 300s `subprocess` timeout whose `TimeoutExpired` is
+flattened by the broad `except Exception` into `remote deploy failed`, identical
+in shape to a credential rejection. The sibling HITL tree hit this live on its
+66 MB reading 501 and spent the diagnosis hunting credentials. Fixed here:
+size-aware window (300s floor, 683s for a 66 MB reading), and an explicit
+`timed_out` / `remote_state: indeterminate` report. Details and harness paths in
+`pipeline/ROBUST_PIPELINE.md`.
+
+Interview episodes (11-20 MB) were never at risk; a long verbatim reading is the
+only class in the band, and none has shipped here - which is why three runs of
+green checks never saw it. Same shape as runs 008, 013 and 027: a clean state
+proves nothing about a class that needs a record no registry holds yet.
+
+### Verification
+
+`mm_push_timeout_repro_run028.py` 17/17, `mm_push_timeout_proof_run028.py` 32/32.
+Seven gate functions byte-identical to the pre-fix file; `published*` literal set
+unchanged; `py_compile pipeline/*.py` clean; `coverage` 3/3 `ok: true`;
+`preflight` 001/002/003 each `ok: true`; a real `push --wait 20` against the live
+repo cloned, compared and correctly no-op'd (`local feed already matches the live
+site`). `feed-site/feed.xml` md5 unchanged at `9fc23235`.
+
+### State
+
+Code change confined to `push_to_remote()` + its CLI wiring; no gate, status
+string, or feed byte moved. No publication attempted. Ledger under the standing
+no-work key 501.
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing one into
+Summerize or Read gives the pipeline work immediately - but **file into Summerize
+until the run-027 `preflight()` read branch lands**, since a Read item still hits
+that blocker.

@@ -255,3 +255,49 @@ that never changes episode state is otherwise invisible.
 Staleness for a rendering episode is likewise measured from that episode's own
 last transition or checkpoint. It previously came from the ledger's global
 `updated_at`, so a write about any other episode made a stuck render look fresh.
+
+## `push` has a size-aware timeout, and a timeout is not a failure (run 028)
+
+`push_to_remote()` used a hardcoded **300s** `subprocess` timeout on the `git
+push` itself, and `subprocess.TimeoutExpired` fell into the broad
+`except Exception` handler that reports `remote deploy failed`. That made a slow
+upload **byte-for-byte indistinguishable** from a credential rejection: same
+`pushed: false`, same key set, same generic prefix. The sibling HITL tree hit
+exactly this on its 66 MB reading 501 and misdiagnosed it as an auth problem.
+
+At 300s the ceiling bites a 66 MB enclosure at any upload rate below
+**~225 KB/s**. Interview episodes here are 11-20 MB (128 kbps CBR) and never
+come close; a long verbatim **reading** is the only episode class in the risk
+band, and no reading has shipped from this tree yet - so this was latent.
+
+What changed (deploy path only, no publication gate touched):
+
+- `push_timeout: int | None = None` parameter, plus a `--push-timeout` CLI flag.
+- When unset, the window is derived from the **bytes actually staged** at a
+  deliberately pessimistic 120 KB/s assumed floor, `+120s` slack, with **300s
+  kept as a hard floor** - so the change can only ever grant more time than
+  before, never less. A 66 MB reading gets 683s; a 20 MB interview still gets
+  exactly 300s.
+- `TimeoutExpired` is now caught **before** the broad handler and reported as
+  `timed_out: true`, `remote_state: "indeterminate"`, with the staged byte count
+  and an instruction to run `git ls-remote origin main` before retrying. **A
+  timed-out push means unknown, not failed** - the remote may already have the
+  commit, so a blind retry risks a non-fast-forward rejection.
+
+A timeout still returns `ok: false`; the push still runs with `check=True`; the
+live-verify loop is unchanged. `preflight()`, `review_gate()`, `verify_feed()`,
+`feed_coverage()`, `reconcile()`, `publish_local()` and `parse_turns()` are all
+byte-identical to the pre-fix file, and the set of `published*` status literals
+is unchanged.
+
+Harnesses: `/opt/data/tmp/mm_push_timeout_repro_run028.py` (17 assertions,
+pre-fix reproduction) and `mm_push_timeout_proof_run028.py` (32 assertions: A
+pre-fix reproduces, B post-fix distinguishes + scales, C seven gate functions
+byte-identical, D live registries unmoved).
+
+**Harness pitfall, cost a false result once here:** a module copied into scratch
+resolves `ROOT` relative to **its own** location, so the relocated pre-fix copy
+had `ROOT=/opt/data/cache` and died on a missing `feed-site/` before reaching the
+push - section A reported a confident FAIL while proving nothing. Pin `m.ROOT`
+(and `m.EPISODES`) to the real tree after loading a relocated module, or the
+"pre-fix reproduction" half of a both-sides proof is vacuous.
