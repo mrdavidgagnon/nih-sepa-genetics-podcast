@@ -896,10 +896,22 @@
               "at": "2026-11-09T17:39:45.272397Z",
               "detail": "run027: coverage 3/3 ok; live Summerize 0 / Read 0 / Produced 10 parents; 18 unfiled in YF84AUZK unchanged; stale lock dead pid cleared",
               "stage": "intake_reconciled"
+            },
+            {
+              "at": "2026-11-09T17:46:32.801232Z",
+              "detail": "run027: proved publish_local() routes gate-passed readings to interview preflight; bare publish aborts all 001-003; 18+19 assertions; gates untouched, escalated",
+              "stage": "defect_proved"
+            },
+            {
+              "at": "2026-11-09T17:46:33.325361Z",
+              "detail": "run027: ROBUST_PIPELINE.md blast radius +35 lines, production-log +59, 0 removals; coverage 3/3, verify ok, live==local md5",
+              "stage": "docs_updated"
             }
           ],
           "deadline_at": "2026-11-09T18:04:44.787345Z",
-          "outcome": null,
+          "detail": "run027: no intake unit (12th); closed the carried preflight/read open issue by proving it blocks the mandated publish path; docs-only, no code/gate/feed byte moved; escalated to David",
+          "finished_at": "2026-11-09T17:46:33.803333Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T17:39:44.787345Z"
         }
@@ -910,5 +922,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T17:39:45Z"
+  "updated_at": "2026-11-09T17:46:33Z"
 }
