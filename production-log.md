@@ -1387,3 +1387,78 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summerize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+
+## Run 027 — 2026-11-09 — proved a latent HARD BLOCKER in the read lane's mandated publish path
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`: 18
+unfiled parents, unchanged keys since run 005. Produced `6P2KVFKQ`: 10 source
+parents. No deletion events. Twelfth consecutive run with no intake unit.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` — first command of the slice.
+- Manifest status == state status for 001/002/003, all `published_and_moved`.
+- Stale lock present with dead owner pid 2118185, advisory lock free (the normal
+  steady state); cleared with `unlock --force`.
+- Working tree clean, local HEAD == `origin/main` (`b088fd1`) before this run.
+- Sibling `pipeline/*.py` mtimes still predate the run-010 census — no new port.
+
+### The defect (latent, now proved on real code)
+
+Rather than re-prove a known steady state a twelfth time, the slice closed the
+`preflight()`-vs-readings open issue that has been carried as "escalated, latent"
+since run 014 — and found it is **materially worse than documented**. It was
+recorded as "a reading fails preflight"; it is in fact a blocker on the whole
+publish command:
+
+1. `preflight()` rejects a fully style-guide-compliant reading on four
+   interview-only rules (`no Host/Rowan turns`, fictional-correspondent
+   disclosure, AI-summary disclosure, `review gate: review panel is missing`).
+   The error text never names the fidelity gate the reading passed.
+2. `publish_local()` gates on `status != "published"`, so it routes the reading
+   to that interview preflight and **raises** — `publish --episode NNN` cannot
+   ship a reading at all.
+3. Since run 009 the reading is also in `manifest.json`, so a **bare `publish`
+   aborts the entire run**: one registered reading blocks publication of every
+   healthy interview episode, while 001/002/003 each return `preflight ok: true`
+   individually.
+4. `read_lane.py` has no `publish` subcommand, so there is no route around it.
+
+Run 009's durable-state sync is correct and must NOT be reverted — it is simply
+what makes this reachable. The collision stayed invisible because runs 007/012/013
+exercised the read lane by calling `publish_feed.py` directly and never called
+`robust_pipeline.py publish`: **verifying a lane with a harness that skips the
+mandated command does not verify the mandated command.** `coverage` 3/3,
+`verify ok: true` and `publish ok: true` are all accurate today and all blind to
+it, the same shape as runs 008 and 013.
+
+Harnesses: `/opt/data/tmp/mm_read_publish_gate_run027.py` (18 assertions) and
+`mm_read_publish_blast_run027.py` (19 assertions, real `publish_local()` against
+scratch registry copies). Both assert the real `state.json`, `manifest.json`,
+`read-episodes.json` and `feed.xml` are md5-identical throughout; the scratch
+`episodes/990/` dir is removed at the end of each.
+
+### Not fixed here, deliberately
+
+`preflight()` and `publish_local()` are publication gates. The fix is a
+`kind == "read"` branch deferring to the fidelity gate, mirroring
+`publish_feed.py`'s run-013 read guard — a gate edit that must not land
+unreviewed at the end of an unattended slice. Escalated to David instead, now
+with the proven blast radius and an interim route (call `publish_feed.py main()`,
+then `verify`, then `push`) recorded in `pipeline/ROBUST_PIPELINE.md`.
+
+### State
+
+No code, gate, or feed byte moved: `robust_pipeline.py`, `read_lane.py`,
+`publish_feed.py`, `state.json`, `manifest.json` and `feed-site/feed.xml` all
+md5-unchanged. Documentation-only change (`ROBUST_PIPELINE.md`, +35 non-blank
+lines, 0 removals). No publication attempted. Ledger recorded under the standing
+no-work key 501.
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing one into
+Summerize or Read gives the pipeline work immediately — but **file into Summerize
+until the preflight branch lands**, since a Read item would hit the blocker above.

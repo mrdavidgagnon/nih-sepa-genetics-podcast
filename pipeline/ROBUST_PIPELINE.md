@@ -161,6 +161,45 @@ fidelity gate, mirroring the existing read-notes branch in
 `publish_feed.py`. `preflight()` is a publication gate, so this is escalated
 rather than silenced.
 
+**Blast radius, proven on real code (run 027).** The collision is wider than
+"a reading fails preflight", because `publish_local()` gates on
+`record.get("status") != "published"` and sends everything else to
+`preflight(require_audio=True, enforce_review=True)`:
+
+- `publish --episode NNN` on a gate-passed reading **raises** and cannot ship
+  it. The refusal cites `no Host/Rowan turns`, both interview disclosures and
+  `review gate: review panel is missing` — it never mentions the fidelity gate
+  the reading actually passed, so the error text points at the wrong contract.
+- Since run 009 `sync_durable_state()` writes the reading into `manifest.json`,
+  so a **bare `publish`** selects it alongside 001-003 and **aborts the whole
+  run**. One registered reading therefore blocks publication of every healthy
+  interview episode: 001/002/003 each return `preflight ok: true` individually
+  while the batch refuses. Run 009's durable-state fix is correct and must not
+  be reverted; it is what makes this reachable.
+- `read_lane.py` has **no `publish` subcommand** (`extract`, `build`, `render`,
+  `verify`, `zotero-read`, `next-number`), so there is no read-lane route around
+  the interview gate.
+- `publish_local()` statuses that trigger it: `built` and `verified` — exactly
+  the two `sync_durable_state()` assigns. Only the literal `published` is exempt,
+  which a reading cannot reach without publishing first.
+
+Interim route that touches no gate, for the first real reading: run
+`publish_feed.py`'s `main()` directly (it already honours `verified: true` and
+has the run-013 `kind == 'read'` guard), then `verify` the feed, then
+`push --episode NNN --wait 240`. This is how runs 007/012/013 exercised the read
+lane, which is why the collision stayed invisible — those harnesses never called
+`robust_pipeline.py publish`. Verifying a lane with a harness that skips the
+mandated command does not verify the mandated command.
+
+Why it was invisible to every green check: `coverage` 3/3, `verify ok: true` and
+`publish ok: true` are all accurate while no reading is registered. Same shape as
+runs 008 and 013 — a clean state proves nothing about a class that needs a record
+no registry holds yet. Harnesses: `/opt/data/tmp/mm_read_publish_gate_run027.py`
+(18 assertions, real `preflight()` against a real `build_script()` reading) and
+`mm_read_publish_blast_run027.py` (19 assertions, real `publish_local()` against
+scratch registry copies; real `state.json`/`manifest.json`/`read-episodes.json`/
+`feed.xml` asserted md5-identical throughout).
+
 ## Review and preflight contract
 
 This contract governs **interview** episodes only; verbatim readings are gated

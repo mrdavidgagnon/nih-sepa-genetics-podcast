@@ -882,13 +882,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T13:35:01.639024Z"
+        },
+        {
+          "attempt_id": "501-1794245984",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-09T17:39:44.787345Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-09T17:39:45.272397Z",
+              "detail": "run027: coverage 3/3 ok; live Summerize 0 / Read 0 / Produced 10 parents; 18 unfiled in YF84AUZK unchanged; stale lock dead pid cleared",
+              "stage": "intake_reconciled"
+            }
+          ],
+          "deadline_at": "2026-11-09T18:04:44.787345Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-09T17:39:44.787345Z"
         }
       ],
-      "attempts": 21,
+      "attempts": 22,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T13:35:02Z"
+  "updated_at": "2026-11-09T17:39:45Z"
 }
