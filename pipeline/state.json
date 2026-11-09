@@ -816,13 +816,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T01:18:33.424517Z"
+        },
+        {
+          "attempt_id": "501-1794201822",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-09T05:23:42.177036Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-09T05:24:04.355178Z",
+              "detail": "live: both lanes 0, parent 18+7 unchanged, produced 10+9; group LMV 10149->10242 from other projects' items, not SEPA; coverage 3/3; feed md5 local==live; git clean",
+              "stage": "drift_checks"
+            }
+          ],
+          "deadline_at": "2026-11-09T05:48:42.177036Z",
+          "detail": "no intake unit (both lanes 0, 18 unfiled unchanged); no durable defect available; drift checks all clean; LMV delta is other-project group noise",
+          "finished_at": "2026-11-09T05:24:04.831001Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-09T05:23:42.177036Z"
         }
       ],
-      "attempts": 18,
+      "attempts": 19,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T01:18:34Z"
+  "updated_at": "2026-11-09T05:24:04Z"
 }

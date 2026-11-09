@@ -1287,3 +1287,39 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summerize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+## Run 024 — 2026-11-09 — no intake unit; steady state re-confirmed (ninth consecutive idle run)
+
+### Intake state (live Zotero read, item-list counts)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`:
+18 unfiled parent items + 7 attachment children, all dateAdded 2026-11-03,
+unchanged since run 005. Produced `6P2KVFKQ`: 10 source parents + 9
+attachments, unchanged.
+
+Group LMV advanced 10149 -> 10242 since run 023. The change feed since v10149
+carries 25 item entries, all outside the SEPA collections (educational-assessment
+and ThermoVR literature from other Field Day projects); every SEPA collection is
+unchanged in count and dateAdded. Group-level noise, not SEPA activity.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` — first command of the slice.
+- Live feed md5 == local `feed-site/feed.xml` md5 (`9fc23235`).
+- `origin/main` == local HEAD (`70628a7`) before this run's ledger commit.
+- Stale lock present, owner pid dead, advisory lock free — the normal steady
+  state, no active run.
+- Sibling tree's newest `pipeline/*.py` (2026-11-06 01:02) still predates the
+  run-010 census — no new port candidate; no logged, deferred durable defect
+  available (census closed 010/017, docs ported 014, read lane fully exercised
+  006-013, mover fixed 011).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summerize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.
