@@ -838,13 +838,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T05:23:42.177036Z"
+        },
+        {
+          "attempt_id": "501-1794216617",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-09T09:30:17.991966Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-09T09:30:18.489737Z",
+              "detail": "run025: coverage 3/3 clean first; live intake Summerize 0 / Read 0; YF84AUZK 25 (18 parents+7 att) + Produced 19 unchanged since run005; git clean local==origin(2fb8de2); stale lock, dead pid, advisory free; sibling newest pipeline py 2026-11-06 predates run-010 census -> no port candidate; no logged deferred defect. 10th consecutive idle.",
+              "stage": "steady_state_confirmed"
+            }
+          ],
+          "deadline_at": "2026-11-09T09:55:17.991966Z",
+          "detail": "run025: no intake unit; steady state re-confirmed (10th consecutive); no publication; no code/gate/feed byte moved",
+          "finished_at": "2026-11-09T09:30:18.998391Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-09T09:30:17.991966Z"
         }
       ],
-      "attempts": 19,
+      "attempts": 20,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T05:24:04Z"
+  "updated_at": "2026-11-09T09:30:19Z"
 }
