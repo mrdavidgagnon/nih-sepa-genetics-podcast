@@ -931,7 +931,9 @@
             }
           ],
           "deadline_at": "2026-11-09T22:14:43.911003Z",
-          "outcome": null,
+          "detail": "run028: no intake unit (13th); fixed latent deploy defect - size-aware push timeout (300s floor) + timeout-vs-auth reporting; 17/17 repro, 32/32 proof, 7 gate fns byte-identical, feed md5 unchanged, pushed e5ef7d7",
+          "finished_at": "2026-11-09T21:58:51.106512Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T21:49:43.911003Z"
         }
@@ -942,5 +944,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T21:57:42Z"
+  "updated_at": "2026-11-09T21:58:51Z"
 }
