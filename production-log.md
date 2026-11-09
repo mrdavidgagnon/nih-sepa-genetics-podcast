@@ -1354,3 +1354,36 @@ under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
 Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
 one into Summerize or Read gives the pipeline work immediately — a Read item
 needs nothing but the move.
+
+## Run 026 — 2026-11-09 — no intake unit; steady state re-confirmed (eleventh consecutive idle run)
+
+### Intake state (live Zotero read, item-list counts)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`:
+25 items (18 unfiled parents + 7 attachment children, all dateAdded
+2026-11-03, same keys as runs 024/025), unchanged since run 005. Produced
+`6P2KVFKQ`: 19 items (10 source parents + 9 attachments), unchanged. No
+deletion events.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` — first command of the slice.
+- Working tree clean; local HEAD == `origin/main` (`86867d2`) before this run's
+  ledger commit.
+- No lock file at all — no active run (previous runs found the normal stale-lock
+  steady state; absence is the safer variant).
+- Sibling tree's newest `pipeline/*.py` still predates the run-010 census —
+  no new port candidate; no logged, deferred durable defect available (census
+  closed 010/017, docs ported 014, read lane fully exercised 006-013, mover
+  fixed 011).
+
+### State
+
+No code, gate, or feed byte moved; no publication attempted. Ledger recorded
+under the standing no-work key 501 (bare planned stub, no `episodes/501/`).
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing any
+one into Summerize or Read gives the pipeline work immediately — a Read item
+needs nothing but the move.

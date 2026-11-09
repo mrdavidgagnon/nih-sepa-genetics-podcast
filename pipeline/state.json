@@ -860,13 +860,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T09:30:17.991966Z"
+        },
+        {
+          "attempt_id": "501-1794231301",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-09T13:35:01.639024Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-09T13:35:02.130394Z",
+              "detail": "run026: coverage 3/3 clean first; live intake Summerize 0 / Read 0; YF84AUZK 25 items (18 unfiled parents unchanged since run005); Produced 19 unchanged; no deletions; tree clean, local HEAD == origin/main (86867d2); no lock",
+              "stage": "steady_state_confirmed"
+            }
+          ],
+          "deadline_at": "2026-11-09T14:00:01.639024Z",
+          "detail": "run026: no intake unit; steady state re-confirmed (11th consecutive); no publication; no code/gate/feed byte moved",
+          "finished_at": "2026-11-09T13:35:02.610894Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-09T13:35:01.639024Z"
         }
       ],
-      "attempts": 20,
+      "attempts": 21,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T09:30:19Z"
+  "updated_at": "2026-11-09T13:35:02Z"
 }
