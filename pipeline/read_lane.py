@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import hashlib
 import json
 import os
 import re
@@ -418,6 +419,37 @@ async def render_episode(number: str, force: bool = False) -> dict:
     for turn in script_turns(script):
         pieces.extend(chunk(turn))
 
+    # The parts cache is keyed by piece INDEX only, so without this guard a
+    # rebuilt script silently inherits the previous script's audio: build()
+    # with --force rewrites script.md and source.txt for a different paper,
+    # every parts-read/NNNNN.mp3 still exists and is >=500 bytes, so nothing is
+    # re-synthesized and the episode ships the old paper's voice. The fidelity
+    # gate cannot catch it -- verify() compares the new script against the new
+    # source.txt (both just written, so coverage is 1.0) and checks duration
+    # against the new word count; it never sees what the audio was rendered
+    # from. Mirror the interview lane (robust_pipeline.render_episode): key the
+    # cache on the script bytes and the chunking plan, and discard stale parts.
+    plan = {
+        "script_sha256": hashlib.sha256(script.read_bytes()).hexdigest(),
+        "pieces": len(pieces),
+        "pieces_sha256": hashlib.sha256(
+            "\x00".join(pieces).encode("utf-8")
+        ).hexdigest(),
+        "voice": VOICE,
+        "rate": RATE,
+    }
+    plan_file = parts / "render-plan.json"
+    old_plan = {}
+    if plan_file.exists():
+        try:
+            old_plan = json.loads(plan_file.read_text())
+        except (ValueError, OSError):
+            old_plan = {}
+    if old_plan != plan:
+        force = True
+        for old in parts.glob("*.mp3"):
+            old.unlink()
+
     files = []
     for index, piece in enumerate(pieces):
         part = parts / f"{index:05d}.mp3"
@@ -437,6 +469,9 @@ async def render_episode(number: str, force: bool = False) -> dict:
         check=True,
         capture_output=True,
     )
+    # Written only after ffmpeg succeeds, so a crashed render leaves no plan and
+    # the next run re-synthesizes rather than trusting a half-built cache.
+    plan_file.write_text(json.dumps(plan, indent=1, sort_keys=True))
     return {"episode": number, "parts": len(files), "audio": str(output),
             "bytes": output.stat().st_size}
 

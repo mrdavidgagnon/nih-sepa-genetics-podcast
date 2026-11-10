@@ -1002,13 +1002,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T10:29:00.842738Z"
+        },
+        {
+          "attempt_id": "501-1794321517",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T14:38:37.073979Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-10T14:41:54.762289Z",
+              "detail": "run032: read_lane render_episode has no script-hash parts invalidation (interview lane does); build --force to a new paper reuses old audio, fidelity gate ok:true; repro 31/31",
+              "stage": "stale_parts_defect_reproduced"
+            },
+            {
+              "at": "2026-11-10T14:44:48.596378Z",
+              "detail": "run032: added render-plan.json script_sha256/pieces/voice/rate guard to read_lane.render_episode; repro 31/31 pre-fix, proof 39/39; additive 0 removals; gate unedited",
+              "stage": "stale_parts_fix_proven"
+            }
+          ],
+          "deadline_at": "2026-11-10T15:03:37.073979Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-10T14:38:37.073979Z"
         }
       ],
-      "attempts": 26,
+      "attempts": 27,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T10:32:49Z"
+  "updated_at": "2026-11-10T14:44:52Z"
 }

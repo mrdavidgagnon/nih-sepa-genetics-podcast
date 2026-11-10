@@ -203,6 +203,41 @@ Harnesses `/opt/data/tmp/mm_reconcile_status_repro_run031.py` (15, against the
 unmodified module) and `mm_reconcile_status_proof_run031.py` (45, including the
 pre-fix backup still reproducing and 40 functions byte-identical).
 
+
+### The TTS parts cache is keyed on the script, not just the piece index
+
+`read_lane.py render` caches each synthesized chunk at `episodes/NNN/parts-read/NNNNN.mp3`
+and skips any part that already exists at >=500 bytes. That index-only key meant a
+**rebuilt script silently inherited the previous script's audio**: `build --force`
+(the sanctioned rebuild-in-place path added run 030) rewrites `script.md` and
+`source.txt` for a different paper, every cached part still exists, so a plain
+`render` re-synthesized nothing and the episode kept the old paper's voice.
+
+The fidelity gate **cannot** detect this. `verify()` compares the new `script.md`
+against the new `source.txt` — both written in the same breath, so coverage reads
+1.0 — and checks duration against the new word count. Neither side of that
+comparison is the audio's provenance, so the gate returned `ok: true` and
+`register()` wrote `verified: true` for a reading whose mp3 was a different paper.
+
+Fixed run 032 by mirroring the interview lane: `render_episode()` writes
+`parts-read/render-plan.json` recording `script_sha256`, the chunk count, a hash of
+the chunk sequence, and the locked `voice`/`rate`. Any mismatch (or an unreadable
+plan) deletes the cached parts and forces a full re-render; the plan is written
+only **after** ffmpeg succeeds, so a crashed render never leaves a trusted cache.
+Genuine resumability is unchanged — an unchanged script still reuses its parts, and
+deleting two parts re-synthesizes exactly those two.
+
+Operational notes:
+
+- A voice or rate change now invalidates the cache automatically. Deleting
+  `parts-read/` by hand is no longer required after a script correction.
+- The gate was **not** edited. Truncated audio, dropped source text and injected
+  commentary are all still refused, and a reading with no audio still fails while
+  reporting word coverage 1.0.
+- This is the run-030 lesson in a second location: a gate that derives both sides
+  of its comparison from the same write validates internal consistency, not
+  provenance. When a gate passes, ask which artifact it never looked at.
+
 ## Review and preflight contract
 
 This contract governs **interview** episodes only; verbatim readings are gated

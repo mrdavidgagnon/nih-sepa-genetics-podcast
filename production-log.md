@@ -1753,3 +1753,66 @@ Verification: py_compile clean on all of pipeline/, coverage ok 3 items / 3
 published, preflight 001/002/003 each ok with zero issues, read-lane
 `next-number` still 502, zero `Human in the Loop` leakage in the doc, and
 `feed-site/feed.xml` md5 unchanged across the whole slice.
+
+## Run 032 (2026-11-10) — no intake unit (17th); read-lane TTS cache had no script-hash guard
+
+Both lanes empty again: Summerize V4WXTY8M 0 items, Read DV6F4ILX 0 items,
+Produced 6P2KVFKQ 10, and the same 18 items sitting unfiled directly in parent
+YF84AUZK with `collections: ['YF84AUZK']` — still the standing blocker and still
+David's call (lane choice decides interview-vs-verbatim treatment). Stale lock
+from run 031, owner pid 2307331 dead, advisory lock free: normal steady state.
+Spent the slice on a durable defect per the idle-lane rule.
+
+**`read_lane.render_episode()` had no parts-cache invalidation, so a rebuilt
+script silently shipped the previous paper's audio.** The cache at
+`episodes/NNN/parts-read/NNNNN.mp3` is keyed by piece **index** only and any part
+present at >=500 bytes is skipped. So after `build --force` — the sanctioned
+rebuild-in-place path run 030 added — rewrites `script.md` and `source.txt` for a
+different paper, a plain `render` re-synthesizes **nothing** and the episode keeps
+the old paper's voice under the new paper's script, citation and notes.
+
+The fidelity gate cannot see it, and that is the interesting part. `verify()`
+compares the new `script.md` against the new `source.txt`, both written in the same
+breath, so coverage reads **1.0**; the duration check uses the new word count. No
+side of that comparison is the audio's provenance, and the gate's output has no
+`audio_sha256`/`rendered_from` field at all. `register()` then wrote
+`verified: true`, which is the only flag `publish_feed.py` consults for a reading.
+
+This is the **run-030 lesson in a second location**: a gate that derives both sides
+of its comparison from the same write validates internal consistency, not
+provenance. Also a lane-asymmetry find — the interview lane in
+`robust_pipeline.render_episode()` has had a `render-plan.json` / `script_sha256`
+guard with stale-part deletion all along; the read lane had neither. The run-010
+census closed the *line-count* port backlog, but a guard the sibling lane holds in
+the **same tree** is a different axis and was not covered by it.
+
+Fix: `render_episode()` now writes `parts-read/render-plan.json` recording
+`script_sha256`, the chunk count, a hash of the chunk sequence, and the locked
+`voice`/`rate`. Any mismatch — or an unreadable plan — deletes the cached parts and
+forces a full re-render. The plan is written only **after** ffmpeg succeeds, so a
+crashed render never leaves a trusted cache. Purely additive: `diff -u | grep -c
+'^-[^-]'` = 0, and the only other change is a module-level `import hashlib`.
+
+Proof, on real code both sides. `mm_stale_parts_repro_run032.py` 31/31 against the
+**unmodified** module: paper A renders and gates clean, `build --force` to paper B
+re-synthesizes 0 pieces, the audio is byte-identical to paper A's, the gate returns
+`ok: true` with an empty issue list, and the record registers `verified: true` under
+paper B's citation while carrying paper A's bytes. `mm_stale_parts_proof_run032.py`
+39/39: the pre-fix `.bak` still reproduces; post-fix a swapped script re-synthesizes
+all 6 pieces and the audio md5 moves; **resumability is preserved** (unchanged script
+= 0 calls, deleting 2 parts re-makes exactly 2); the gate still bites (3s truncation
+refused naming the duration, a dropped source sentence refused at 98.765% coverage,
+25 injected words refused as text added, green again on revert); a corrupt plan
+re-renders safely instead of raising; voice and rate changes each invalidate; locked
+voice/rate still Ava at `-3%`; 30 read-lane functions byte-identical with
+`verify()`/`build()`/`register()` sources unchanged; no sibling-show substring. Both
+harnesses used stubbed silent-mp3 TTS (no spend) on scratch trees, and
+md5-asserted the real `read-episodes.json`, `state.json`, `manifest.json` and
+`feed-site/feed.xml` unchanged throughout.
+
+Verification on live state: py_compile clean across `pipeline/`, `coverage` ok
+3 items / 3 published with empty issue lists, `preflight` 001/002/003 each ok with
+zero issues, `reconcile --write` ok with 0 issues, read-lane `next-number` still 502,
+and `feed-site/feed.xml` md5 `9fc23235fcb49ca809059092da619b54` unchanged across the
+whole slice. ROBUST_PIPELINE.md documents the guard (additive, 0 removals); the
+run-031 stale-doc grep returns only the run-031 replacement prose.
