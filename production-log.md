@@ -1816,3 +1816,83 @@ zero issues, `reconcile --write` ok with 0 issues, read-lane `next-number` still
 and `feed-site/feed.xml` md5 `9fc23235fcb49ca809059092da619b54` unchanged across the
 whole slice. ROBUST_PIPELINE.md documents the guard (additive, 0 removals); the
 run-031 stale-doc grep returns only the run-031 replacement prose.
+
+## Run 033 - 2026-11-10 - readings were in no duplicate-detection map at all
+
+Both intake lanes empty for the 18th consecutive run: Summerize `V4WXTY8M` 0
+items, Read `DV6F4ILX` 0 items, and the same 18 items sitting unfiled directly
+in parent `YF84AUZK` with `collections: ['YF84AUZK']`. Still the standing
+blocker and still David's call, since lane choice decides interview-versus-
+verbatim treatment. Stale lock from run 032, owner pid 2359084 dead and the
+advisory lock free: the normal steady state. Spent the slice on a durable
+defect per the idle-lane rule.
+
+**Source-ownership/duplicate detection ignored the read lane entirely.** All
+three ownership maps in `robust_pipeline.py` -- `inventory()` (-> `duplicate_sources`),
+`reconcile()` (-> the "assigned to multiple episodes" issue) and `preflight()`
+(-> `all_owners`) -- were built from `item.get("sources", [])`. A reading's
+Zotero key is registered under **`read_source`**, deliberately, so that a paper
+with both an interview and a verbatim reading is not flagged as a conflict
+(run 029). The consequence nobody had written down is that readings fell out of
+duplicate detection *altogether*: two readings of the **same paper** collide in
+silence at all three sites.
+
+`preflight()` was the sharpest case. Since run 029 it correctly resolves a
+reading's expected key from `read_source`, then looked that key up in a map
+built from `sources` -- so the owner count was 0 or 1 forever and **no number of
+readings of one paper could ever trip the check**. The irony is that
+`sync_durable_state()`'s own docstring says the state/manifest mirror exists so a
+reading is visible to "status, the watchdog and duplicate detection"; the mirror
+landed, the detection never read the field it writes.
+
+Fix: `lane_ownership(episodes)` returns `(interview_owners, read_owners)` keyed
+on the **field name** -- the same discriminator `move_verified_sources.py`
+already uses -- and `duplicate_owners(*maps)` reports collisions *within* a lane.
+Two interviews sharing a key is still a conflict; two readings sharing a key is
+now a conflict; one interview plus one reading of the same paper stays legal.
+`source_ownership` keeps its exact interview-only meaning and shape for every
+existing consumer, and `read_source_ownership` is added alongside it in both the
+`inventory()` and `reconcile()` reports. Purely additive in effect: the 17
+removed lines are the three inline loops the helper replaces, every one of the 14
+distinct strings was in the script's explicit whitelist, and no other behaviour
+moved.
+
+Proof on real code, both sides. `mm_read_ownership_repro_run033.py` 21/21
+against the **unmodified** module: the collision is invisible to `inventory()`
+and `reconcile()`, `source_ownership` omits the key entirely, and -- the control
+that makes it a finding rather than a guess -- the *identical* collision
+expressed under `sources` IS flagged by both, which proves the detector works
+and the field name was the whole difference.
+`mm_lane_ownership_proof_run033.py` 37/37: the pre-fix backup still reproduces;
+post-fix all three sites catch it and `preflight()` on a colliding reading names
+the conflict while still selecting the read lane; **nothing granted** --
+interview-lane detection unchanged, cross-lane sharing still legal with the key
+in both maps once each, and the read gate still refuses a missing `script.md`,
+Rowan in a reading, a missing verbatim-reading disclosure, a citation with no
+year, `require_audio` with no mp3, and wrong-case `kind: "READ"`; empty/null
+fields tolerated; 15 untouched functions byte-identical, including
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local` and
+`push_to_remote`.
+
+Latent, in the now-familiar way: no reading has ever been registered in this
+tree, so `reconcile --write` showed 0 issues before and after, three times
+running. A clean state proves nothing about a class that needs a record no
+registry holds yet -- the fourth time that sentence has been true here (runs 008,
+013, 030, 031).
+
+**The generalizable lesson: when you add a second field to express one concept,
+grep every reader of the first.** This is run 030's write-side-mirror-creates-
+read-side-debt lesson with the axis rotated -- run 030 was one registry of three,
+this is one field of two. It also extends run 032's lane-asymmetry axis from
+"does the other lane hold a guard this one lacks?" to "does shared machinery read
+only one lane's field?".
+
+Verification on live state: `py_compile` clean across `pipeline/`, `coverage`
+ok with 3 items / 3 published and empty issue lists, `preflight` 001/002/003 each
+`ok: true` with zero issues and lane `interview`, `reconcile --write` ok with 0
+issues and an empty `read_source_ownership` three passes running, read-lane
+`next-number` still 502, and `feed-site/feed.xml` md5
+`9fc23235fcb49ca809059092da619b54` unchanged across the whole slice.
+ROBUST_PIPELINE.md documents the fix in a new `## Source ownership is lane-aware
+(run 033)` section (additive, 0 removals); the run-031 stale-doc grep returns
+only run-029's replacement prose.

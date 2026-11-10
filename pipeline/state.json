@@ -1029,13 +1029,40 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T14:38:37.073979Z"
+        },
+        {
+          "attempt_id": "501-1794336562",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T18:49:22.686868Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-10T18:54:02.886050Z",
+              "detail": "run033: lane-aware source ownership in inventory/reconcile/preflight; read_source was in no ownership map",
+              "stage": "lane_ownership_fixed"
+            },
+            {
+              "at": "2026-11-10T18:57:06.096027Z",
+              "detail": "run033: ROBUST_PIPELINE.md + production-log.md document lane-aware ownership; repro 21/21, proof 37/37",
+              "stage": "docs_updated"
+            }
+          ],
+          "deadline_at": "2026-11-10T19:14:22.686868Z",
+          "detail": "run033: no intake unit (18th, both lanes empty, 18 items unfiled in parent YF84AUZK); fixed source-ownership/duplicate detection ignoring the read lane entirely (all 3 maps in inventory/reconcile/preflight built from 'sources' only, while a reading's key registers under 'read_source' -- so two readings of one paper collided silently and preflight's owner count could never exceed 1) via lane_owners",
+          "finished_at": "2026-11-10T18:57:18.474795Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-10T18:49:22.686868Z"
         }
       ],
-      "attempts": 27,
+      "attempts": 28,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T14:46:11Z"
+  "updated_at": "2026-11-10T18:57:18Z"
 }

@@ -375,6 +375,42 @@ def episode_dirs(episode: str | None = None) -> Iterable[tuple[str, Path]]:
     return sorted((p.name, p) for p in (ROOT / "episodes").iterdir() if p.is_dir() and p.name.isdigit())
 
 
+def lane_ownership(episodes: dict[str, Any]) -> tuple[dict[str, list[str]], dict[str, list[str]]]:
+    """Source ownership per lane: (interview_owners, read_owners).
+
+    The two lanes record their Zotero keys under different manifest fields, and
+    that is load-bearing: a reading registers under ``read_source`` so a paper
+    that has BOTH an interview and a verbatim reading does not look like a
+    duplicate-ownership conflict (run 029). Building one map from ``sources``
+    alone, as every ownership site here used to, dropped readings out of
+    duplicate detection altogether -- two readings of the same paper collided
+    in silence even though read_lane.sync_durable_state() mirrors them into
+    manifest.json specifically so duplicate detection can see them.
+
+    Keyed on the field name, the same discriminator move_verified_sources.py
+    uses, so an interview (no ``read_source``) and a reading (no ``sources``)
+    each land in exactly one map and cross-lane sharing stays legal.
+    """
+    interview: dict[str, list[str]] = {}
+    read: dict[str, list[str]] = {}
+    for number, item in episodes.items():
+        for key in item.get("sources", []) or []:
+            interview.setdefault(key, []).append(number)
+        for key in item.get("read_source", []) or []:
+            read.setdefault(key, []).append(number)
+    return interview, read
+
+
+def duplicate_owners(*maps: dict[str, list[str]]) -> dict[str, list[str]]:
+    """Keys owned by more than one episode WITHIN a lane map."""
+    duplicates: dict[str, list[str]] = {}
+    for mapping in maps:
+        for key, owners in mapping.items():
+            if len(owners) > 1:
+                duplicates[key] = sorted(owners)
+    return duplicates
+
+
 def inventory(episode: str | None = None) -> dict[str, Any]:
     entries = []
     for number, directory in episode_dirs(episode):
@@ -382,12 +418,10 @@ def inventory(episode: str | None = None) -> dict[str, Any]:
             if path.is_file() and not path.name.startswith("."):
                 stat = path.stat()
                 entries.append({"episode": number, "path": path.relative_to(ROOT).as_posix(), "size": stat.st_size, "sha256": sha256(path), "mtime_ns": stat.st_mtime_ns})
-    ownership: dict[str, list[str]] = {}
-    for number, item in load_manifest().get("episodes", {}).items():
-        for key in item.get("sources", []):
-            ownership.setdefault(key, []).append(number)
+    ownership, read_ownership = lane_ownership(load_manifest().get("episodes", {}))
     result = {"schema_version": 1, "generated_at": utc_now(), "root": str(ROOT), "files": entries, "source_ownership": ownership,
-              "duplicate_sources": {key: owners for key, owners in ownership.items() if len(owners) > 1}}
+              "read_source_ownership": read_ownership,
+              "duplicate_sources": duplicate_owners(ownership, read_ownership)}
     atomic_json(INVENTORY_PATH, result)
     return result
 
@@ -396,15 +430,12 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
     ledger = load_ledger()
     expected = load_manifest().get("episodes", {})
     report = {"generated_at": utc_now(), "episodes": {}, "ok": True}
-    ownership: dict[str, list[str]] = {}
-    for number, item in expected.items():
-        for key in item.get("sources", []):
-            ownership.setdefault(key, []).append(number)
+    ownership, read_ownership = lane_ownership(expected)
     report["source_ownership"] = ownership
-    for key, owners in ownership.items():
-        if len(owners) > 1:
-            report["ok"] = False
-            report.setdefault("issues", []).append(f"source {key} is assigned to multiple episodes: {owners}")
+    report["read_source_ownership"] = read_ownership
+    for key, owners in duplicate_owners(ownership, read_ownership).items():
+        report["ok"] = False
+        report.setdefault("issues", []).append(f"source {key} is assigned to multiple episodes: {owners}")
     for number, directory in episode_dirs(episode):
         rec = ledger.setdefault("episodes", {}).setdefault(number, {"status": "planned", "transitions": []})
         expected_item = expected.get(number, {})
@@ -639,10 +670,12 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
     # citation checks below still apply to it.
     expected_keys = list(manifest.get("read_source", []) if is_read else manifest.get("sources", []))
     result["checks"]["notes_zotero_keys"] = sorted(set(keys))
-    all_owners: dict[str, list[str]] = {}
-    for number, item in load_manifest().get("episodes", {}).items():
-        for key in item.get("sources", []):
-            all_owners.setdefault(key, []).append(number)
+    # Count owners in THIS episode's lane. expected_keys already comes from
+    # read_source for a reading, so looking it up in an interview-only map made
+    # the count 0 or 1 forever: no number of readings of one paper could ever
+    # trip the check.
+    interview_owners, read_owners = lane_ownership(load_manifest().get("episodes", {}))
+    all_owners = read_owners if is_read else interview_owners
     for key in expected_keys:
         if len(all_owners.get(key, [])) > 1:
             result["issues"].append(f"source {key} is assigned to multiple episodes")

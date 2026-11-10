@@ -340,6 +340,51 @@ push - section A reported a confident FAIL while proving nothing. Pin `m.ROOT`
 (and `m.EPISODES`) to the real tree after loading a relocated module, or the
 "pre-fix reproduction" half of a both-sides proof is vacuous.
 
+## Source ownership is lane-aware (run 033)
+
+The two lanes record a Zotero key under different manifest fields --
+interviews under `sources`, readings under `read_source` -- and that split is
+load-bearing: it is what lets one paper legitimately have both an interview and
+a verbatim reading without looking like a duplicate-ownership conflict.
+
+Every ownership map here used to be built from `sources` alone, which meant
+**readings were in no duplicate-detection map at all**. Two readings of the same
+paper collided in silence in `inventory()`, `reconcile()` and `preflight()` --
+even though `read_lane.sync_durable_state()` mirrors a reading into
+`manifest.json` specifically so duplicate detection can see it. `preflight()`
+was the sharpest case: since run 029 it resolves a reading's expected key from
+`read_source` (correct) and then looked that key up in an interview-only map, so
+the owner count was 0 or 1 forever and no number of readings of one paper could
+trip the check.
+
+`lane_ownership(episodes)` now returns `(interview_owners, read_owners)` keyed on
+the field name -- the same discriminator `move_verified_sources.py` uses -- and
+`duplicate_owners(*maps)` reports collisions **within** a lane. So:
+
+- two interviews sharing a key: conflict (unchanged)
+- two readings sharing a key: conflict (new)
+- one interview + one reading of the same paper: legal (unchanged, run-029 intent)
+
+`source_ownership` keeps its exact interview-only meaning and shape for existing
+consumers; `read_source_ownership` is added alongside it in both the
+`inventory()` report and the `reconcile()` report.
+
+Latent when fixed -- no reading has ever been registered here, so three
+`reconcile --write` passes showed 0 issues before and after. Reproduce on scratch
+manifests, and keep the control: the identical collision expressed under
+`sources` is flagged, which proves the detector works and the field name was the
+whole difference. Harnesses `/opt/data/tmp/mm_read_ownership_repro_run033.py`
+(21/21 against the unmodified module) and `mm_lane_ownership_proof_run033.py`
+(37/37: pre-fix backup still reproduces, all three sites now catch it, interview
+detection and cross-lane sharing unchanged, the read gate still refuses a missing
+script / Rowan / a missing verbatim disclosure / a yearless citation / a missing
+mp3 / wrong-case `kind`, and 15 untouched functions byte-identical).
+
+**The general lesson: when you add a second field to express the same concept,
+grep every reader of the first one.** This is the run-030 lesson (a write-side
+mirror creates read-side debt) with the axis rotated: run 030 was one registry of
+three, this is one field of two.
+
 ## `preflight()` is lane-aware (run 029)
 
 `preflight()` scores an episode against one of two non-interchangeable
