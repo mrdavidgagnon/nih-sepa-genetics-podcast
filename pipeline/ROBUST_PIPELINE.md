@@ -301,3 +301,35 @@ had `ROOT=/opt/data/cache` and died on a missing `feed-site/` before reaching th
 push - section A reported a confident FAIL while proving nothing. Pin `m.ROOT`
 (and `m.EPISODES`) to the real tree after loading a relocated module, or the
 "pre-fix reproduction" half of a both-sides proof is vacuous.
+
+## `preflight()` is lane-aware (run 029)
+
+`preflight()` scores an episode against one of two non-interchangeable
+contracts, selected from the manifest `kind` key - the same discriminator
+`publish_feed.py` uses. Interview episodes carry no `kind`, so anything not
+explicitly `"read"` takes the interview path.
+
+| | interview | reading (`kind: "read"`) |
+|---|---|---|
+| dialogue | `**Host:**` / `**Rowan:**` turns | single `**Reader:**` voice |
+| Rowan | required | **forbidden** |
+| disclosures | fictional-correspondent + AI-summary | verbatim-reading + automated-TTS |
+| gate | three-reviewer panel (`review_gate`) | automated word fidelity (`fidelity_gate`) |
+| source key | manifest `sources` | manifest `read_source` |
+
+Shared by both lanes and unchanged: the Zotero-links disclosure (script **or**
+notes), numbered citations with a year and a direct Zotero link, duplicate-link
+detection, and the single-non-empty-mp3 audio check.
+
+`fidelity_gate(episode)` does not re-implement the fidelity check. It reads the
+verdict `read_lane.py verify` recorded in `pipeline/read-episodes.json` and
+refuses on `verified: false`, a coverage figure below `READ_COVERAGE_FLOOR`
+(0.995), a missing coverage figure, a missing registry entry, or a missing
+`source.txt`/`script.md` (which would make the verdict unreproducible). One gate,
+one verdict: a second implementation could disagree with the lane's own.
+
+Why this mattered: before run 029, a reading that **passed** the fidelity gate
+could not be published at all, and because `sync_durable_state()` registers a
+reading in `manifest.json` (run 009), a bare `publish` selected it and aborted
+publication of every healthy interview episode. Do not "simplify" the branch
+back into one path.

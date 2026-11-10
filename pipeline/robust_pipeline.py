@@ -458,6 +458,71 @@ def source_keys(text: str) -> list[str]:
     return re.findall(r"(?:items/|zotero://select/items/)([A-Z0-9]{8})", text)
 
 
+READ_MANIFEST_PATH = PIPELINE / "read-episodes.json"
+READ_COVERAGE_FLOOR = 0.995
+
+
+def parse_reading_turns(script: Path) -> list[str]:
+    """Spoken turns of a verbatim reading: a single ``**Reader:**`` voice.
+
+    A reading has no Host/Rowan dialogue by design, so parse_turns() raises on
+    one. Kept deliberately strict in the same shape: an empty turn or a file
+    with no Reader line at all is still an error.
+    """
+    turns = []
+    for line in script.read_text().splitlines():
+        m = re.match(r"^\*\*Reader:\*\*\s+(.+?)\s*$", line)
+        if m:
+            if not m.group(1).strip():
+                raise ValueError(f"invalid reading turn in {script}: {line}")
+            turns.append(m.group(1).strip())
+    if not turns:
+        raise ValueError(f"no Reader turns found in {script}")
+    return turns
+
+
+def fidelity_gate(episode: str) -> dict[str, Any]:
+    """Read-lane publication gate: the recorded automated word-fidelity result.
+
+    This is the reviewer panel's counterpart for verbatim readings, where there
+    is no paraphrase risk to review and the real risk is silent omission. The
+    verdict is produced by ``read_lane.py verify`` and recorded in
+    pipeline/read-episodes.json; this function only READS it, exactly as
+    publish_feed.read_episodes() does, so there is one gate and one verdict
+    rather than two implementations that can disagree.
+
+    It grants nothing on a missing or unverified record, and additionally
+    requires the inputs the gate scores (source.txt, script.md) to still be on
+    disk so the verdict remains reproducible with ``read_lane.py verify``.
+    """
+    result: dict[str, Any] = {"episode": episode, "ok": False, "issues": [],
+                              "registry": "pipeline/read-episodes.json"}
+    try:
+        registry = json.loads(READ_MANIFEST_PATH.read_text())
+    except (OSError, ValueError) as exc:
+        result["issues"].append(f"read-episode registry is unreadable: {exc}")
+        return result
+    record = registry.get("episodes", {}).get(episode)
+    if not isinstance(record, dict):
+        result["issues"].append("no read-episode registry entry; run read_lane.py build")
+        return result
+    coverage = record.get("coverage")
+    result["coverage"] = coverage
+    result["source_words"] = record.get("source_words")
+    if not record.get("verified"):
+        result["issues"].append("automated fidelity gate has not passed; run read_lane.py verify")
+    if not isinstance(coverage, (int, float)):
+        result["issues"].append("registry records no word-coverage figure")
+    elif coverage < READ_COVERAGE_FLOOR:
+        result["issues"].append(f"word coverage {coverage:.3%} is below the {READ_COVERAGE_FLOOR:.1%} floor")
+    directory = ROOT / "episodes" / episode
+    for name in ("source.txt", "script.md"):
+        if not (directory / name).exists():
+            result["issues"].append(f"missing {name}; the fidelity verdict is not reproducible")
+    result["ok"] = not result["issues"]
+    return result
+
+
 def review_gate(episode: str, panel: Path | None = None) -> dict[str, Any]:
     panel = panel or ROOT / "episodes" / episode / "review-panel.md"
     try:
@@ -506,13 +571,33 @@ def record_review(episode: str, panel: Path | None = None) -> dict[str, Any]:
 
 
 def preflight(episode: str, require_audio: bool = False, enforce_review: bool = True) -> dict[str, Any]:
+    """Deterministic publication gate.
+
+    Two lanes with different, non-interchangeable contracts:
+
+    * interview episodes -- two-voice Host/Rowan dialogue, the synthetic
+      correspondent and AI-summary disclosures, and the three-reviewer panel.
+    * verbatim readings (kind == "read") -- a single ``**Reader:**`` voice, no
+      Rowan, no synthetic-interview disclosure, and the automated word-fidelity
+      gate INSTEAD of the reviewer panel.
+
+    Scoring a reading against the interview rules failed it for *complying with
+    the style guide* and, because read_lane.sync_durable_state() registers a
+    reading in manifest.json, one registered reading aborted publication of
+    every healthy interview episode. The lane is selected from manifest
+    ``kind``, the same discriminator publish_feed.py uses; interviews carry no
+    ``kind`` key, so anything not explicitly a reading takes the interview
+    path unchanged.
+    """
     directory = ROOT / "episodes" / episode
     result: dict[str, Any] = {"episode": episode, "ok": False, "issues": [], "checks": {}}
     manifest = load_manifest().get("episodes", {}).get(episode, {})
+    is_read = str(manifest.get("kind", "")) == "read"
+    result["checks"]["lane"] = "read" if is_read else "interview"
     script, notes = directory / "script.md", directory / "episode-notes.md"
     try:
-        turns = parse_turns(script)
-        result["checks"]["dialogue_turns"] = len(turns)
+        turns = parse_reading_turns(script) if is_read else parse_turns(script)
+        result["checks"]["reading_turns" if is_read else "dialogue_turns"] = len(turns)
     except (OSError, ValueError) as exc:
         result["issues"].append(str(exc))
         turns = []
@@ -524,12 +609,28 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
     script_text = script.read_text() if script.exists() else ""
     if REQUIRED_DISCLOSURE not in script_text and REQUIRED_DISCLOSURE not in notes_text:
         result["issues"].append("required Zotero-links disclosure is absent from both script and notes")
-    if not re.search(r"fictional.*(?:composite|correspondent)|(?:composite|fictional).*correspondent", script_text, re.I | re.S):
-        result["issues"].append("fictional-correspondent disclosure is absent from script")
-    if not re.search(r"AI-generated|AI generated", script_text, re.I):
-        result["issues"].append("AI-summary disclosure is absent from script")
+    if is_read:
+        # The style guide forbids the synthetic-interview disclosure on a
+        # verbatim reading and bars Rowan from appearing in one, so requiring
+        # either would fail the reading for compliance. Assert their ABSENCE
+        # instead, and require the reading's own spoken disclosure.
+        if re.search(r"Rowan Field", script_text, re.I):
+            result["issues"].append("Dr. Rowan Field must not appear in a verbatim reading")
+        if not re.search(r"verbatim reading", script_text, re.I):
+            result["issues"].append("verbatim-reading disclosure is absent from script")
+        if not re.search(r"automated text-to-speech", script_text, re.I):
+            result["issues"].append("automated-text-to-speech disclosure is absent from script")
+    else:
+        if not re.search(r"fictional.*(?:composite|correspondent)|(?:composite|fictional).*correspondent", script_text, re.I | re.S):
+            result["issues"].append("fictional-correspondent disclosure is absent from script")
+        if not re.search(r"AI-generated|AI generated", script_text, re.I):
+            result["issues"].append("AI-summary disclosure is absent from script")
     keys = source_keys(notes_text)
-    expected_keys = list(manifest.get("sources", []))
+    # A reading's Zotero key is registered under read_source, not sources, so
+    # preflight()'s interview source-ownership model cannot report a false
+    # duplicate for a paper that has both an interview and a reading. The
+    # citation checks below still apply to it.
+    expected_keys = list(manifest.get("read_source", []) if is_read else manifest.get("sources", []))
     result["checks"]["notes_zotero_keys"] = sorted(set(keys))
     all_owners: dict[str, list[str]] = {}
     for number, item in load_manifest().get("episodes", {}).items():
@@ -556,10 +657,16 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
     if len(keys) != len(set(keys)):
         result["issues"].append("duplicate Zotero links in notes")
     if enforce_review:
-        gate = review_gate(episode)
-        result["checks"]["review_gate"] = gate
-        if not gate["ok"]:
-            result["issues"].extend("review gate: " + issue for issue in gate["issues"])
+        if is_read:
+            gate = fidelity_gate(episode)
+            result["checks"]["fidelity_gate"] = gate
+            if not gate["ok"]:
+                result["issues"].extend("fidelity gate: " + issue for issue in gate["issues"])
+        else:
+            gate = review_gate(episode)
+            result["checks"]["review_gate"] = gate
+            if not gate["ok"]:
+                result["issues"].extend("review gate: " + issue for issue in gate["issues"])
     if require_audio:
         audio = list(directory.glob("*.mp3"))
         if len(audio) != 1 or audio[0].stat().st_size == 0:

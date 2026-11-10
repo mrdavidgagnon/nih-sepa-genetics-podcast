@@ -1518,3 +1518,95 @@ Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing one into
 Summerize or Read gives the pipeline work immediately - but **file into Summerize
 until the run-027 `preflight()` read branch lands**, since a Read item still hits
 that blocker.
+
+## Run 029 - 2026-11-10 - fixed the twice-escalated read-lane publication blocker
+
+### Intake state (live Zotero read)
+
+Summerize `V4WXTY8M`: 0 items. Read `DV6F4ILX`: 0 items. Parent `YF84AUZK`: 18
+unfiled parents, same keys since run 005. Produced `6P2KVFKQ`: 10 source
+parents. Fourteenth consecutive run with no intake unit.
+
+### Drift checks (live, this run)
+
+- `coverage` 3/3 `ok: true` - first command of the slice.
+- Manifest status == state status for 001/002/003, all `published_and_moved`.
+- Live feed md5 == local `feed-site/feed.xml` (`9fc23235`), before and after.
+- Stale lock with dead owner pid 2201708, advisory lock free (normal steady
+  state); cleared with `unlock --force`.
+- Local HEAD == `origin/main` (`e4d48be`) before this run's commit.
+
+### The defect (run 027's escalation, now closed)
+
+Run 027 proved that a fidelity-gate-passed reading **could not ship**:
+`publish_local()` routes anything not already `published` through
+`preflight(require_audio=True, enforce_review=True)`, which scored readings
+against interview-only rules. It failed them for *complying with the style
+guide* - no Host/Rowan turns (a reading has one `**Reader:**` voice), no
+fictional-correspondent disclosure and no AI-summary disclosure (both
+forbidden on a verbatim reading), and a missing reviewer panel (the fidelity
+gate replaces it). Worse, since run 009 `sync_durable_state()` registers a
+reading in `manifest.json`, so a **bare `publish` selected it and aborted the
+whole run** - one reading blocked publication of every healthy interview
+episode. Run 027 declined to fix it unreviewed and inverted the standing
+"prefer Read items" advice; runs 027 and 028 both carried it forward.
+
+Fixed by giving `preflight()` a `kind == "read"` branch, selected from the
+same manifest discriminator `publish_feed.py` has used since run 013.
+Interviews carry no `kind` key, so anything not explicitly a reading takes the
+interview path unchanged. Two helpers added: `parse_reading_turns()` (single
+`**Reader:**` voice, still strict about empty turns and a script with no
+reading at all) and `fidelity_gate()`, which **reads** the verdict
+`read_lane.py verify` recorded in `read-episodes.json` rather than
+re-implementing it, so there is one gate and one verdict that cannot disagree.
+
+### The new branch grants nothing - this is the half that matters
+
+A second lane in a publication gate is an unlocked door unless proved
+otherwise. Every one of these is an attempt to get something through the read
+branch that must not pass, and every one is refused: `verified: false`,
+coverage 98% (below the 99.5% floor), a missing coverage figure, no registry
+entry at all, a missing `source.txt` (verdict no longer reproducible),
+Dr. Rowan Field appearing in a reading, a missing verbatim-reading or
+text-to-speech disclosure, the Zotero-links disclosure absent from **both**
+script and notes, a script with no `**Reader:**` turns, an empty mp3, and a
+citation with no year. The read lane also keeps every shared check: audio,
+citations, Zotero links, duplicate links. `kind: "READ"` in the wrong case does
+**not** unlock the branch.
+
+Nine interview gate functions are byte-identical to the pre-fix file
+(`review_gate`, `parse_turns`, `verify_feed`, `source_keys`, `publish_local`,
+`reconcile`, `feed_coverage`, `push_to_remote`, `status`), as is
+`REQUIRED_DISCLOSURE`; `preflight()` is the only changed function.
+
+Two harness failures in the first proof run were **harness** bugs, confirmed
+before being touched, not relaxed guards: the module-level name is
+`feed_coverage` (`coverage` is only a CLI subparser string, absent from both
+versions), and `REQUIRED_DISCLOSURE` is satisfied by script **or** notes by
+design, so the case had to strip it from both.
+
+### Verification
+
+`mm_read_preflight_repro_run029.py` 13/13 against the **unmodified** module
+(the blocker reproduced, including a bare publish aborting 001/002/003 while
+each passes individually), then 11/11 against the fixed module.
+`mm_read_preflight_proof_run029.py` 34/34. `py_compile pipeline/*.py` clean.
+Live: `coverage` 3/3 `ok: true`, `preflight` 001/002/003 each `ok: true` on the
+`interview` lane, a real bare `publish` `ok: true`, `feed-site/feed.xml` md5
+unchanged at `9fc23235`, all three `<description>` fields non-empty, no
+`human-in-the-loop` substring in any GUID, `verify --remote ok: true` (200 on
+the feed and notes, 206 on all three enclosures), live md5 == local.
+
+### State
+
+Change confined to `preflight()` plus two new helper functions; no interview
+gate, status string, or feed byte moved. No publication attempted - both lanes
+are empty. Ledger under the standing no-work key 501.
+
+### Standing blocker for David, unchanged in substance
+
+Both lanes empty; 18 on-topic items sit directly in `YF84AUZK`. Filing one into
+Summerize or Read gives the pipeline work immediately. **Read is now unblocked**:
+run 027's inversion is lifted, and the skill's original advice applies again -
+a reading is cheaper than an interview, and `build` pulls its own PDF (run 010),
+so a Read item needs nothing but the move.

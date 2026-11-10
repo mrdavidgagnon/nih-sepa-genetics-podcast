@@ -936,13 +936,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-09T21:49:43.911003Z"
+        },
+        {
+          "attempt_id": "501-1794276105",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T02:01:45.212494Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-10T02:11:44.443986Z",
+              "detail": "run029: preflight() kind=='read' branch + fidelity_gate()/parse_reading_turns(); 13/13 pre-fix repro, 34/34 proof",
+              "stage": "preflight_read_branch"
+            }
+          ],
+          "deadline_at": "2026-11-10T02:26:45.212494Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-10T02:01:45.212494Z"
         }
       ],
-      "attempts": 23,
+      "attempts": 24,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-09T21:58:51Z"
+  "updated_at": "2026-11-10T02:12:03Z"
 }
