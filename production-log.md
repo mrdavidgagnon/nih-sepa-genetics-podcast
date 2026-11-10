@@ -1610,3 +1610,100 @@ Summerize or Read gives the pipeline work immediately. **Read is now unblocked**
 run 027's inversion is lifted, and the skill's original advice applies again -
 a reading is cheaper than an interview, and `build` pulls its own PDF (run 010),
 so a Read item needs nothing but the move.
+
+
+## Run 030 - 2026-11-10 - read-lane number allocation could overwrite a reading
+
+Both intake lanes empty for the **15th** consecutive run (Summerize `V4WXTY8M`
+0 items, Read `DV6F4ILX` 0 items, Produced `6P2KVFKQ` 10). No production unit,
+so the slice went to a durable defect per the standing rule.
+
+### The defect
+
+`read_lane.py next_number()` allocated from `read-episodes.json` **alone**:
+
+```python
+manifest = load_read_manifest()
+used = [int(x) for x in manifest.get("episodes", {})]
+return str(max(used) + 1 if used else FIRST_READ_NUMBER)
+```
+
+That registry is empty, so it returned `501` - a number `state.json` has
+**already owned for 24 attempts** as this tree's standing no-work ledger key.
+Since run 009 `register()` calls `sync_durable_state()`, which mirrors a reading
+into `state.json` and `manifest.json`, so the read manifest is no longer the
+only registry that can own a read number; allocating from it understates
+occupancy.
+
+The consequence is destructive, not cosmetic. `build()` did
+`mkdir(parents=True, exist_ok=True)` and then wrote `source.txt` and `script.md`
+**unconditionally**, while leaving any existing `episode-NNN.mp3` in place. So
+building a second reading would overwrite the first reading's script and
+extraction and keep the first reading's audio - a script/audio mismatch that the
+fidelity gate **cannot** see, because it scores the new script against the new
+`source.txt` written in the same breath and never against the audio's
+provenance. Word coverage would read 1.0 on a feed item whose audio is a
+different paper.
+
+### The fix
+
+1. `occupied_numbers()` (new) takes the union of every registry that can own a
+   number - `read-episodes.json`, `state.json`, `manifest.json` - plus numeric
+   `episodes/NNN` directories on disk. Malformed JSON and non-numeric keys are
+   tolerated, not fatal.
+2. `next_number()` returns the lowest free number **at or above**
+   `FIRST_READ_NUMBER`, so a published interview (001-003) can never drag
+   allocation into the interview block, and a gap is filled rather than appended
+   past.
+3. `build()` refuses an explicitly-passed `--episode` whose directory already
+   holds `script.md` or `source.txt`, naming the episode, the offending files and
+   a free number. `--force` (new flag, plumbed through the CLI) still permits a
+   deliberate in-place rebuild. An **empty** directory is not a block, so
+   `mkdir`-only leftovers cannot jam the lane.
+
+### Verification
+
+`mm_next_number_repro_run030.py` **16/16 against the unmodified module**: the
+allocation collision, `build()` choosing 501 with `episodes/501` on disk, the
+in-place overwrite of script and source, the surviving stale mp3, and the
+explicit demonstration that script and `source.txt` agree with each other so the
+gate's word check is blind to the mismatch.
+
+`mm_next_number_proof_run030.py` **72/72**. Post-fix: each of the four occupancy
+sources independently reserves a number (B2a-d), gap-filling (B3), empty tree
+still starts at 501 (B4), interviews do not pull allocation down (B5), the
+four-way union lands on 505 (B6), malformed manifest tolerated (B7), non-numeric
+keys ignored (B8). Guard: occupied dir refused with a message naming episode,
+files and a free alternative (C1), auto-allocation routes around it and the old
+files stay intact (C2), `--force` works (C3), a half-built dir with only
+`source.txt` is still protected (C4), an empty dir is not blocked (C5).
+No-weakening: the **pre-fix backup still reproduces** the collision and the
+overwrite (D1a-c), **26 read-lane functions byte-identical** including
+`register`, `sync_durable_state`, `verify`, `render_episode`, `build_script`,
+`fetch_pdf_attachment` and `dehyphenate` (D2), nine constants unchanged
+including `VOICE`/`RATE`/`FIRST_READ_NUMBER` (D3), no cross-show GUID literal and
+this show's `moral-machines-` prefix still present (D4).
+
+Live, after the edit: `py_compile pipeline/*.py` clean, `next-number` now returns
+**502**, `coverage` `ok: true` 3 items / 3 published with empty
+`missing_from_feed` and `enclosure_issues`, `preflight` 001/002/003 each
+`ok: true`, a real bare `publish` `ok: true` with the item count still 3 and
+`feed-site/feed.xml` md5 **unchanged at `9fc23235`**, `verify --remote`
+`ok: true` with no issues, and live feed md5 == local.
+
+### State
+
+Change confined to `next_number()`, `build()` and the `build` CLI parser, plus
+the new `occupied_numbers()`. No gate, status string, voice, or feed byte moved.
+Backup at `pipeline/read_lane.py.bak-run030`. No publication attempted - both
+lanes are empty. Ledger under the standing no-work key 501.
+
+### Standing blocker for David, unchanged
+
+Both lanes empty; **18 on-topic items sit directly in `YF84AUZK`** with
+`collections: ['YF84AUZK']` and no subcollection, invisible to both lanes.
+Filing one into Summerize or Read gives the pipeline work immediately. Read is
+the cheaper route and needs nothing but the move: `build` pulls its own Zotero
+PDF (run 010), the publish path is lane-aware (run 013), durable state syncs
+itself (run 009), `preflight` has a read branch (run 029), and allocation is now
+collision-proof (this run).

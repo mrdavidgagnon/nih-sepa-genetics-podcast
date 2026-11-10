@@ -742,10 +742,49 @@ def register(number: str, item: dict, citation: str, extraction: dict,
     sync_durable_state(number, manifest["episodes"][number])
 
 
+def occupied_numbers() -> set[int]:
+    """Every episode number any registry or the episodes tree already owns.
+
+    Allocation has to consider more than read-episodes.json. register() calls
+    sync_durable_state(), which mirrors a reading into state.json and
+    manifest.json, and the attempt ledger additionally carries bare no-work
+    records under a read number. Reading only the read manifest therefore
+    understates occupancy and hands out a number something else already owns.
+    """
+    numbers: set[int] = set()
+    for path, default in (
+        (READ_MANIFEST, {"episodes": {}}),
+        (STATE_PATH, {"episodes": {}}),
+        (MANIFEST_PATH, {"episodes": {}}),
+    ):
+        try:
+            data = _load_json(path, default)
+        except (OSError, ValueError):
+            continue
+        for key in (data.get("episodes") or {}):
+            text = str(key)
+            if text.isdigit():
+                numbers.add(int(text))
+    if EPISODES.is_dir():
+        for child in EPISODES.iterdir():
+            if child.is_dir() and child.name.isdigit():
+                numbers.add(int(child.name))
+    return numbers
+
+
 def next_number() -> str:
-    manifest = load_read_manifest()
-    used = [int(x) for x in manifest.get("episodes", {})]
-    return str(max(used) + 1 if used else FIRST_READ_NUMBER)
+    """Lowest unused number at or above FIRST_READ_NUMBER.
+
+    Restricted to the read range so a published interview (001-003) can never
+    pull a reading's number down into the interview block, and derived from the
+    full occupancy union so an existing episode directory or ledger record
+    reserves its number.
+    """
+    occupied = {n for n in occupied_numbers() if n >= FIRST_READ_NUMBER}
+    candidate = FIRST_READ_NUMBER
+    while candidate in occupied:
+        candidate += 1
+    return str(candidate)
 
 
 def sha256(path: Path) -> str:
@@ -827,7 +866,8 @@ def fetch_pdf_attachment(item_key: str, dest: Path) -> dict:
 # build
 # --------------------------------------------------------------------------
 
-def build(number: str | None, item_key: str, pdf: Path | None) -> dict:
+def build(number: str | None, item_key: str, pdf: Path | None,
+          force: bool = False) -> dict:
     items = {x["key"]: x for x in read_collection_items()}
     item = items.get(item_key)
     if item is None:
@@ -836,6 +876,23 @@ def build(number: str | None, item_key: str, pdf: Path | None) -> dict:
     citation = full_citation(item)
     number = number or next_number()
     directory = EPISODES / number
+    # An explicitly named number can still point at an occupied directory (a
+    # human passing --episode, or a resumed run). build() writes source.txt and
+    # script.md unconditionally while leaving any existing mp3 untouched, which
+    # yields a script/audio mismatch the fidelity gate cannot detect: it scores
+    # the new script against the new source.txt and never against the audio's
+    # provenance. Refuse instead, unless the caller asks for a rebuild.
+    existing = [
+        name
+        for name in ("script.md", "source.txt")
+        if (directory / name).exists()
+    ]
+    if existing and not force:
+        raise SystemExit(
+            f"episode {number} already has {', '.join(sorted(existing))} in "
+            f"{directory}; refusing to overwrite. Pass --force to rebuild in "
+            f"place, or --episode {next_number()} for a new reading."
+        )
     directory.mkdir(parents=True, exist_ok=True)
 
     target = directory / f"source-{item_key}.pdf"
@@ -884,6 +941,8 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--episode")
     p.add_argument("--item", required=True)
     p.add_argument("--pdf", type=Path)
+    p.add_argument("--force", action="store_true",
+                   help="rebuild in place over an existing episode directory")
 
     p = sub.add_parser("render")
     p.add_argument("--episode", required=True)
@@ -905,7 +964,8 @@ def main(argv: list[str] | None = None) -> int:
         if not args.out:
             print(result["text"][:2000])
     elif args.cmd == "build":
-        print(json.dumps(build(args.episode, args.item, args.pdf), indent=1))
+        print(json.dumps(build(args.episode, args.item, args.pdf,
+                              args.force), indent=1))
     elif args.cmd == "render":
         print(json.dumps(asyncio.run(render_episode(args.episode, args.force)), indent=1))
     elif args.cmd == "verify":

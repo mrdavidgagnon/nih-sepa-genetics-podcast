@@ -958,13 +958,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T02:01:45.212494Z"
+        },
+        {
+          "attempt_id": "501-1794291483",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T06:18:03.812873Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-10T06:24:35.460137Z",
+              "detail": "run030: next_number() occupancy union (read-eps+state+manifest+episodes dirs) + build() overwrite guard; 16/16 pre-fix repro, 72/72 proof, 26 fns byte-identical",
+              "stage": "next_number_collision_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-10T06:43:03.812873Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-10T06:18:03.812873Z"
         }
       ],
-      "attempts": 24,
+      "attempts": 25,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T02:13:45Z"
+  "updated_at": "2026-11-10T06:24:45Z"
 }
