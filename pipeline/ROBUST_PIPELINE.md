@@ -416,3 +416,39 @@ could not be published at all, and because `sync_durable_state()` registers a
 reading in `manifest.json` (run 009), a bare `publish` selected it and aborted
 publication of every healthy interview episode. Do not "simplify" the branch
 back into one path.
+
+## The render-plan cache key must cover every TTS input (run 034)
+
+Both lanes cache synthesized audio under `parts-*/` and skip any part already
+present, keyed on the **render plan**. The guard only works if the plan
+contains every input that changes the audio -- and each lane was missing a
+different one:
+
+- **Read lane:** the plan recorded `script_sha256`, the chunk plan, `voice` and
+  `rate`, but not the version of `spoken_text()`, the transform applied to every
+  piece immediately before synthesis. Correcting that transform re-synthesized
+  **nothing**; the episode kept audio built from the old transform. Fixed with
+  `RENDER_TEXT_VERSION` in the plan (bump the constant when `spoken_text()`
+  changes what reaches TTS).
+- **Interview lane:** the plan recorded `script_sha256` and
+  `render_text_version`, but not the voices or rates used. A voice or rate change
+  -- the exact edit the voice-change procedure prescribes -- left every cached
+  part valid, so the episode shipped the **previous** voice under the new
+  configuration. Fixed by hoisting the `voices`/`rates` maps above the plan
+  comparison and recording them as `voices` (`<voice>@<rate>` per role).
+
+Neither defect is visible to any gate. The read lane's fidelity gate compares
+the new `script.md` against the new `source.txt` and checks duration against the
+new word count; the interview lane's `preflight`/`verify_feed` check structure,
+disclosures, enclosure sizes and feed shape. **No gate inspects what the audio
+was rendered from**, and the plan is the only provenance record there is.
+
+A third instance surfaced in the same pass: the interview lane read its plan with
+a bare `json.loads`, so a truncated plan -- what a killed background render
+leaves behind -- aborted every later `render NNN` with `JSONDecodeError` instead
+of rebuilding. The read lane had been tolerant since run 032. Now both treat an
+unreadable plan as no plan and force a full re-render.
+
+Lesson: when a cache key is a provenance record, enumerate the inputs of the
+step it guards and check each one is in the key -- and when one lane holds a
+guard, diff the other lane's equivalent path rather than assuming symmetry.

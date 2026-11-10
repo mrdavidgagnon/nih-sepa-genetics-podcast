@@ -753,17 +753,37 @@ async def render_episode(episode: str, retries: int = MAX_RETRIES, force: bool =
     parts = output_dir / "parts-robust"
     parts.mkdir(exist_ok=True)
     turns = parse_turns(script)
+    # LOCKED voices (2026-11-03): Host Ava -3%, Dr. Rowan Field Andrew +18%.
+    # Declared before the plan comparison because they are part of the cache
+    # key: a voice or rate change must invalidate the parts cache, or the
+    # episode ships the previous voice under the new configuration. Nothing
+    # downstream inspects the audio's provenance, so no gate can catch it.
+    voices = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-US-AndrewMultilingualNeural", "guest": "en-US-AndrewMultilingualNeural"}
+    rates = {"host": "-3%", "rowan": "+18%", "guest": "+18%"}
     plan = hashlib.sha256(script.read_bytes()).hexdigest()
+    voice_plan = {role: f"{voices[role]}@{rates[role]}" for role in sorted(voices)}
     plan_file = parts / "render-plan.json"
-    old_plan = json.loads(plan_file.read_text()) if plan_file.exists() else {}
+    # Read the plan defensively, mirroring the read lane. A crashed or killed
+    # render can leave a truncated plan behind, and a bare json.loads would
+    # then abort every later render with JSONDecodeError rather than
+    # rebuilding -- a permanently stuck episode that only a hand-deleted file
+    # clears. An unreadable plan is treated as no plan, which forces a full
+    # re-render: the safe direction.
+    old_plan: dict[str, Any] = {}
+    if plan_file.exists():
+        try:
+            old_plan = json.loads(plan_file.read_text())
+        except (ValueError, OSError):
+            old_plan = {}
+    if not isinstance(old_plan, dict):
+        old_plan = {}
     if (old_plan.get("script_sha256") != plan
-            or old_plan.get("render_text_version") != RENDER_TEXT_VERSION):
+            or old_plan.get("render_text_version") != RENDER_TEXT_VERSION
+            or old_plan.get("voices") != voice_plan):
         force = True
         for old in parts.glob("*.mp3"):
             old.unlink()
     edge_tts, imageio_ffmpeg = _tts_imports()
-    voices = {"host": "en-US-AvaMultilingualNeural", "rowan": "en-US-AndrewMultilingualNeural", "guest": "en-US-AndrewMultilingualNeural"}
-    rates = {"host": "-3%", "rowan": "+18%", "guest": "+18%"}
     with PipelineLock(timeout=0):
         ledger = load_ledger()
         record = ledger.setdefault("episodes", {}).setdefault(episode, {"status": "planned", "transitions": []})
@@ -801,7 +821,7 @@ async def render_episode(episode: str, retries: int = MAX_RETRIES, force: bool =
             if not temporary_output.exists() or temporary_output.stat().st_size <= 1000:
                 raise IOError("ffmpeg produced an empty output")
             os.replace(temporary_output, output)
-            atomic_json(plan_file, {"schema_version": 1, "render_text_version": RENDER_TEXT_VERSION, "script_sha256": plan, "turns": len(turns), "parts": [p.name for p in files], "completed_at": utc_now()})
+            atomic_json(plan_file, {"schema_version": 1, "render_text_version": RENDER_TEXT_VERSION, "script_sha256": plan, "voices": voice_plan, "turns": len(turns), "parts": [p.name for p in files], "completed_at": utc_now()})
             transition(ledger, episode, "rendered", "atomic render complete")
             record["artifacts"] = {"audio": str(output.relative_to(ROOT)), "audio_sha256": sha256(output), "turns": len(turns)}
             save_ledger(ledger)

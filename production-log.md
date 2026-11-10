@@ -1896,3 +1896,86 @@ issues and an empty `read_source_ownership` three passes running, read-lane
 ROBUST_PIPELINE.md documents the fix in a new `## Source ownership is lane-aware
 (run 033)` section (additive, 0 removals); the run-031 stale-doc grep returns
 only run-029's replacement prose.
+
+## Run 034 — 2026-11-10 — render-plan cache key missed a TTS input in BOTH lanes
+
+No intake unit for the 19th consecutive slice: live Summerize (`V4WXTY8M`) and
+Read (`DV6F4ILX`) both returned **0 items**, while the same **18 on-topic items
+sit directly in the parent `YF84AUZK`** with `collections: ['YF84AUZK']` and no
+subcollection. Neither lane reads the parent, so the queue is empty by
+construction. Lane choice is David's call; not filed here. Opening state was
+clean: `coverage` ok 3/3, manifest and state agree at `published_and_moved` for
+001-003, read manifest empty, stale lock with a dead owner pid (2394051, the
+normal steady state).
+
+Slice spent on a durable defect, found by diffing the two lanes' render paths
+rather than the two trees (run 032's lane-asymmetry axis).
+
+**One class, three locations: a cache key that is a provenance record, missing
+an input.**
+
+1. **Read lane** — `render_episode()`'s plan recorded `script_sha256`, the chunk
+   plan, `voice` and `rate`, but **not** the version of `spoken_text()`, the
+   transform applied to every piece immediately before synthesis. Changing that
+   transform re-synthesized **nothing**: 0 TTS calls, audio byte-identical.
+   Fixed with `RENDER_TEXT_VERSION` (new constant, in the plan).
+2. **Interview lane** — the plan recorded `script_sha256` and
+   `render_text_version` but **not** the voices/rates used. Changing Rowan's rate
+   from the locked `+18%` to `+30%` — the exact edit the documented voice-change
+   procedure prescribes — re-synthesized **nothing**, and the episode shipped the
+   old rate while the rewritten plan still recorded no rate, so the drift was
+   unrecorded too. Fixed by hoisting the `voices`/`rates` maps above the plan
+   comparison and recording them as `voices` (`<voice>@<rate>` per role).
+3. **Interview lane, surfaced by the proof harness** — the plan was read with a
+   bare `json.loads`, so a truncated plan (what a killed background render
+   leaves) aborted every later `render NNN` with `JSONDecodeError` rather than
+   rebuilding: a stuck episode only a hand-deleted file clears. The read lane has
+   been tolerant since run 032. Fixed in run034b; both lanes now treat an
+   unreadable plan as no plan.
+
+**No gate can see 1 or 2.** The read lane's fidelity gate compares the new
+`script.md` against the new `source.txt` (both written in the same breath, so
+coverage reads 1.0) and checks duration against the new word count; the interview
+lane's `preflight`/`verify_feed` check structure, disclosures, enclosure sizes
+and feed shape. Neither inspects what the audio was rendered **from**, and the
+plan is the only provenance record that exists — run 030/032's "a gate that
+derives both sides of its comparison from the same write validates internal
+consistency, not provenance", now in a third place.
+
+Proof on real code, both sides, stubbed silent-mp3 TTS (no Edge TTS spend),
+scratch trees only.
+`/opt/data/tmp/mm_render_plan_key_repro_run034.py` **29/29 against the
+unmodified modules**, including the per-lane **controls** that make this a
+finding rather than a guess: each lane's plan *does* invalidate on the input it
+*does* record (changed script re-synthesizes; unchanged script reuses the cache),
+so the missing key was the whole difference, and a fresh tree at `+30%` really
+does pass `+30%` to TTS.
+`/opt/data/tmp/mm_render_plan_key_proof_run034.py` **41/41**: both pre-fix
+backups still reproduce; post-fix a bumped transform version, a changed rate and
+a changed voice each re-synthesize every piece; **resumability preserved** in
+both lanes (unchanged config = 0 calls, deleting 2 parts re-makes exactly 2);
+nothing weakened — the fidelity gate still refuses truncation (3s vs ~27s),
+dropped source text (coverage 0.710) and injected commentary (+22 words), the
+locked voices are still Ava `-3%` / Andrew `+18%` / read-lane Ava `-3%`, no
+sibling-show string entered either module, and 14 read-lane + 16
+interview-lane functions are byte-identical (`verify`, `build`, `register`,
+`preflight`, `review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `lane_ownership`, …).
+
+Two harness bugs were fixed as harness bugs, not by relaxing a check — the rule
+from run 029. The stub wrote to the interview lane's atomic `.tmp.<pid>` name
+without `-f mp3`, so ffmpeg could not infer the container and died with exit 234
+(a code-looking failure); and a fixed-length silent stub made audio
+byte-identical across rates, turning a genuine cache-miss assertion into a stub
+artifact — the stub now encodes voice+rate in the duration. A third failure was
+real and became fix 3 above.
+
+Verification on live state: `py_compile` clean across `pipeline/`, `coverage`
+ok 3 items / 3 published with empty issue lists, `preflight` 001/002/003 each
+`ok: true` with zero issues, `reconcile --write` ok with 0 issues three passes
+running, read-lane `next-number` still 502, `publish` `ok: true` / 3 items,
+local `verify` ok, remote `verify --remote` ok, and
+`feed-site/feed.xml` md5 `9fc23235fcb49ca809059092da619b54` **unchanged across
+the whole slice and byte-identical to the live feed**. Episode mp3s 001-003
+md5-unchanged. ROBUST_PIPELINE.md documents the fix (additive, 0 removals); the
+run-031 stale-doc grep returns only run-029's replacement prose.

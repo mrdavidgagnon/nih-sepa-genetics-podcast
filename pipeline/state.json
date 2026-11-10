@@ -1056,13 +1056,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T18:49:22.686868Z"
+        },
+        {
+          "attempt_id": "501-1794351530",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T22:58:50.785935Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-10T23:05:30.489491Z",
+              "detail": "run034: render-plan cache key omits a TTS-affecting input in BOTH lanes (read: no render_text_version; interview: no voice/rate); repro 29/29 on unmodified modules with per-lane controls",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-10T23:12:19.989798Z",
+              "detail": "run034: render-plan cache key now covers spoken_text version (read lane) and the voices/rates map (interview lane); plus tolerant plan read in interview lane (run034b); repro 29/29, proof 41/41, nothing granted",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-10T23:23:50.785935Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-10T22:58:50.785935Z"
         }
       ],
-      "attempts": 28,
+      "attempts": 29,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T18:57:18Z"
+  "updated_at": "2026-11-10T23:12:19Z"
 }

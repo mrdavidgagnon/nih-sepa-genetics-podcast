@@ -51,6 +51,11 @@ ZOTERO_KEY_FILE = ROOT / "check_zotero.py"
 VOICE = "en-US-AvaMultilingualNeural"
 RATE = "-3%"
 TTS_CHUNK_CHARS = 1600
+# Bump when spoken_text() changes what is actually sent to TTS. The parts
+# cache is keyed on the render plan, and a text transform that is not in
+# that key silently reuses audio synthesized from the OLD transform --
+# invisible to the fidelity gate, which never inspects audio provenance.
+RENDER_TEXT_VERSION = 1
 WORDS_PER_MINUTE = 150.0
 FIRST_READ_NUMBER = 501
 
@@ -437,6 +442,10 @@ async def render_episode(number: str, force: bool = False) -> dict:
         ).hexdigest(),
         "voice": VOICE,
         "rate": RATE,
+        # spoken_text() rewrites every piece immediately before synthesis, so
+        # it is as much an input to the audio as the script bytes are. Without
+        # it in the key, correcting that transform re-synthesizes nothing.
+        "render_text_version": RENDER_TEXT_VERSION,
     }
     plan_file = parts / "render-plan.json"
     old_plan = {}
