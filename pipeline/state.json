@@ -953,7 +953,9 @@
             }
           ],
           "deadline_at": "2026-11-10T02:26:45.212494Z",
-          "outcome": null,
+          "detail": "run029: no intake unit (14th); CLOSED run-027's escalated read-lane publish blocker - preflight() kind=='read' branch + fidelity_gate()/parse_reading_turns(); 13/13 pre-fix repro, 11/11 post-fix, 34/34 no-weakening, 9 interview gate fns byte-identical, feed md5 unchanged, verify --remote ok, pushed 0c6e456",
+          "finished_at": "2026-11-10T02:13:45.966135Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T02:01:45.212494Z"
         }
@@ -964,5 +966,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T02:12:03Z"
+  "updated_at": "2026-11-10T02:13:45Z"
 }
