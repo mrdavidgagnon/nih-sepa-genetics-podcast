@@ -1024,7 +1024,9 @@
             }
           ],
           "deadline_at": "2026-11-10T15:03:37.073979Z",
-          "outcome": null,
+          "detail": "run032: no intake unit (17th, both lanes empty, 18 items unfiled in parent YF84AUZK); fixed read_lane.render_episode having no TTS parts-cache invalidation (index-only key meant build --force shipped the prior paper's audio; fidelity gate blind since both compare sides are freshly written) by adding render-plan.json script_sha256/pieces/voice/rate guard mirroring the interview lane; repro 31/31, p",
+          "finished_at": "2026-11-10T14:46:11.371965Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T14:38:37.073979Z"
         }
@@ -1035,5 +1037,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T14:44:52Z"
+  "updated_at": "2026-11-10T14:46:11Z"
 }
