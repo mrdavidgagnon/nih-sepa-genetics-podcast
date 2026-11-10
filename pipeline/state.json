@@ -989,10 +989,17 @@
               "at": "2026-11-10T10:29:00.842738Z",
               "detail": "",
               "stage": "started"
+            },
+            {
+              "at": "2026-11-10T10:32:48.983558Z",
+              "detail": "run031: reconcile() audio check now covers published family (was dead for all 3 shipped eps at published_and_moved); 15/15 repro + 45/45 proof; ROBUST_PIPELINE.md read-lane open-issue block replaced with run029 resolved state",
+              "stage": "code_and_docs_fixed"
             }
           ],
           "deadline_at": "2026-11-10T10:54:00.842738Z",
-          "outcome": null,
+          "detail": "run031: no intake unit (16th, both lanes empty, 18 items still unfiled in parent YF84AUZK); fixed reconcile() audio-integrity check gating on a 3-status literal set that excluded published_and_moved/published_pending_zotero_move, leaving the check dead for the entire published catalogue; corrected 49 stale ROBUST_PIPELINE.md lines that documented the run-029-resolved read-lane blocker and offered ",
+          "finished_at": "2026-11-10T10:32:49.492306Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T10:29:00.842738Z"
         }
@@ -1003,5 +1010,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T10:31:17Z"
+  "updated_at": "2026-11-10T10:32:49Z"
 }
