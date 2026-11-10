@@ -151,54 +151,57 @@ with both an interview and a reading otherwise reports a false
 reading is synthesized from the citation by `publish_feed.py`, not read off a
 manifest field.
 
-**Open issue (escalated, latent here).** `preflight()` and `status` score
-readings against interview-only rules (Host/Rowan turns, correspondent
-disclosure, AI-summary disclosure) and would fail a reading for correctly
-following the style guide, which also holds `status.healthy` at false. No
-reading has been published in this tree yet, so it is latent; the first real
-reading will trip it. The fix is a `kind == "read"` branch that defers to the
-fidelity gate, mirroring the existing read-notes branch in
-`publish_feed.py`. `preflight()` is a publication gate, so this is escalated
-rather than silenced.
+**Read-lane publication: RESOLVED (run 029).** `preflight()` is lane-aware. It
+branches on manifest `kind == "read"` — the same discriminator `publish_feed.py`
+has used since run 013 — and on that branch asserts the ABSENCE of the
+synthetic-interview disclosure and of Dr. Rowan Field (both of which the style
+guide forbids in a reading), requires the reading's own verbatim and
+text-to-speech disclosures, resolves source keys from `read_source` rather than
+`sources`, and defers to `fidelity_gate()` instead of the three-reviewer panel.
+`fidelity_gate()` *reads* the verdict `read_lane.py verify` recorded in
+`read-episodes.json`, so there is one gate and one verdict, not a
+re-implementation.
 
-**Blast radius, proven on real code (run 027).** The collision is wider than
-"a reading fails preflight", because `publish_local()` gates on
-`record.get("status") != "published"` and sends everything else to
-`preflight(require_audio=True, enforce_review=True)`:
+Interviews carry no `kind` key, so anything not explicitly a reading takes the
+interview path unchanged (nine interview gate functions were proved
+byte-identical against the pre-fix file).
 
-- `publish --episode NNN` on a gate-passed reading **raises** and cannot ship
-  it. The refusal cites `no Host/Rowan turns`, both interview disclosures and
-  `review gate: review panel is missing` — it never mentions the fidelity gate
-  the reading actually passed, so the error text points at the wrong contract.
-- Since run 009 `sync_durable_state()` writes the reading into `manifest.json`,
-  so a **bare `publish`** selects it alongside 001-003 and **aborts the whole
-  run**. One registered reading therefore blocks publication of every healthy
-  interview episode: 001/002/003 each return `preflight ok: true` individually
-  while the batch refuses. Run 009's durable-state fix is correct and must not
-  be reverted; it is what makes this reachable.
-- `read_lane.py` has **no `publish` subcommand** (`extract`, `build`, `render`,
-  `verify`, `zotero-read`, `next-number`), so there is no read-lane route around
-  the interview gate.
-- `publish_local()` statuses that trigger it: `built` and `verified` — exactly
-  the two `sync_durable_state()` assigns. Only the literal `published` is exempt,
-  which a reading cannot reach without publishing first.
+The read branch grants nothing. Each of these is still refused: `verified:
+false`, coverage under the 0.995 floor, a missing coverage figure, no registry
+entry, a missing `source.txt`, Rowan appearing in a reading, a missing
+verbatim/TTS disclosure, the Zotero-links disclosure absent from **both** script
+and notes, no `**Reader:**` turns, an empty MP3, and a citation with no year. A
+`kind` of `"READ"` in the wrong case does not unlock the read branch.
 
-Interim route that touches no gate, for the first real reading: run
-`publish_feed.py`'s `main()` directly (it already honours `verified: true` and
-has the run-013 `kind == 'read'` guard), then `verify` the feed, then
-`push --episode NNN --wait 240`. This is how runs 007/012/013 exercised the read
-lane, which is why the collision stayed invisible — those harnesses never called
-`robust_pipeline.py publish`. Verifying a lane with a harness that skips the
-mandated command does not verify the mandated command.
+Consequently the historical advice to prefer Summerize over Read is **lifted**:
+prefer Read items when any wait, since a reading is cheaper than an interview and
+`build` pulls its own Zotero PDF (run 010). Ship a reading with the mandated
+`publish --episode NNN` then `push --episode NNN --wait 240` — there is no
+interim route and none is needed. Harnesses:
+`/opt/data/tmp/mm_read_preflight_repro_run029.py` (13 pre-fix, 11 post-fix) and
+`mm_read_preflight_proof_run029.py` (34 assertions).
 
-Why it was invisible to every green check: `coverage` 3/3, `verify ok: true` and
-`publish ok: true` are all accurate while no reading is registered. Same shape as
-runs 008 and 013 — a clean state proves nothing about a class that needs a record
-no registry holds yet. Harnesses: `/opt/data/tmp/mm_read_publish_gate_run027.py`
-(18 assertions, real `preflight()` against a real `build_script()` reading) and
-`mm_read_publish_blast_run027.py` (19 assertions, real `publish_local()` against
-scratch registry copies; real `state.json`/`manifest.json`/`read-episodes.json`/
-`feed.xml` asserted md5-identical throughout).
+The lesson from how long this took to close: runs 007/012/013 exercised the read
+lane by calling `publish_feed.py` directly and never called
+`robust_pipeline.py publish`, the mandated deploy command, so the collision stayed
+invisible behind `coverage` 3/3 and `publish ok: true`. Verifying a lane with a
+harness that skips the mandated command does not verify the mandated command.
+
+**`reconcile()` checks the published FAMILY, not three literal statuses
+(run 031).** The audio-integrity check gated on the literal set
+`{"rendered", "verified", "published"}`, which omits the two documented
+published end states — `published_and_moved` (001-003's convention in this
+tree) and `published_pending_zotero_move`. Every shipped episode here sits at
+`published_and_moved`, so the check was **dead for the entire published
+catalogue**: an episode's MP3 could vanish and `reconcile` would report
+`ok: true` with no issue. It now tests `status.startswith("published")`, the
+way `feed_coverage()` already did. Non-published statuses stay exempt, a
+wrong-case status does not unlock it, and the run-008 de-duplicating extend is
+unaffected. Same class as run 005's `interview_episodes()` filter: when a status
+string is a gate, test it against **every** status the docs tell you to write.
+Harnesses `/opt/data/tmp/mm_reconcile_status_repro_run031.py` (15, against the
+unmodified module) and `mm_reconcile_status_proof_run031.py` (45, including the
+pre-fix backup still reproducing and 40 functions byte-identical).
 
 ## Review and preflight contract
 

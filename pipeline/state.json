@@ -975,16 +975,33 @@
             }
           ],
           "deadline_at": "2026-11-10T06:43:03.812873Z",
-          "outcome": null,
+          "detail": "run030: no intake unit (15th); fixed destructive read-lane allocation defect - next_number() read only the empty read-episodes.json and returned the occupied 501, and build() overwrote script/source in place leaving a stale mp3 (gate-blind script/audio mismatch); occupied_numbers() union + overwrite guard; 16/16 pre-fix repro, 72/72 proof, 26 fns byte-identical, next-number now 502, feed md5 uncha",
+          "finished_at": "2026-11-10T06:25:53.404824Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T06:18:03.812873Z"
+        },
+        {
+          "attempt_id": "501-1794306540",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-10T10:29:00.842738Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-10T10:54:00.842738Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-10T10:29:00.842738Z"
         }
       ],
-      "attempts": 25,
+      "attempts": 26,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T06:24:45Z"
+  "updated_at": "2026-11-10T10:31:17Z"
 }

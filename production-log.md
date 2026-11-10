@@ -1707,3 +1707,49 @@ the cheaper route and needs nothing but the move: `build` pulls its own Zotero
 PDF (run 010), the publish path is lane-aware (run 013), durable state syncs
 itself (run 009), `preflight` has a read branch (run 029), and allocation is now
 collision-proof (this run).
+
+## Run 031 (2026-11-10) — no intake unit (16th); reconcile() status-family fix + doc correction
+
+Both lanes empty again: Summerize V4WXTY8M 0 items, Read DV6F4ILX 0 items,
+Produced 6P2KVFKQ 10, and the same 18 items sitting unfiled directly in parent
+YF84AUZK (invisible to both lanes — still the standing blocker, David's call).
+Stale lock from run 030, owner pid dead, advisory lock free: normal steady state.
+Spent the slice on two durable defects per the idle-lane rule.
+
+**1. `reconcile()`'s audio-integrity check was dead for the whole published
+catalogue.** It gated on the literal set `{"rendered","verified","published"}`,
+which omits `published_and_moved` and `published_pending_zotero_move` — the two
+documented published end states. All three shipped episodes sit at
+`published_and_moved`, so an MP3 could vanish from 001/002/003 and `reconcile`
+would return `ok: true` with no issue. Now tests
+`status.startswith("published")`, matching `feed_coverage()`. Third instance of
+the run-005 class (a status string used as a gate, tested against fewer statuses
+than the docs tell you to write).
+
+Latent, as usual: all three episodes have their audio on disk (11.6/20.2/16.6 MB),
+so three `reconcile --write` passes showed 0 issues before and after. A clean
+state proves nothing about this class.
+
+Proof: `mm_reconcile_status_repro_run031.py` 15/15 against the **unmodified**
+module (controls `rendered`/`published` caught; both published_* states silently
+skipped at `ok: true`), `mm_reconcile_status_proof_run031.py` 45/45 (pre-fix
+backup still reproduces; all five statuses now caught; grants nothing — audio
+present still passes, planned/scripted/failed/blocked stay exempt, wrong-case
+`PUBLISHED_AND_MOVED` does not unlock it, notes check untouched, run-008 dedupe
+holds at [1,1,1]; only `reconcile` changed, 40 functions byte-identical, all
+seven gates/consumers unchanged). Real registries and feed md5-asserted
+throughout.
+
+**2. ROBUST_PIPELINE.md still documented the read-lane publication blocker as
+open.** 49 lines of "Open issue (escalated, latent here)" + run-027 blast radius
++ an "interim route" instructing the operator to call `publish_feed.py` directly
+and **bypass the mandated `robust_pipeline.py publish`** — all obsolete since run
+029 made `preflight()` lane-aware. Replaced with the resolved state: the `kind ==
+"read"` branch, what it still refuses (nothing granted), the lifting of the
+prefer-Summerize inversion, and the run-031 fix above. The doc was telling a
+future slice to route around a gate that now works.
+
+Verification: py_compile clean on all of pipeline/, coverage ok 3 items / 3
+published, preflight 001/002/003 each ok with zero issues, read-lane
+`next-number` still 502, zero `Human in the Loop` leakage in the doc, and
+`feed-site/feed.xml` md5 unchanged across the whole slice.

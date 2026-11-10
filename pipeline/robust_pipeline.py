@@ -415,7 +415,14 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
             issues.append("ledger source list differs from manifest")
         if not notes.exists():
             issues.append("missing episode-notes.md")
-        if rec.get("status") in {"rendered", "verified", "published"} and not audio:
+        # The published FAMILY, not three literal strings. The old set
+        # omitted the documented end states `published_and_moved`
+        # (001-003's convention) and `published_pending_zotero_move`, so
+        # the audio-integrity check was dead for every shipped episode in
+        # this tree: an mp3 could vanish and reconcile stayed ok:true.
+        # feed_coverage() already tests the family this way.
+        status_now = str(rec.get("status", ""))
+        if (status_now in {"rendered", "verified"} or status_now.startswith("published")) and not audio:
             issues.append("ledger says audio exists but no MP3 is present")
         artifacts = {"notes": str(notes.relative_to(ROOT)) if notes.exists() else None,
                      "audio": [str(p.relative_to(ROOT)) for p in audio]}
