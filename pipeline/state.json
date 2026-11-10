@@ -1078,7 +1078,9 @@
             }
           ],
           "deadline_at": "2026-11-10T23:23:50.785935Z",
-          "outcome": null,
+          "detail": "run034: no intake unit (19th, both lanes empty, 18 items unfiled in parent YF84AUZK); fixed the render-plan cache key omitting a TTS-affecting input in BOTH lanes (read: spoken_text transform version; interview: voices/rates map) so a config change re-synthesized nothing and shipped stale audio invisible to every gate, plus tolerant plan read in the interview lane; repro 29/29 unmodified with per-",
+          "finished_at": "2026-11-10T23:12:55.184030Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T22:58:50.785935Z"
         }
@@ -1089,5 +1091,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T23:12:19Z"
+  "updated_at": "2026-11-10T23:12:55Z"
 }
