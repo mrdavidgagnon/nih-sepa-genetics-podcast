@@ -2126,3 +2126,64 @@ and `--remote` both `ok: true` with `legacy_exempt_episodes: []`, `publish`
 Lane choice is David's call -- Summerize for an interview episode, Read for a
 verbatim reading. A Read item needs nothing but the move; `build` pulls its own
 PDF.
+
+## Run 038 — 2026-11-11 — no intake unit (23rd); `verify_feed()` now requires a non-empty item title and description
+
+Summerize `V4WXTY8M` and Read `DV6F4ILX` are both **empty** for the 23rd
+consecutive run; the 18 on-topic items still sit unfiled directly in the parent
+collection `YF84AUZK`, invisible to both lanes. Lane choice is David's call.
+Stale `.pipeline.lock` from run 037 (dead pid 2744786, advisory lock free) —
+the normal steady state — cleared with `unlock --force`. No production unit, so
+the slice went to a durable defect per the standing rule.
+
+**Defect:** `verify_feed()` checked an item's enclosure, GUID uniqueness, byte
+lengths and notes file, but never that its `<title>` and `<description>` are
+non-empty. `publish_feed.py`'s `interview_episodes()` reads both off
+`pipeline/manifest.json` and defaults description to `''`, so an episode
+registered without a `description` key shipped a live item with an empty
+`<description>` — which is exactly how **episode 002 went out**. The skill has
+carried this as a hand-check ("after any publish assert
+`len(item.findtext('description')) > 0`") since 002; nothing enforced it.
+`publish` returned `ok: true` and `verify_feed` returned `ok: true` with an
+**empty issue list**, because every check it ran passed on a feed that was
+structurally perfect and editorially blank — and `verify_feed` is the only thing
+`publish_local()` consults before shipping.
+
+**Fix:** `verify_feed()` now appends an issue per empty required field, naming
+the episode and the field, with **no waiver** — an empty title or description is
+wrong for a genuine import too, and run 036's lesson is that a waiver is a gate
+with the sign flipped. +17 lines, 0 removals.
+
+Repro **24/24** against the unmodified module (empty string, missing key, empty
+title, and the healthy-feed control). Proof **42/42**: the pre-fix backup still
+reproduces; post-fix each form is refused including whitespace-only; both fields
+blank yields exactly two issues; nothing granted — the healthy-feed verdict is
+**identical pre/post**, the new check has no `legacy_item`/warning branch, the
+refusal holds at all four publishable statuses (`published`,
+`published_and_moved`, `published_pending_zotero_move`, `rendered`) with a
+control showing a non-publishable `verified` simply emits no item to gate, and
+**only `verify_feed` changed** with 45 functions byte-identical
+(`preflight`, `review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`reconcile`, `_legacy_episode_numbers`, `lane_ownership`, `duplicate_owners`
+all untouched).
+
+Validation on real state: `coverage` ok 3/3, `preflight 001-003` ok,
+`reconcile --write` x3 at 0/0/0, `publish --episode 003` ok at 3 items with
+`feed-site/feed.xml` md5 **unchanged** (`9fc23235fcb49ca809059092da619b54`),
+`verify` local and `--remote` both `ok: true` with `legacy_exempt_episodes: []`,
+all `pipeline/*.py` compile, and no `human-in-the-loop` substring in
+`robust_pipeline.py`. Harnesses `/opt/data/tmp/mm_empty_desc_repro_run038.py`
+and `mm_empty_desc_proof_run038.py`.
+
+**Harness lesson (both harnesses hit it):** two of the failures this run were
+*harness* bugs, not code defects — the in-episode notes file is
+`episode-notes.md` (the `episode-NNN-notes.md` form is the published name under
+`feed-site/`), and asserting the refusal at ledger status `verified` false-failed
+because that status is outside `interview_episodes()`'s publishable family, so
+the episode is dropped from the feed and there is no item to gate. Both were
+fixed in the harness; the guard was not relaxed. Confirm whether the harness or
+the code is wrong before touching either.
+
+**Standing blocker (23rd consecutive run): the 18 unfiled items in `YF84AUZK`.**
+A Read item needs nothing but the move — `build` pulls its own PDF, scripts,
+gates and registers on its own.

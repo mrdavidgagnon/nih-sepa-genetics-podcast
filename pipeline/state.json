@@ -1159,13 +1159,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T11:36:04.367105Z"
+        },
+        {
+          "attempt_id": "501-1794411879",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-11T15:44:39.348321Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-11T15:46:09.677710Z",
+              "detail": "run038: verify_feed now asserts non-empty title/description per item",
+              "stage": "fix_applied"
+            }
+          ],
+          "deadline_at": "2026-11-11T16:09:39.348321Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-11T15:44:39.348321Z"
         }
       ],
-      "attempts": 32,
+      "attempts": 33,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T11:42:48Z"
+  "updated_at": "2026-11-11T15:48:02Z"
 }

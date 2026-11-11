@@ -947,6 +947,23 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             # published_and_moved / published_pending_zotero_move family this
             # tree's real episodes use; reuse that one definition.
             legacy_item = _feed_item_number(item) in legacy_numbers
+            # Required human-readable fields. publish_feed.py reads an
+            # interview item's title/description off pipeline/manifest.json and
+            # defaults description to '' -- so an episode registered without a
+            # `description` key ships a live item with an empty <description>,
+            # which is how episode 002 went out. Nothing checked it: publish
+            # returned ok: true and verify_feed returned ok: true with an empty
+            # issue list, because every check it ran passed on a feed that was
+            # structurally fine and editorially blank. verify_feed is what
+            # publish_local() consults before shipping, so the assertion the
+            # docs tell an operator to make by hand belongs here. No waiver --
+            # an empty title or description is wrong for an import too, and a
+            # waiver is a gate with the sign flipped (run 036).
+            number = _feed_item_number(item) or "?"
+            for field in ("title", "description"):
+                if not (item.findtext(field) or "").strip():
+                    result["issues"].append(
+                        f"feed item for episode {number} has an empty <{field}>")
             enclosure = item.find("enclosure")
             if enclosure is None or not enclosure.get("url"):
                 result["issues"].append("RSS item missing enclosure")

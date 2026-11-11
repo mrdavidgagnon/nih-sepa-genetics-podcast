@@ -638,3 +638,16 @@ pre/post, and 002/003 are still caught; only `_legacy_episode_numbers` and
 `status` changed, with `_produced_in_pipeline` added and **49 functions
 byte-identical** including `preflight`/`review_gate`/`fidelity_gate`/
 `feed_coverage`/`publish_local`/`reconcile`/`verify_feed`).
+
+## Required item fields are gated (run 038)
+
+`verify_feed()` requires every feed item to carry a non-empty `<title>` and
+`<description>`, reported as an issue naming the episode and the field. There is
+no waiver: an empty field is a defect for an imported episode too.
+
+`publish_feed.py` reads an interview item's title and description off
+`pipeline/manifest.json` and defaults description to `''`, so **an episode
+registered without a `description` key used to ship a live item with an empty
+`<description>`** (this happened to episode 002) while `publish` and `verify`
+both returned `ok: true`. When registering an episode, write `description` and
+`number` into the manifest alongside `title`/`sources`.
