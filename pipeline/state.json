@@ -1173,10 +1173,17 @@
               "at": "2026-11-11T15:46:09.677710Z",
               "detail": "run038: verify_feed now asserts non-empty title/description per item",
               "stage": "fix_applied"
+            },
+            {
+              "at": "2026-11-11T15:49:05.867622Z",
+              "detail": "run038: log + ROBUST_PIPELINE.md note, pushed e34c1d1, live feed byte-identical",
+              "stage": "docs_updated"
             }
           ],
           "deadline_at": "2026-11-11T16:09:39.348321Z",
-          "outcome": null,
+          "detail": "run038: no intake unit (23rd, both lanes empty, 18 items unfiled in YF84AUZK); gated the ep-002 empty-description trap -- verify_feed never checked that an item's title/description were non-empty, and publish_feed defaults description to '' from the manifest, so an episode registered without the key shipped a live empty <description> with publish ok:true and verify_feed ok:true/issues:[] (the only",
+          "finished_at": "2026-11-11T15:49:06.393883Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T15:44:39.348321Z"
         }
@@ -1187,5 +1194,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T15:48:02Z"
+  "updated_at": "2026-11-11T15:49:06Z"
 }
