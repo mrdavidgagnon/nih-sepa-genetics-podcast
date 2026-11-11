@@ -1979,3 +1979,58 @@ local `verify` ok, remote `verify --remote` ok, and
 the whole slice and byte-identical to the live feed**. Episode mp3s 001-003
 md5-unchanged. ROBUST_PIPELINE.md documents the fix (additive, 0 removals); the
 run-031 stale-doc grep returns only run-029's replacement prose.
+
+## Run 035 — 2026-11-11 (no intake unit; closed a latent feed-disclosure defect)
+
+Both intake lanes empty for the **20th consecutive run**: Summerize `V4WXTY8M` 0
+items, Read `DV6F4ILX` 0 items, while **18 on-topic items remain unfiled directly
+in the parent `YF84AUZK`**. Produced `6P2KVFKQ` holds 10 items (001-003's
+sources). The standing blocker is unchanged and is David's call: lane choice
+decides interview-vs-verbatim treatment, so the items are not filed here. A Read
+item needs nothing but the move — `build` fetches its own PDF since run 010.
+
+Stale lock from run 034's `attempt finish` cleared after both liveness checks
+(owner pid 2436947 dead, advisory `flock` free) — the documented steady state.
+
+Slice spent on a durable defect, per the standing rule for an idle queue.
+
+**Finding: `publish_feed.py` keyed the pre-produced-audio disclosure on the
+sibling show's episode numbers.** `notes_html()` branched on
+`num in ('033','034')` and emitted *"Pre-recorded audio provided by David
+Gagnon ... not reviewed or transcribed"* — correct in Human in the Loop, where
+those are MP3s David supplied. This show numbers interviews from 001, so 033/034
+are ordinary future episodes: a normal scripted, reviewed, rendered interview
+would have shipped a **false provenance claim** while **losing both mandated
+disclosures** (fictional-correspondent, AI-generated). Feed-only — the episode's
+own notes file is correct — and invisible to every gate, since `preflight` greps
+script/notes, `coverage` matches GUIDs and enclosure bytes, and `verify_feed`
+touches `<content:encoded>` only to resolve `notes.md` hrefs.
+
+Fixed by storing provenance on the record: `preproduced_episodes()` reads
+manifest `preproduced: true`, and only the literal boolean unlocks the branch.
+The two dead `num == '036'` filename overrides were removed in the same pass
+(`interview_episodes()` already derives `episode-{num}.mp3`; HITL needed them,
+this tree never did). Latent for 30+ runs and reachable in 30 episodes — a
+hardcoded *number* survives every sibling-show *string* audit runs 004-010 ran.
+
+Repro `/opt/data/tmp/mm_preproduced_repro_run035.py` **27/27 against the
+unmodified module**, including the control that makes it a finding rather than a
+guess: a neighbouring episode 032 built identically receives both correct
+disclosures, so the number was the whole difference. Proof
+`mm_preproduced_proof_run035.py` **43/43**: pre-fix backup still reproduces;
+post-fix 032/033/034 all correct; nothing granted — the branch still fires on a
+genuine `preproduced: true` and refuses `'yes'`, `false` and a corrupt manifest;
+036 still publishes; read lane, run-013 duplicate-item guard and the
+`moral-machines-` GUID prefix intact; 7 untouched functions byte-identical.
+Two harness bugs fixed as harness bugs (run 029's rule), not by relaxing checks.
+
+Verification on live state: `py_compile` clean across `pipeline/`, `coverage`
+ok 3 items / 3 published with empty issue lists, `preflight` 001/002/003 each
+`ok: true` with 0 issues, `reconcile --write` ok with 0 issues three passes
+running, read-lane `next-number` still 502, `publish` `ok: true` / 3 items,
+local `verify` ok, `verify --remote` ok, 3 `fictional composite` disclosures and
+**0** `Pre-recorded audio` strings in the feed, and `feed-site/feed.xml` md5
+`9fc23235fcb49ca809059092da619b54` **unchanged across the whole slice and
+byte-identical to the live feed**. ROBUST_PIPELINE.md documents the fix
+(additive, 0 removals); the run-031 stale-doc grep returns only run-029's
+replacement prose.

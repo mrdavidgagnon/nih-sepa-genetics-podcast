@@ -1083,13 +1083,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-10T22:58:50.785935Z"
+        },
+        {
+          "attempt_id": "501-1794367020",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-11T03:17:00.225617Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-11T03:19:42.229009Z",
+              "detail": "run035: publish_feed.notes_html branches on hardcoded sibling-show numbers ('033','034') and emits the pre-produced-audio disclosure, losing both mandated disclosures; repro 27/27 unmodified",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-11T03:21:55.820921Z",
+              "detail": "run035: preproduced_episodes() manifest flag replaces hardcoded ('033','034'); 2 dead 036 overrides removed; proof 43/43",
+              "stage": "fix_proven"
+            }
+          ],
+          "deadline_at": "2026-11-11T03:42:00.225617Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-11T03:17:00.225617Z"
         }
       ],
-      "attempts": 29,
+      "attempts": 30,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-10T23:12:55Z"
+  "updated_at": "2026-11-11T03:22:21Z"
 }

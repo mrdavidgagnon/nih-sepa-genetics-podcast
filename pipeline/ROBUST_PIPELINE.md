@@ -452,3 +452,62 @@ unreadable plan as no plan and force a full re-render.
 Lesson: when a cache key is a provenance record, enumerate the inputs of the
 step it guards and check each one is in the key -- and when one lane holds a
 guard, diff the other lane's equivalent path rather than assuming symmetry.
+
+## Episode-provenance disclosure was keyed on a sibling show's numbers (run 035)
+
+`publish_feed.py`'s `notes_html()` branched on the literal tuple
+`num in ('033','034')` and emitted the **pre-produced-audio** disclosure for
+those two numbers: *"Pre-recorded audio provided by David Gagnon ... was not
+reviewed or transcribed."* That is true in Human in the Loop, where 033/034 are
+finished MP3s David supplied. **Moral Machines numbers its interviews from 001**,
+so 033 and 034 are ordinary future episodes here. A normal scripted, reviewed,
+TTS-rendered interview reaching either number would have shipped a **false
+provenance statement** in its feed notes while **losing both mandated
+disclosures** — the fictional-correspondent paragraph and the AI-generated
+caveat — on the one episode whose notes claim no human checked it.
+
+No gate can see it. `preflight()` greps `script.md` and `episode-notes.md`;
+`feed_coverage()` matches GUIDs and enclosure byte lengths; `verify_feed()` does
+reach into `<content:encoded>` but **only to pull `notes.md` hrefs and confirm
+the file exists** — never to read the disclosure prose. So `preflight ok: true`,
+`coverage ok: true` and `verify ok: true` are all accurate and all blind, and the
+episode's own notes file on disk is correct, which makes the defect feed-only.
+
+Fixed by making provenance a property of the **record** rather than of the
+number: `preproduced_episodes()` reads manifest `preproduced: true`, and only the
+literal boolean unlocks the branch (a truthy string and `false` both do not; a
+corrupt manifest degrades to the empty set rather than raising). No episode sets
+the flag today, so the branch is dormant until one legitimately needs it. The two
+dead `num == '036'` filename overrides were removed in the same pass — HITL needed
+them because 036's on-disk name differed; here `interview_episodes()` already
+derives `episode-{num}.mp3`, so they were inherited no-ops.
+
+Two lessons:
+
+- **A cloned special case keyed on an episode number is a time bomb set to the
+  other show's calendar.** Runs 004-010 audited this tree for sibling-show
+  *strings* (titles, GUIDs, cover art, spoken show name). A hardcoded *number*
+  survives every one of those greps and fires only when this show's numbering
+  reaches it — latent for 30+ runs with 001-003 shipped, and reachable in 30
+  episodes. Grep retargeted modules for episode-number literals, not just names.
+- **This is the lane-shaped-gate class with the discriminator rotated to
+  identity.** Runs 005/009/013 were lane strings; this is the same error with an
+  episode *number* standing in for a property of the record. When a branch
+  selects behaviour by identity, ask what makes it true, and store that instead.
+
+Prove on real code both sides, scratch trees, silent `anullsrc` mp3s (no TTS
+spend). `/opt/data/tmp/mm_preproduced_repro_run035.py` (**27/27 against the
+unmodified module**, with the control that makes it a finding: a neighbouring
+episode 032 built identically gets both correct disclosures, so the number was
+the whole difference) and `mm_preproduced_proof_run035.py` (**43/43**: the
+pre-fix backup still reproduces; post-fix 032/033/034 all carry both
+disclosures; the branch still fires on a real `preproduced: true` record and
+refuses `'yes'`/`false`/corrupt input; 036 still publishes with the overrides
+gone; the read lane, the run-013 duplicate-item guard and the
+`moral-machines-` GUID prefix are intact; 7 untouched functions byte-identical).
+
+Two harness bugs were fixed as harness bugs, not by relaxing a check (run 029's
+rule): this tree carries **two** `036` overrides where HITL has three, and
+`verify_feed` *does* mention `content:encoded`, so the "no gate reads the feed
+notes" assertion had to be narrowed to what that code actually does with it
+rather than claiming the string is absent.

@@ -158,8 +158,33 @@ def duration(path):
     sec=int(m.group(1))*3600+int(m.group(2))*60+round(float(m.group(3))) if m else 0
     return f'{sec//3600:02d}:{(sec%3600)//60:02d}:{sec%60:02d}'
 
+def preproduced_episodes():
+    """Episode numbers whose audio was supplied finished, not pipeline-rendered.
+
+    This was a hardcoded tuple of episode numbers carried over verbatim from the
+    sibling show, where 033/034 really are pre-recorded audio David supplied.
+    Moral Machines numbers its interviews from 001, so those numbers are
+    ordinary future episodes here: a normal scripted, reviewed, TTS-rendered
+    interview 033 would have taken the branch and shipped a FALSE provenance
+    statement ("pre-recorded audio provided by David Gagnon ... not reviewed or
+    transcribed") while LOSING the fictional-correspondent and AI-generated
+    disclosures the style guide mandates. No gate inspects
+    <content:encoded>, so preflight/verify/coverage all stay green on it.
+
+    Provenance is now a property of the RECORD, declared as manifest
+    ``preproduced: true``, so it travels with the episode instead of with its
+    number. No episode in this show sets it today; the branch is dormant until
+    one legitimately does.
+    """
+    try:
+        manifest = json.loads((ROOT/'pipeline'/'manifest.json').read_text())
+    except (OSError, ValueError):
+        return set()
+    return {str(num) for num, rec in (manifest.get('episodes') or {}).items()
+            if rec.get('preproduced') is True}
+
 def notes_html(num):
-    if num in ('033','034'):
+    if num in preproduced_episodes():
         t=(ROOT/'episodes'/num/'episode-notes.md').read_text()
         links=[]
         for line in t.splitlines():
@@ -188,9 +213,6 @@ def main():
     # Preserve the existing pilot entry verbatim enough for stable GUID and links.
     dates = production_dates()
     for num,title,fn,desc,guid,base in EP:
-        if num == '036':
-            fn = 'episode-036.mp3'
-
         p=SITE/(base+'.mp3'); pub_date = dates.get(num, LEGACY_PUB_DATE); items.append(f'''      <item><title>{escape(title)}</title><description>{escape(desc)}</description><content:encoded><![CDATA[{notes_html(num)}]]></content:encoded><guid isPermaLink="false">moral-machines-{guid}</guid><pubDate>{pub_date}</pubDate><enclosure url="{BASE_URL}/{base}.mp3" length="{p.stat().st_size}" type="audio/mpeg"/><itunes:duration>{duration(p)}</itunes:duration><itunes:episode>{int(num)}</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:explicit>false</itunes:explicit><itunes:image href="{BASE_URL}/cover.png"/></item>''')
     for num, rec in read_episodes():
         base = f"episode-{num}-reading"
@@ -208,9 +230,6 @@ def main():
     atomic_text(SITE/'feed.xml', xml)
     index_items=[]
     for num,title,fn,desc,guid,base in EP:
-        if num == '036':
-            fn = 'episode-036.mp3'
-
         index_items.append(f'<li><a href="{base}.mp3">Episode {num} — {escape(title)}</a> · <a href="{base}-notes.md">notes</a></li>')
     for num, rec in read_episodes():
         base = f"episode-{num}-reading"
