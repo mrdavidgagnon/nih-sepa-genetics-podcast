@@ -2034,3 +2034,59 @@ local `verify` ok, `verify --remote` ok, 3 `fictional composite` disclosures and
 byte-identical to the live feed**. ROBUST_PIPELINE.md documents the fix
 (additive, 0 removals); the run-031 stale-doc grep returns only run-029's
 replacement prose.
+
+## 2026-11-11 — run 036: verify_feed()'s legacy notes-exemption fired on episode 001
+
+**No intake unit (21st consecutive).** Summerize `V4WXTY8M` 0 items, Read
+`DV6F4ILX` 0 items, Produced `6P2KVFKQ` 10 items (001-003's ten source parents,
+all confirmed moved). The 18 unfiled on-topic items still sit directly in the
+parent collection `YF84AUZK` with no subcollection, invisible to both lanes —
+still the standing blocker and still David's call, since lane choice decides
+interview-vs-verbatim treatment.
+
+Stale lock from run 035's `attempt finish` cleared after both liveness checks
+(owner pid 2536639 absent from /proc, non-blocking flock acquired) — the normal
+steady state.
+
+Slice spent on a durable defect, per the "both lanes idle" rule.
+
+**Defect.** `verify_feed()` demoted a missing `episode-NNN-notes.md` from an
+issue to a warning for any item it judged legacy, keyed on the feed's
+`<itunes:episode>` value being the string `"1"`. `publish_feed.py` emits
+`{int(num)}`, so episode **001** always matches — and 001 is a fully gated
+interview here (43 turns, three-reviewer panel passed, rendered in-pipeline,
+ledger `published_and_moved`), not imported history. Net effect: 001's notes
+file could vanish locally or 404 live and `verify` returned `ok: true` with an
+empty issue list, which is the only thing `publish_local()` consults before
+shipping. 002 and 003 were caught correctly — the detector worked; the episode
+number was the whole difference.
+
+**Fix.** Exemption now keyed on the durable ledger: `_legacy_episode_numbers()`
+returns episodes at the literal status `published`, the same discriminator
+`status()` uses. The `published*` family (`published_and_moved`,
+`published_pending_zotero_move`) is not exempt. `_feed_item_number()` derives the
+number from the GUID as `feed_coverage()` does, and `verify_feed()` now reports
+`legacy_exempt_episodes` (`[]` here = healthy).
+
+**Proof.** `/opt/data/tmp/mm_legacy_exempt_repro_run036.py` 23/23 against the
+unmodified module, with the 002 control. `mm_legacy_exempt_proof_run036.py`
+39/39: pre-fix backup still reproduces; post-fix 001 caught as an issue; nothing
+granted (002/003 still caught, intact-feed verdict identical pre/post); a genuine
+ledger `published` still exempted and named; all five of
+`published_and_moved`/`published_pending_zotero_move`/`PUBLISHED`/`verified`/
+`rendered` refused the waiver; only `verify_feed` changed, 42 functions
+byte-identical, `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local` untouched. Latent: all three notes files are present and live-200,
+so the demotion was never exercised on real state.
+
+**Validation on real state.** coverage ok 3/3; preflight 001/002/003 all ok;
+`reconcile --write` 0 issues three passes (run-008 dedupe holding); verify local
+ok with `legacy_exempt_episodes: []` and no warnings; verify `--remote` ok;
+`publish` ok with `feed.xml` md5 `9fc23235fcb49ca809059092da619b54` **unchanged**,
+3 items, every `<description>` non-empty, no `human-in-the-loop` substring in any
+GUID.
+
+Class note: this is run 035's error in a second location — an episode *number*
+standing in for a property of the record. A waiver is a gate with the sign
+flipped, so audit which records a branch *exempts*, not only which statuses it
+accepts.

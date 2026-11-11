@@ -1110,13 +1110,40 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T03:17:00.225617Z"
+        },
+        {
+          "attempt_id": "501-1794382105",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-11T07:28:25.116667Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-11T07:32:10.312728Z",
+              "detail": "run036: verify_feed legacy notes-exemption keyed on itunes:episode=='1' (=ep 001, a fully-gated episode) now keyed on ledger status 'published'; repro 23/23, proof 39/39",
+              "stage": "legacy_exempt_fixed"
+            },
+            {
+              "at": "2026-11-11T07:34:05.123152Z",
+              "detail": "run036: coverage 3/3, preflight 001-003 ok, reconcile 0x3, verify local+remote ok with legacy_exempt_episodes [], publish ok, feed md5 unchanged",
+              "stage": "validated"
+            }
+          ],
+          "deadline_at": "2026-11-11T07:53:25.116667Z",
+          "detail": "run036: no intake unit (21st, both lanes empty, 18 items unfiled in parent YF84AUZK); fixed verify_feed legacy notes-exemption keyed on <itunes:episode>=='1' which always matches episode 001 -- a fully-gated interview here -- so 001's notes file could vanish locally or 404 live with verify ok:true and publish_local shipping it; exemption now keyed on ledger status literal 'published' (status()'s o",
+          "finished_at": "2026-11-11T07:34:05.622595Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-11T07:28:25.116667Z"
         }
       ],
-      "attempts": 30,
+      "attempts": 31,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T03:23:39Z"
+  "updated_at": "2026-11-11T07:34:05Z"
 }

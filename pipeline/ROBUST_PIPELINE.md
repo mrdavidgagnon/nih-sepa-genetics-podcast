@@ -511,3 +511,65 @@ rule): this tree carries **two** `036` overrides where HITL has three, and
 `verify_feed` *does* mention `content:encoded`, so the "no gate reads the feed
 notes" assertion had to be narrowed to what that code actually does with it
 rather than claiming the string is absent.
+
+## `verify_feed()`'s legacy exemption fired on episode 001 (fixed run 036)
+
+The notes-file checks in `verify_feed()` -- local **and** live -- demoted a
+missing `episode-NNN-notes.md` from an `issue` to a `warning` for any item the
+function judged "legacy", and that judgement was keyed on the feed's own
+`<itunes:episode>` value being the literal string `"1"`:
+
+```python
+legacy_item = item.findtext("{...}episode") == "1"      # pre-fix
+```
+
+`publish_feed.py` emits `<itunes:episode>{int(num)}</itunes:episode>`, so
+**episode 001 of this show always renders as `1`** -- and 001 here is a fully
+gated interview (43 dialogue turns, three-reviewer panel passed, rendered and
+published through this pipeline), not imported history. The exemption meant for
+pre-pipeline imports therefore landed permanently on a current episode: delete
+`feed-site/episode-001-notes.md`, or let the live copy 404, and `verify` returns
+**`ok: true` with an empty issue list**. Since `publish_local()` raises only when
+`verify_feed()` is not ok, that is the gate declining to stop a deploy whose
+notes file is missing. Episodes 002 and 003 were caught correctly, which is the
+tell: the detector worked and the episode *number* was the whole difference.
+
+Fixed by keying the exemption on the **durable ledger** instead of the feed:
+`_legacy_episode_numbers()` returns episodes whose ledger status is the literal
+`published`, which is exactly the discriminator `status()` already uses for
+"legacy published episodes predate checked-in scripts/review panels". The
+`published*` family this tree's real episodes use (`published_and_moved`,
+`published_pending_zotero_move`) is **not** exempt, and `_feed_item_number()`
+derives the number from the GUID the way `feed_coverage()` does. `verify_feed()`
+now also reports `legacy_exempt_episodes`, which is `[]` in this tree -- an
+empty list is the healthy state, and a non-empty one should name a genuine
+import.
+
+Lessons:
+
+- **This is run 035's class in a second location.** Run 035 found the
+  pre-produced-audio disclosure keyed on episode numbers (`'033'`, `'034'`)
+  borrowed from the sibling show; this is an exemption keyed on the number `1`.
+  An episode number is never a property of the record -- when a branch grants a
+  waiver, ask what makes the waiver true and store *that*.
+- **A waiver is a gate with the sign flipped.** The audit habit of asking "which
+  status strings does this gate accept?" (runs 005/031) has a mirror image: ask
+  which records a branch *exempts*, because an over-broad exemption is invisible
+  in every green check. `coverage` 3/3 and `verify ok: true` were both accurate
+  and both blind to this.
+- Latent, as usual: all three notes files are present locally and return 200
+  live, so nothing in the real tree ever exercised the demotion.
+
+Prove on real code both sides, on scratch feed-site copies (symlink the mp3s --
+a scratch tree on another filesystem makes `os.link` fail with
+`Invalid cross-device link`). Harnesses
+`/opt/data/tmp/mm_legacy_exempt_repro_run036.py` (**23/23 against the unmodified
+module**, with the 002 control proving the detector works) and
+`mm_legacy_exempt_proof_run036.py` (**39/39**: the pre-fix backup still
+reproduces; post-fix 001 is caught as an issue; nothing granted -- 002/003 still
+caught and an intact feed's verdict is identical pre/post; a genuine ledger
+status `published` is still exempted and named; all five of
+`published_and_moved`/`published_pending_zotero_move`/`PUBLISHED`/`verified`/
+`rendered` are refused the waiver; only `verify_feed` changed, with 42 functions
+byte-identical and `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local` untouched).

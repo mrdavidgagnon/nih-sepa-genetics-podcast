@@ -847,6 +847,36 @@ async def _async_retry(operation, attempts: int):
             await asyncio.sleep(2 ** (n - 1))
 
 
+def _feed_item_number(item: "ET.Element") -> str:
+    """Episode number for a feed item, read from its GUID then its enclosure.
+
+    Same derivation feed_coverage() uses, and stable across the interview
+    naming scheme and the read lane's `-reading` suffix.
+    """
+    guid = (item.findtext("guid") or "").strip()
+    enclosure = item.find("enclosure")
+    url = (enclosure.get("url") or "") if enclosure is not None else ""
+    found = re.findall(r"episode-(\d+)", guid) or re.findall(r"episode-(\d+)", url)
+    return found[0] if found else ""
+
+
+def _legacy_episode_numbers() -> set[str]:
+    """Episodes that predate this pipeline, per the durable ledger.
+
+    The literal status "published" only -- NOT the published* family. status()
+    uses exactly this test to decide which episodes keep their audit issues
+    without counting as an active failure; episodes produced here reach
+    "published_and_moved" (001-003's convention) or the pre-move
+    "published_pending_zotero_move" and are therefore never exempt.
+    """
+    try:
+        ledger = json.loads(LEDGER_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return set()
+    return {str(number) for number, rec in (ledger.get("episodes") or {}).items()
+            if isinstance(rec, dict) and rec.get("status") == "published"}
+
+
 def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
     """Verify local RSS/files and optionally the deployed feed over HTTP."""
     feed_path = Path(feed) if not str(feed).startswith(("http://", "https://")) else None
@@ -865,12 +895,25 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             except Exception as exc:
                 result["issues"].append(f"remote feed check failed for {remote_feed}: {exc}")
         items = root.findall(".//item")
+        legacy_numbers = _legacy_episode_numbers()
+        result["legacy_exempt_episodes"] = sorted(legacy_numbers)
         guids = [item.findtext("guid", "") for item in items]
         if len(guids) != len(set(guids)):
             result["issues"].append("duplicate RSS GUID")
         result["checks"].append({"name": "feed_parse", "ok": True, "items": len(items)})
         for item in items:
-            legacy_item = item.findtext("{http://www.itunes.com/dtds/podcast-1.0.dtd}episode") == "1"
+            # Legacy = what the ledger says, NOT what the feed numbers say.
+            # This was keyed on `<itunes:episode> == "1"`, which publish_feed.py
+            # emits for episode 001 (`{int(num)}`) -- a fully gated interview in
+            # this tree, three-reviewer panel and all. So the exemption meant
+            # for imported history landed on a current episode and demoted its
+            # missing-notes failure (local AND live) to a warning, leaving
+            # verify_feed ok: true and publish_local happy to ship it.
+            # status() already defines legacy as the literal ledger status
+            # "published" (pre-pipeline imports), distinct from the
+            # published_and_moved / published_pending_zotero_move family this
+            # tree's real episodes use; reuse that one definition.
+            legacy_item = _feed_item_number(item) in legacy_numbers
             enclosure = item.find("enclosure")
             if enclosure is None or not enclosure.get("url"):
                 result["issues"].append("RSS item missing enclosure")
