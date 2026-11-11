@@ -1154,7 +1154,9 @@
             }
           ],
           "deadline_at": "2026-11-11T12:01:04.367105Z",
-          "outcome": null,
+          "detail": "run037: no intake unit (22nd, both lanes empty, 18 items unfiled in parent YF84AUZK); fixed run 036's own waiver test -- verify_feed's missing-notes exemption was keyed on the ledger status literal 'published', which publish_local() writes itself (verified -> published) and load_ledger() assigns when bootstrapping from manifest, so every gated episode was waived across the publish->move window and",
+          "finished_at": "2026-11-11T11:42:48.665032Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T11:36:04.367105Z"
         }
@@ -1165,5 +1167,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T11:42:16Z"
+  "updated_at": "2026-11-11T11:42:48Z"
 }
