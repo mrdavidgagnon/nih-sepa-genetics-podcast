@@ -860,21 +860,54 @@ def _feed_item_number(item: "ET.Element") -> str:
     return found[0] if found else ""
 
 
-def _legacy_episode_numbers() -> set[str]:
-    """Episodes that predate this pipeline, per the durable ledger.
+PRODUCTION_TRANSITIONS = frozenset({
+    "rendering", "rendered", "review_pending", "reviewed", "verified",
+})
 
-    The literal status "published" only -- NOT the published* family. status()
-    uses exactly this test to decide which episodes keep their audit issues
-    without counting as an active failure; episodes produced here reach
-    "published_and_moved" (001-003's convention) or the pre-move
-    "published_pending_zotero_move" and are therefore never exempt.
+
+def _produced_in_pipeline(number: str, rec: dict[str, Any]) -> bool:
+    """True if this episode shows positive evidence of local production.
+
+    Either the ledger record passed through a production state, or a script
+    exists on disk. The disk test is what still holds when a ledger rebuilt
+    from manifest.json has erased the transition history (load_ledger()'s
+    bootstrap maps published_and_moved -> "published" with a single synthetic
+    transition).
+    """
+    for item in rec.get("transitions") or []:
+        if isinstance(item, dict) and str(item.get("to", "")) in PRODUCTION_TRANSITIONS:
+            return True
+    return (ROOT / "episodes" / str(number) / "script.md").exists()
+
+
+def _legacy_episode_numbers() -> set[str]:
+    """Episodes that predate this pipeline, per the durable ledger plus disk.
+
+    A waiver must rest on evidence of what it waives. Keying "imported history"
+    on the ledger status literal "published" alone does NOT establish that:
+    publish_local() writes exactly that status (verified -> published) and the
+    load_ledger() bootstrap maps published_and_moved -> "published", so every
+    episode produced here sits at it between publish and the Zotero move, and a
+    rebuilt ledger puts the whole catalogue there at once. That demoted a
+    fully-gated episode's missing-notes failure to a warning.
+
+    So require all three: the literal status "published" (never the published*
+    family), no in-pipeline production transition, and no script on disk. The
+    first keeps run 036's test; the other two are positive evidence the episode
+    was never produced here, and can only narrow the set.
     """
     try:
         ledger = json.loads(LEDGER_PATH.read_text())
     except (OSError, json.JSONDecodeError):
         return set()
-    return {str(number) for number, rec in (ledger.get("episodes") or {}).items()
-            if isinstance(rec, dict) and rec.get("status") == "published"}
+    legacy = set()
+    for number, rec in (ledger.get("episodes") or {}).items():
+        if not isinstance(rec, dict) or rec.get("status") != "published":
+            continue
+        if _produced_in_pipeline(str(number), rec):
+            continue
+        legacy.add(str(number))
+    return legacy
 
 
 def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
@@ -1286,7 +1319,7 @@ def status() -> dict[str, Any]:
         # Legacy published episodes predate checked-in scripts/review panels;
         # retain their audit issues without treating them as an active failure.
         pre = preflight(number, require_audio=False, enforce_review=False)
-        is_legacy = rec.get("status") == "published"
+        is_legacy = number in _legacy_episode_numbers()
         entry = {"state": rec.get("status"), "attempts": rec.get("attempts", 0), "errors": rec.get("errors", [])[-3:], "preflight_ok": True if is_legacy else pre["ok"], "issues": [] if is_legacy else pre["issues"]}
         if is_legacy and pre["issues"]:
             entry["legacy_audit_issues"] = pre["issues"]

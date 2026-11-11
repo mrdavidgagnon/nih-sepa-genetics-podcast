@@ -1137,13 +1137,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T07:28:25.116667Z"
+        },
+        {
+          "attempt_id": "501-1794396964",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-11T11:36:04.367105Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-11T11:42:16.233150Z",
+              "detail": "run037: verify_feed legacy waiver re-keyed off the publish-written status 'published' onto positive never-produced-here evidence; repro 19/19, proof 43/43",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-11T12:01:04.367105Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-11T11:36:04.367105Z"
         }
       ],
-      "attempts": 31,
+      "attempts": 32,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T07:34:05Z"
+  "updated_at": "2026-11-11T11:42:16Z"
 }

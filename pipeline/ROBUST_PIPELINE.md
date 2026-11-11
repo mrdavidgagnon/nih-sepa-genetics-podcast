@@ -573,3 +573,68 @@ status `published` is still exempted and named; all five of
 `rendered` are refused the waiver; only `verify_feed` changed, with 42 functions
 byte-identical and `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
 `publish_local` untouched).
+
+## Run 036's own waiver status is one the pipeline writes (fixed run 037)
+
+Run 036 moved the notes waiver off the feed's `<itunes:episode> == "1"` and onto
+the **ledger status literal `published`**, documented as "pre-pipeline imports".
+That status is not evidence of an import. `publish_local()` writes it itself --
+`if record.get("status") == "verified": transition(ledger, number, "published",
+...)` -- and `load_ledger()`'s bootstrap maps manifest `published_and_moved` ->
+`published`. So:
+
+- **Every episode produced here sits at the waived status** for the whole window
+  between `publish` and the Zotero move, which is exactly when its notes file is
+  newly deployed and most likely to be missing.
+- **A ledger rebuilt from `manifest.json`** (delete `state.json`, any fresh
+  clone) puts **all three** of 001-003 at `published` at once, waiving the entire
+  catalogue in one step.
+
+Proved on the unmodified module: with `episode-001-notes.md` deleted and 001 at
+`published`, `verify_feed` returned **`ok: true`, `issues: []`**, the loss
+demoted to a warning and `legacy_exempt_episodes: ['001']`. The control -- the
+*identical* loss with 001 at `published_and_moved` -- was correctly refused
+`ok: false`, proving the detector works and the status string was the whole
+difference. `publish_local()` raises only when `verify_feed()` is not ok, so
+this was again the gate declining to stop a deploy with a missing notes file.
+
+Fixed by requiring **positive evidence that the episode was never produced
+here**. `_legacy_episode_numbers()` now grants the waiver only when all three
+hold: the literal status `published` (run 036's test, kept), **no** in-pipeline
+production transition (`rendering`/`rendered`/`review_pending`/`reviewed`/
+`verified`, via the new `_produced_in_pipeline()`), and **no**
+`episodes/NNN/script.md` on disk. The disk test is what still holds when a
+rebuilt ledger has erased the transition history. `status()` was pointed at the
+same helper so there is one definition of legacy. The set can only **shrink**
+relative to run 036, so the waiver cannot be widened by this change.
+
+Lessons:
+
+- **A waiver must rest on evidence of the thing it waives, and a status your own
+  code writes is not evidence.** Run 036 correctly stopped keying the waiver on
+  an episode *number*, then keyed it on a status string the publish path
+  assigns. The right question is not "which status means legacy?" but "what
+  observable fact distinguishes an import from our own output?" -- here, the
+  absence of production transitions and of a script on disk.
+- **Check whether a discriminator you borrow is *written* by the pipeline.**
+  `status()` had used this test for a while, which is what made it look
+  authoritative; reusing it propagated the flaw rather than validating it.
+  `grep -n 'transition(ledger' pipeline/robust_pipeline.py` lists every status
+  the code can author -- none of those can stand alone as proof of provenance.
+- Latent in the usual way: all three notes files are present locally and 200
+  live, so `coverage` 3/3 and `verify ok: true` were accurate and blind.
+
+Harnesses `/opt/data/tmp/mm_legacy_status_repro_run037.py` (**19/19 against the
+unmodified module**: the two writers of `published`, all three episodes' real
+production transitions, the hidden notes loss, the `published_and_moved`
+control, and the rebuilt-ledger case waiving all three at once) and
+`mm_legacy_status_proof_run037.py` (**43/43**: the pre-fix backup still
+reproduces; post-fix 001 is caught; each of the five production transitions
+independently blocks the waiver; a script on disk alone blocks it; **nothing
+granted** -- a genuine import is still exempted *and still named*, all six of
+`published_and_moved`/`published_pending_zotero_move`/`PUBLISHED`/`Published`/
+`verified`/`rendered` are refused, an intact feed's verdict is identical
+pre/post, and 002/003 are still caught; only `_legacy_episode_numbers` and
+`status` changed, with `_produced_in_pipeline` added and **49 functions
+byte-identical** including `preflight`/`review_gate`/`fidelity_gate`/
+`feed_coverage`/`publish_local`/`reconcile`/`verify_feed`).

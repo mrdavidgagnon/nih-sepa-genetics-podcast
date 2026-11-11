@@ -2090,3 +2090,39 @@ Class note: this is run 035's error in a second location — an episode *number*
 standing in for a property of the record. A waiver is a gate with the sign
 flipped, so audit which records a branch *exempts*, not only which statuses it
 accepts.
+
+## Run 037 -- 2026-11-11 -- no intake unit (22nd); fixed the run-036 waiver's status test
+
+Summerize `V4WXTY8M` **0 items**, Read `DV6F4ILX` **0 items**, Produced
+`6P2KVFKQ` 10 items; **18 items still unfiled** directly in parent `YF84AUZK`,
+invisible to both lanes. No production unit available, so the slice went to a
+durable defect per the standing rule.
+
+**Defect:** run 036 re-keyed `verify_feed()`'s missing-notes waiver onto the
+ledger status literal `published` as "pre-pipeline imports", but
+`publish_local()` writes that status itself and `load_ledger()`'s bootstrap maps
+`published_and_moved` -> `published`. A fully gated episode was therefore
+waived during the whole publish->move window, and a ledger rebuilt from the
+manifest waived all three of 001-003 at once. With 001's notes file deleted,
+the unmodified module returned `ok: true` / `issues: []`; the same loss at
+`published_and_moved` was correctly refused (control).
+
+**Fix:** the waiver now requires the literal status `published` **plus** no
+in-pipeline production transition **plus** no `episodes/NNN/script.md` -- i.e.
+positive evidence the episode was never produced here. `status()` reuses the
+same helper. The exempt set can only shrink.
+
+Repro **19/19** against the unmodified module; proof **43/43** (pre-fix backup
+still reproduces, nothing granted, genuine imports still exempted and named, 49
+functions byte-identical). Validation on real state: `coverage` ok 3/3,
+`preflight 001-003` ok, `reconcile --write` x3 at 0/0/0 issues, `verify` local
+and `--remote` both `ok: true` with `legacy_exempt_episodes: []`, `publish`
+`ok: true` at 3 items with `feed-site/feed.xml` md5 **unchanged**
+(`9fc23235fcb49ca809059092da619b54`), all `pipeline/*.py` compile, and no
+`human-in-the-loop` substring in the feed or in `robust_pipeline.py`.
+`status.healthy` stays `false` on the pre-existing 501 no-work stub only.
+
+**Standing blocker (22nd consecutive run): the 18 unfiled items in `YF84AUZK`.**
+Lane choice is David's call -- Summerize for an interview episode, Read for a
+verbatim reading. A Read item needs nothing but the move; `build` pulls its own
+PDF.
