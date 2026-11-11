@@ -2187,3 +2187,36 @@ the code is wrong before touching either.
 **Standing blocker (23rd consecutive run): the 18 unfiled items in `YF84AUZK`.**
 A Read item needs nothing but the move — `build` pulls its own PDF, scripts,
 gates and registers on its own.
+
+---
+
+## Run 039 (2026-11-11) — steady state, no intake unit (24th consecutive)
+
+**Intake reconcile (live):** Summerize `V4WXTY8M` = 0, Read `DV6F4ILX` = 0
+(LMV 10280). Produced `6P2KVFKQ` = 19 (all published sources + children).
+Parent `YF84AUZK` = 25 (18 unfiled bioethics / genome-editing items + 7
+attachments), all dateAdded 2026-11-03, unchanged since run 005. No deletions.
+Neither lane has a unit.
+
+**Selection:** no actionable unit. The 18 unfiled items in `YF84AUZK` are the
+standing blocker and are **David's call** (lane choice = interview-vs-verbatim
+treatment); per the skill, do not file them. No Read item to prefer.
+
+**Durable-defect scan:** grep of `README.md` / `style_guide.md` /
+`ROBUST_PIPELINE.md` for open / escalated / deferred / blocked markers surfaced
+only historical (already-fixed) references — no new logged or deferred defect.
+The run-010 port census is closed and the read lane is fully exercised (runs
+006-013, 029-035), so no defect was hunted this slice; the slice went to
+validation.
+
+**Validation (deterministic, final window):**
+- `coverage` ok 3/3 (3 items, 3 published, no issues)
+- `verify feed-site/feed.xml` local `ok: true`, 3 items, `issues: []`, `warnings: []`, `legacy_exempt_episodes: []`
+- `verify --remote` (live) `ok: true`; all 3 episodes audio 206 / notes 200
+- feed md5 local == live == `9fc23235fcb49ca809059092da619b54` (unchanged since the byte-stable feed; zero deploy drift)
+- no `human-in-the-loop` substring in any `pipeline/*.py`
+- git: local HEAD == origin/main (`2d4e8a0`); only `state.json` modified (this attempt record)
+
+**Outcome:** no episode/reading created, rendered, or published; no gate, code,
+or feed byte moved. Steady state re-confirmed (24th consecutive). Standing
+blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.

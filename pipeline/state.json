@@ -1186,13 +1186,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T15:44:39.348321Z"
+        },
+        {
+          "attempt_id": "501-1794427092",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-11T19:58:12.123709Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-11T20:05:54.998270Z",
+              "detail": "run039: live Summerize 0 / Read 0 (LMV 10280); Produced 19 (all published sources); parent YF84AUZK 18 unfiled + 7 att unchanged since run005; no intake unit (24th consecutive); no new open/deferred defect in docs",
+              "stage": "reconcile"
+            }
+          ],
+          "deadline_at": "2026-11-11T20:23:12.123709Z",
+          "detail": "run039: no intake unit (24th, both lanes 0, 18 items unfiled in YF84AUZK, David's call); steady-state validation all clean - coverage 3/3, verify local+remote ok (3 items, no issues/warnings, legacy_exempt []), feed md5 local==live 9fc23235, no HITL substring in code, local HEAD==origin 2d4e8a0; no gate/code/feed byte moved",
+          "finished_at": "2026-11-11T20:24:42.252197Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-11T19:58:12.123709Z"
         }
       ],
-      "attempts": 33,
+      "attempts": 34,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T15:49:06Z"
+  "updated_at": "2026-11-11T20:24:42Z"
 }
