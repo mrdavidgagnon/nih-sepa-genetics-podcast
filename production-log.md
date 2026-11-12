@@ -2220,3 +2220,79 @@ validation.
 **Outcome:** no episode/reading created, rendered, or published; no gate, code,
 or feed byte moved. Steady state re-confirmed (24th consecutive). Standing
 blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.
+
+---
+
+## Run 041 (2026-11-12) — no intake unit (25th); `publish` could erase a published episode
+
+**Intake reconcile (live):** Summerize `V4WXTY8M` = 0 top-level, Read
+`DV6F4ILX` = 0 (library version 10642). Produced `6P2KVFKQ` = 19 (10 top-level
++ children). Parent `YF84AUZK` = 25 (18 unfiled items + 7 attachments),
+unchanged since run 005. The library version moved 10280 -> 10642 since run
+039, but every changed item belongs to unrelated Field Day collections
+(`collections: None`); 149 deletions, none in this show's lanes. Neither lane
+has a unit.
+
+**Selection:** no actionable unit, so the slice went to a durable defect per
+the standing rule. The 18 unfiled items in `YF84AUZK` remain the standing
+blocker and are **David's call** (lane choice = interview-vs-verbatim
+treatment).
+
+**Stale lock:** owner pid 158814 from run 040's own `attempt finish`; `/proc`
+absent and a non-blocking `flock` succeeded, so `unlock --force`. Normal steady
+state, not an overlapping run.
+
+**Defect found and fixed: `publish_local()` could not see an ERASED episode.**
+
+`publish_local()` built the feed, validated it with `verify_feed()` and
+transitioned the ledger. `verify_feed()` iterates the items the feed
+**contains**, so it is structurally unable to notice one that is gone. The feed
+is rebuilt from `manifest.json` + ledger status each publish, so anything that
+drops an episode out of `interview_episodes()` erases a **live** episode while
+`publish` returns `ok: true` with an empty issue list. Two reachable routes,
+both proved on real code with 001-003: a lost `manifest.json` entry (also
+`publish_local()`'s selection source, so the episode is not even preflighted),
+and a status moved outside the `published*` family.
+
+The detector already existed — `feed_coverage()` — but was read-only, CLI-only
+and **referenced nowhere in the publish path**, so the documented "run
+`coverage` first every slice" habit would only catch the erasure on the *next*
+slice, after a push had already taken the episode off the live feed.
+`publish_local()` now asserts it after `verify_feed()` and **before any ledger
+transition**, reported under a `coverage` key beside `verification`.
+
+Nothing granted: a `verify_feed` failure still refuses first with its own
+message, a `planned` episode is still not owed an item, both lane selectors are
+unchanged, and only `publish_local` differs (47 functions byte-identical).
+
+**Class:** the erasure half of run 005's silent-skip family. Runs 005/013/031
+each fixed a selector that wrongly dropped a record; nothing had ever asked
+whether the resulting feed was *missing* something. A check that validates what
+is present cannot validate what is absent.
+
+**Harness lessons (both harnesses failed first; neither was a code defect):**
+- Deleting `feed-site/episode-NNN-notes.md` does not simulate a `verify_feed`
+  defect — `publish_feed.main()` re-copies notes and audio from `episodes/NNN/`
+  every run, repairing it before the gate looks. Use a defect publish cannot
+  self-heal (a missing manifest `description`, the run-038 gate).
+- `feed_coverage()` unions the published set from **both** `state.json` and
+  `manifest.json`, so it catches the status-route erasure too; expecting it to
+  be blind there was a harness bug. The detector is stricter than assumed,
+  which sharpens the finding rather than softening it.
+- The first edit attached coverage to `verify_feed()`'s own return dict,
+  surfacing it as `verification.coverage` and mutating another check's verdict.
+  Corrected to a top-level `coverage` key.
+
+**Validation (deterministic, final window):**
+- repro `mm_publish_erasure_repro_run041.py` **29/29** against the unmodified module
+- proof `mm_publish_erasure_proof_run041.py` **39/39**, exit 0
+- `py_compile` clean on all `pipeline/*.py`
+- real `publish --episode 001 002 003`: `ok: true`, `coverage ok: true` 3/3, `verification ok: true`
+- `coverage` ok 3/3; `verify` local `ok: true`, `issues: []`, `warnings: []`, `legacy_exempt_episodes: []`
+- `verify --remote` live `ok: true`; 3x audio 206, 3x notes 200
+- `feed.xml` md5 local == live == `9fc23235fcb49ca809059092da619b54` (unchanged; zero deploy drift)
+- `manifest.json` md5 unchanged; no sibling-show GUID substring in any `pipeline/*.py`
+
+**Outcome:** no episode or reading created, rendered or published. One latent
+publication-path defect closed with the feed byte-identical. Standing blocker
+unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.

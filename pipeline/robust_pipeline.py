@@ -1047,6 +1047,24 @@ def publish_local(episodes: list[str] | None = None, remote: str | None = None) 
         result = verify_feed(ROOT / "feed-site" / "feed.xml", remote)
         if not result["ok"]:
             raise ValueError("local publication verification failed: " + "; ".join(result["issues"]))
+        # Every episode the registries record as published must still HAVE an
+        # item. verify_feed() only inspects the items the feed CONTAINS, so it
+        # is structurally unable to see an episode that dropped out: publish
+        # rebuilds the feed from the manifest plus the ledger status, and any
+        # cause of an item leaving that derivation (a lost manifest entry, a
+        # status moved outside the published family) erases a live episode while
+        # every check passes on the shortened feed it actually built. That is
+        # the erasure half of the run-005 silent-skip class, and the detector
+        # for it already existed -- feed_coverage() -- but was read-only, CLI
+        # only, and consulted by nothing in the publish path.
+        #
+        # It grants nothing: it cannot pass an episode verify_feed failed, it
+        # only adds a refusal. Checked BEFORE any ledger transition so a
+        # publish that would erase the catalogue leaves no state behind.
+        coverage = feed_coverage(ROOT / "feed-site" / "feed.xml")
+        if not coverage["ok"]:
+            raise ValueError(
+                "local publication coverage failed: " + "; ".join(coverage["issues"]))
         for number in selected:
             record = ledger.setdefault("episodes", {}).setdefault(number, {"status": "planned", "transitions": []})
             if record.get("status") == "rendered":
@@ -1054,7 +1072,7 @@ def publish_local(episodes: list[str] | None = None, remote: str | None = None) 
             if record.get("status") == "verified":
                 transition(ledger, number, "published", "local feed built and verified; remote push remains manual")
         save_ledger(ledger)
-    return {"ok": True, "episodes": selected, "preflight": checks, "verification": result, "external_push": "not performed"}
+    return {"ok": True, "episodes": selected, "preflight": checks, "verification": result, "coverage": coverage, "external_push": "not performed"}
 
 
 

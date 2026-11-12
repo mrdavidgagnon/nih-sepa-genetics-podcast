@@ -697,3 +697,67 @@ pre-fix backup still reproduces; post-fix records and unblocks; truncated
 audio, dropped source text and injected commentary all still refused and
 stored as failures; `verify()` still side-effect free; only `main()` changed
 with 30+ functions byte-identical).
+
+## `publish` could ERASE a published episode and still report ok (fixed run 041)
+
+`publish_local()` built the feed, validated it with `verify_feed()`, and
+transitioned the ledger. But `verify_feed()` only inspects the items the feed
+**contains** -- it iterates `root.findall(".//item")` -- so it is structurally
+unable to notice an episode that is no longer there. The feed is rebuilt from
+`manifest.json` plus the ledger status on every publish, so anything that drops
+an episode out of `interview_episodes()` silently removes a **live** episode
+from the feed while `publish` returns `ok: true` with an empty issue list.
+
+Two reachable routes, both proved on real code against episodes 001-003:
+
+- a lost or hand-edited `manifest.json` entry (the manifest is also
+  `publish_local()`'s default selection source, so the episode is not even
+  preflighted -- it simply ceases to exist for the publish path); and
+- a ledger status moved outside the `published*` family.
+
+The detector already existed. `feed_coverage()` asserts exactly this -- every
+episode any registry records as published still has a feed item, with each
+enclosure on disk at its advertised byte length -- but it was read-only,
+CLI-only, and **called by nothing in the publish path**. The documentation told
+the operator to run `coverage` as the first command of every slice, which
+catches the erasure on the *next* slice, after a push has already taken the
+episode off the live feed.
+
+`publish_local()` now asserts it in-band, after `verify_feed()` and **before any
+ledger transition**, so a publish that would erase the catalogue leaves no state
+behind. The verdict is reported under a `coverage` key beside `verification`.
+
+It grants nothing: it cannot pass an episode `verify_feed()` failed (that
+refusal still fires first, with its own message), a non-published episode is
+still not owed an item, and the read lane's `verified: true` gate is untouched.
+
+**This is the erasure half of the run-005 silent-skip class.** Runs 005/013/031
+each fixed a selector that wrongly *dropped* a record; the gap here was that no
+publication gate ever asked whether the resulting feed was *missing* anything.
+A check that validates what is present cannot validate what is absent -- when a
+gate iterates a collection, ask what it would say about an element that is no
+longer in it.
+
+Latent in the now-familiar way: 001-003 are all `published_and_moved` with their
+audio on disk, so `coverage` 3/3, `verify ok: true` and `publish ok: true` were
+all accurate and all blind. A real republish after the fix is byte-identical
+(`feed.xml` md5 unchanged, 3 items, live md5 == local).
+
+Harnesses `/opt/data/tmp/mm_publish_erasure_repro_run041.py` (29/29 against the
+unmodified module: `publish ok: true` on a feed that just lost 003,
+`verify_feed` ok with an empty issue list, `feed_coverage` catching it on both
+routes, and `publish_local` proved not to reference it) and
+`mm_publish_erasure_proof_run041.py` (39/39: pre-fix backup still reproduces;
+post-fix both routes refused with the episode named and the ledger unmoved;
+nothing granted -- healthy publish still passes, a run-038 empty-`<description>`
+defect still refuses as *verification* not coverage, a `planned` episode is not
+owed an item, both lane selectors unchanged; only `publish_local` differs with
+47 functions byte-identical).
+
+Harness notes. Deleting `feed-site/episode-NNN-notes.md` does **not** simulate a
+`verify_feed` defect: `publish_feed.main()` re-copies notes and audio from
+`episodes/NNN/` on every run, so the damage is repaired before the gate sees it
+-- use a defect publish cannot self-heal, such as a missing manifest
+`description`. And `feed_coverage()` unions the published set from **both**
+`state.json` and `manifest.json`, so it catches a status-route erasure too; an
+expectation that it would be blind there was a harness bug, not a code defect.

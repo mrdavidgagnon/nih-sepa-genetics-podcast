@@ -1230,13 +1230,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T00:45:53.121870Z"
+        },
+        {
+          "attempt_id": "501-1794461340",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-12T05:29:00.082901Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-12T05:35:26.360499Z",
+              "detail": "run041: lanes empty; auditing publish path; found feed_coverage never called by publish_local",
+              "stage": "audit"
+            },
+            {
+              "at": "2026-11-12T05:40:12.984796Z",
+              "detail": "run041: publish_local now asserts feed_coverage; repro 29/29 + proof 39/39",
+              "stage": "fix_applied"
+            }
+          ],
+          "deadline_at": "2026-11-12T05:54:00.082901Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-12T05:29:00.082901Z"
         }
       ],
-      "attempts": 35,
+      "attempts": 36,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T00:53:25Z"
+  "updated_at": "2026-11-12T05:41:45Z"
 }
