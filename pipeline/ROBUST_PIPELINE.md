@@ -437,11 +437,15 @@ different one:
   configuration. Fixed by hoisting the `voices`/`rates` maps above the plan
   comparison and recording them as `voices` (`<voice>@<rate>` per role).
 
-Neither defect is visible to any gate. The read lane's fidelity gate compares
-the new `script.md` against the new `source.txt` and checks duration against the
-new word count; the interview lane's `preflight`/`verify_feed` check structure,
-disclosures, enclosure sizes and feed shape. **No gate inspects what the audio
-was rendered from**, and the plan is the only provenance record there is.
+Neither defect is visible to the *word* half of any gate. The read lane's
+fidelity gate compares the new `script.md` against the new `source.txt` and
+checks duration against the new word count; the interview lane's
+`preflight`/`verify_feed` check structure, disclosures, enclosure sizes and feed
+shape. None of those can tell what the audio was rendered from. For the read
+lane that hole is now closed downstream: run 042 made `fidelity_gate()` compare
+the recorded `audio_sha256` against the mp3 on disk, so a stale or swapped
+render is refused even when the plan guard was bypassed. The interview lane
+still relies on `parts/render-plan.json` as its only provenance record.
 
 A third instance surfaced in the same pass: the interview lane read its plan with
 a bare `json.loads`, so a truncated plan -- what a killed background render
@@ -679,9 +683,9 @@ Fixed by adding `record_verdict(number, verification)`, called from the CLI
 `verify` branch. `verify()` the *function* stays side-effect free, so a harness
 can score a tree without mutating its registries; the operator-facing command
 is what persists. It also records `audio_sha256`/`audio_bytes` beside the
-verdict -- provenance the gate itself never inspects, since it compares
-`script.md` against `source.txt` and cannot tell which paper the audio came
-from.
+verdict. As of run 042 `fidelity_gate()` **does** inspect that provenance:
+it re-hashes `episodes/NNN/episode-NNN.mp3` and refuses when the bytes are not
+the ones the verdict was earned on (see the section below).
 
 It grants nothing: a failing verdict is stored as failing with its issue list,
 `fidelity_gate()` still refuses it, and `record_verdict` raises rather than
@@ -690,6 +694,46 @@ invent a registry entry `build()` never created.
 **Operator note:** after `read_lane.py render --episode NNN`, run
 `read_lane.py verify --episode NNN`. That single command now both gates and
 records; there is no hand-written registry step and no `--force` rebuild.
+### The read verdict is bound to its audio (fixed run 042)
+
+Run 040 recorded `audio_sha256`/`audio_bytes` beside the read verdict and called
+them provenance the gate never inspects. Nothing read them, so they documented a
+hazard without gating it -- and the hazard is reachable by an ordinary operator
+sequence, because `read_lane.render_episode()` writes
+`episodes/NNN/episode-NNN.mp3` and writes **no registry**, while
+`record_verdict()` runs only from the CLI `verify` branch:
+
+```
+verify --episode NNN      # verdict + digest stored, verified: true
+build --item OTHER --force  # script.md + source.txt now a different paper
+render --episode NNN      # mp3 replaced; registry untouched
+```
+
+The reading is then `verified: true` beside a digest of the **previous** audio,
+and `publish_feed.read_episodes()` ships on that flag alone. The word checks
+cannot see it: `verify()` compares the new script against the new `source.txt`,
+both written in the same breath, so coverage reads 1.0 (run 030/032's lesson --
+a gate deriving both sides of its comparison from the same write validates
+internal consistency, not provenance).
+
+`fidelity_gate()` now re-hashes the mp3 and refuses on any mismatch, naming both
+digests and telling the operator to re-run `verify`. It is checked there rather
+than in a new gate so the read lane keeps exactly one verdict with one owner.
+It grants nothing: a **missing** `audio_sha256` is a refusal, not a waiver (an
+entry predating run 040 must be re-verified), and missing audio is refused too.
+
+Harnesses: `/opt/data/tmp/mm_audio_provenance_repro_run042.py` (19/19 against
+the unmodified module) and `mm_audio_provenance_proof_run042.py` (39/39:
+pre-fix backup still reproduces; nothing granted -- `verified: false`, coverage
+below the floor, a missing coverage figure, a missing digest, stale
+`audio_bytes`, deleted audio and a missing `source.txt` are each still refused;
+exactly one function changed with 45 byte-identical, including `preflight`,
+`review_gate`, `verify_feed`, `feed_coverage` and `publish_local`).
+
+Lesson: **recording provenance is not checking it.** When a fix stores a field
+precisely because a gate is blind to that property, wire a reader in the same
+slice or the field becomes documentation of an open hole.
+
 
 Harnesses: `/opt/data/tmp/mm_verified_persist_repro_run040.py` (29/29 against
 the unmodified module) and `mm_verified_persist_proof_run040.py` (56/56:

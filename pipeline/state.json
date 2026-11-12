@@ -1257,13 +1257,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T05:29:00.082901Z"
+        },
+        {
+          "attempt_id": "501-1794476618",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-12T09:43:38.046614Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-12T09:54:25.075272Z",
+              "detail": "run042: fidelity_gate binds read verdict to audio sha256; repro 19/19 proof 39/39",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-12T10:08:38.046614Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-12T09:43:38.046614Z"
         }
       ],
-      "attempts": 36,
+      "attempts": 37,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T05:42:15Z"
+  "updated_at": "2026-11-12T09:54:25Z"
 }

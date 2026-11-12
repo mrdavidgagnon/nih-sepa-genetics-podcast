@@ -557,6 +557,50 @@ def fidelity_gate(episode: str) -> dict[str, Any]:
     for name in ("source.txt", "script.md"):
         if not (directory / name).exists():
             result["issues"].append(f"missing {name}; the fidelity verdict is not reproducible")
+    # Bind the verdict to the AUDIO it was earned on.
+    #
+    # verify() compares script.md against source.txt, so it is structurally
+    # unable to tell which paper the audio came from (run 032/030's lesson: a
+    # gate deriving both sides of its comparison from the same write validates
+    # internal consistency, not provenance). Run 040 therefore recorded
+    # audio_sha256/audio_bytes beside the verdict -- but nothing ever read
+    # them, so they documented the hazard without gating it.
+    #
+    # It is reachable by an ordinary operator sequence, because
+    # read_lane.render_episode() writes episodes/NNN/episode-NNN.mp3 and writes
+    # NO registry, while record_verdict() runs only from the CLI `verify`
+    # branch: verify (verdict + digest stored) -> build --force for another
+    # paper -> render leaves `verified: true` next to a digest of the PREVIOUS
+    # audio, and publish_feed.read_episodes() ships on that flag alone.
+    #
+    # Checked here rather than in a new gate so there stays exactly one read
+    # verdict with one owner. It grants nothing: a missing digest is a refusal
+    # (an entry predating run 040 must be re-verified, not waived), and the
+    # audio must exist and match byte-for-byte.
+    recorded_digest = record.get("audio_sha256")
+    recorded_bytes = record.get("audio_bytes")
+    audio = directory / f"episode-{episode}.mp3"
+    result["audio"] = {"recorded_sha256": recorded_digest, "recorded_bytes": recorded_bytes}
+    if not audio.exists():
+        result["issues"].append(
+            f"missing {audio.name}; the verified audio is not on disk")
+    elif not isinstance(recorded_digest, str) or not recorded_digest:
+        result["issues"].append(
+            "registry records no audio_sha256; re-run read_lane.py verify so the "
+            "verdict is bound to the rendered audio")
+    else:
+        actual_digest = sha256(audio)
+        actual_bytes = audio.stat().st_size
+        result["audio"].update({"sha256": actual_digest, "bytes": actual_bytes})
+        if actual_digest != recorded_digest:
+            result["issues"].append(
+                f"{audio.name} does not match the verified audio "
+                f"(recorded {recorded_digest[:12]}..., on disk {actual_digest[:12]}...); "
+                f"re-run read_lane.py verify")
+        elif isinstance(recorded_bytes, int) and recorded_bytes != actual_bytes:
+            result["issues"].append(
+                f"{audio.name} is {actual_bytes} bytes but the verdict recorded "
+                f"{recorded_bytes}; re-run read_lane.py verify")
     result["ok"] = not result["issues"]
     return result
 
