@@ -1327,7 +1327,9 @@
             }
           ],
           "deadline_at": "2026-11-12T14:27:07.185639Z",
-          "outcome": null,
+          "detail": "run043: lanes empty; reconcile() no longer deletes interview audio_sha256 and now refuses a recorded/on-disk mismatch; 001-003 digests backfilled on evidence; repro 28/28 proof 39/39; feed byte-identical; pushed aa386f9",
+          "finished_at": "2026-11-12T14:09:53.181476Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T14:02:07.185639Z"
         }
@@ -1338,5 +1340,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T14:09:19Z"
+  "updated_at": "2026-11-12T14:09:53Z"
 }
