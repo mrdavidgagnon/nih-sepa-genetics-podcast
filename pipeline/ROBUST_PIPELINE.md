@@ -645,6 +645,94 @@ pre/post, and 002/003 are still caught; only `_legacy_episode_numbers` and
 byte-identical** including `preflight`/`review_gate`/`fidelity_gate`/
 `feed_coverage`/`publish_local`/`reconcile`/`verify_feed`).
 
+## The publication gate kept its OWN copy of the legacy waiver (fixed run 044)
+
+Runs 036 and 037 fixed the "is this episode imported history?" test twice -- in
+`verify_feed()`, then properly in `_legacy_episode_numbers()`. Both left
+`publish_local()` alone, and run 037's own proof records it: *49 functions
+byte-identical including ... `publish_local`*. But `publish_local()` was never
+calling that helper. It carried a **separate, one-part copy** of the discarded
+test, inline, in the publication gate itself:
+
+```python
+record = ledger.get("episodes", {}).get(number, {})
+if record.get("status") != "published":            # pre-fix
+    check = preflight(number, require_audio=True, enforce_review=True)
+```
+
+So an episode at the literal status `published` skipped `preflight` **entirely**:
+the three-reviewer gate, the fictional-correspondent and AI-summary disclosures,
+the Zotero-links disclosure, every citation check, and the audio check, all at
+once. That status is not rare and is not imported history -- run 037 established
+both: `publish_local()` *itself* writes it (`verified -> published`), so every
+episode produced here occupies it between publish and the Zotero move to
+`published_and_moved`, and `load_ledger()`'s bootstrap maps
+`published_and_moved -> "published"`, putting the **whole catalogue** at the
+waived status at once whenever the ledger is rebuilt from `manifest.json`.
+
+It is worse than a missed check, because `publish_feed.main()` re-copies each
+episode's notes and audio from `episodes/NNN/` to `feed-site/` on every run: a
+corrupted or substituted deliverable is **actively propagated** to the staging
+directory the next `push` deploys. Proved on real code -- substituted notes
+reached `feed-site/episode-001-notes.md`, and 001's audio swapped for 002's was
+accepted -- while `publish` returned `ok: true`, `verify_feed` ok, and
+`feed_coverage` ok, because all three inspect the feed's structure and none of
+them re-runs the episode gate.
+
+Fixed by deleting the inline copy and deferring to `_legacy_episode_numbers()`,
+the three-part test that already exists in this file (literal status
+`published`, **no** in-pipeline production transition, **no** `script.md` on
+disk). That set can only ever be narrower than the status literal, so the change
+adds refusals and grants nothing. All three real episodes are now preflighted by
+a bare `publish` where previously they could be waived; all three pass, and
+`feed.xml` is byte-identical.
+
+Lessons:
+
+- **A fix is not finished while a second copy of the defect is still inline
+  somewhere.** Runs 036 and 037 centralized the right answer into a helper and
+  verified the helper exhaustively, but centralizing is only half the job --
+  the open-coded duplicates have to be *migrated to it*. After extracting a
+  predicate into a function, grep for the literal it replaced
+  (`grep -n 'status.*== "published"' pipeline/robust_pipeline.py`) and confirm
+  every site now calls the helper.
+- **A byte-identical function in a proof is evidence of scope, not of
+  correctness.** Run 037 listed `publish_local` as untouched to show the blast
+  radius was small; read the other way, that line was the open defect in plain
+  sight for seven runs. When a no-weakening proof names a gate as unchanged, ask
+  whether it *should* have changed.
+- Latent in the now-familiar way: 001-003 all sit at `published_and_moved`, not
+  the waived literal, so `coverage` 3/3, `verify ok: true` and three
+  `reconcile --write` passes at 0 issues were all accurate and all blind. It
+  would have fired on the next episode during its publish-to-move window, or on
+  any slice that rebuilt the ledger.
+
+Harnesses `/opt/data/tmp/mm_publish_waiver_repro_run044.py` (**37/37 against the
+unmodified module**: the control refusing at `published_and_moved`, the same
+episode shipping at `published`, substituted notes reaching `feed-site`, swapped
+audio accepted, and the rebuilt-ledger case waiving all three episodes at once)
+and `mm_publish_waiver_proof_run044.py` (**51/51**: the pre-fix backup still
+reproduces; post-fix the ungated episode is refused at all five of
+`published`/`published_and_moved`/`published_pending_zotero_move`/`rendered`/
+`verified`; **nothing granted** -- a genuine import is still exempt and the
+exemption is revoked the moment it shows a production transition, a healthy
+publish still succeeds with all three preflighted and the feed byte-identical,
+and a missing panel, missing audio, missing AI-summary disclosure, missing
+Zotero-links disclosure, a dropped citation entry, a failed reviewer verdict and
+an empty mp3 are each still refused; only `publish_local` changed, **48
+functions byte-identical** including `preflight`/`review_gate`/`fidelity_gate`/
+`verify_feed`/`feed_coverage`/`_legacy_episode_numbers`/`reconcile`).
+
+Harness note: the repro's first draft deleted `episodes/001/episode-notes.md` to
+simulate an ungated episode, which `publish_feed.main()` atomic-copies on every
+run -- so `publish` refused on a crash in the feed build, not on the gate, and
+five assertions false-failed. Isolate the gate with a defect `publish_feed` does
+not touch (delete `review-panel.md`). Separately, a synthetic legacy fixture
+with no manifest entry is refused by run 041's coverage assertion rather than
+preflight; that is correct, and the pre-fix module raises the identical error,
+which is what proves it is not a regression. Both were harness bugs, not code
+defects (run 029's rule).
+
 ## Required item fields are gated (run 038)
 
 `verify_feed()` requires every feed item to carry a non-empty `<title>` and

@@ -2342,3 +2342,68 @@ failed first and neither was a code defect (run 029's lesson): the repro's
 fixture lacked the real `REQUIRED_DISCLOSURE`, and the backfill's shallow
 `dict()` snapshot shared the transitions list so the integrity assertion
 false-failed before writing anything.
+
+## 2026-11-12T18:30Z — run 044 (publish gate kept its own copy of the legacy waiver)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in parent YF84AUZK, David's call). Opening `coverage` ok 3/3, `verify`
+ok with no issues, live feed byte-identical to local, stale lock with dead pid
+663121 (normal steady state, cleared with `unlock --force`). No production unit
+available, so the slice closed a latent defect.
+
+**Defect.** `publish_local()` -- the publication gate -- skipped `preflight`
+entirely for any episode at the ledger status literal `published`:
+
+    if record.get("status") != "published":
+        check = preflight(number, require_audio=True, enforce_review=True)
+
+That waived the three-reviewer gate, both spoken disclosures, the Zotero-links
+disclosure, every citation check and the audio check together. Runs 036 and 037
+had already established that this literal does not mean "imported history" --
+`publish_local()` writes it itself (verified -> published), and the
+`load_ledger()` bootstrap maps `published_and_moved` -> `published`, waiving the
+whole catalogue whenever the ledger is rebuilt -- and run 037 replaced the test
+with the three-part `_legacy_episode_numbers()`. But `publish_local()` was never
+calling that helper; it carried a separate inline copy of the discarded test.
+Run 037's own proof records `publish_local` among its byte-identical functions.
+
+Worse than a skipped check: `publish_feed.main()` re-copies each episode's notes
+and audio to `feed-site/` every run, so a corrupted deliverable is actively
+propagated to what the next `push` deploys. Proved on real code -- substituted
+notes reached `feed-site/episode-001-notes.md` and 001's audio swapped for 002's
+was accepted -- with `publish`, `verify_feed` and `feed_coverage` all ok.
+
+**Fix.** Deleted the inline copy; `publish_local()` now defers to
+`_legacy_episode_numbers()`. That set can only be narrower than the status
+literal, so the change adds refusals and grants nothing.
+
+**Validation (deterministic, final window):**
+- repro `mm_publish_waiver_repro_run044.py` **37/37** against the unmodified module
+- proof `mm_publish_waiver_proof_run044.py` **51/51**, exit 0
+- `py_compile` clean on all `pipeline/*.py`
+- real bare `publish`: `ok: true`, all three episodes **preflighted** (none
+  waived) and all passing, `verification ok`, `coverage ok` 3/3
+- `coverage` ok 3/3; `verify` local ok, `issues: []`, `legacy_exempt_episodes: []`
+- `verify --remote` live ok
+- `feed.xml` md5 local == live == `9fc23235fcb49ca809059092da619b54` (unchanged)
+- 3x `reconcile --write` clean, 0 stored errors on every episode
+- exactly one function changed, 48 byte-identical incl. `preflight`,
+  `review_gate`, `fidelity_gate`, `verify_feed`, `feed_coverage`,
+  `_legacy_episode_numbers`, `reconcile`, `push_to_remote`
+
+Backups `robust_pipeline.py.bak-run044`, `ROBUST_PIPELINE.md.bak-run044`,
+`production-log.md.bak-run044`. Two harness bugs failed first and neither was a
+code defect (run 029's lesson): deleting `episode-notes.md` made `publish` die
+in `publish_feed`'s copy step rather than at the gate, and a synthetic legacy
+fixture is refused by run 041's coverage assertion -- the pre-fix module raises
+identically, which is what proves no regression.
+
+**Lesson.** A fix is not finished while a second copy of the defect is still
+inline elsewhere: centralizing a predicate into a helper is only half the job,
+the open-coded duplicates must be migrated to it. And a byte-identical function
+in a no-weakening proof is evidence of scope, not of correctness -- when a proof
+names a gate as unchanged, ask whether it should have changed.
+
+**Outcome:** no episode or reading created, rendered or published. One latent
+publication-gate defect closed with the feed byte-identical. Standing blocker
+unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.

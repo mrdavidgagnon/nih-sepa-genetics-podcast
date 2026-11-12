@@ -1095,9 +1095,27 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
 def publish_local(episodes: list[str] | None = None, remote: str | None = None) -> dict[str, Any]:
     """Build the checked-in local feed and verify it; never performs a git push.
 
-    Already-published legacy episodes are treated as imported history. Any
-    episode still in a production state must pass the review gate and audio
-    preflight before it can enter the local feed.
+    Genuinely imported history is treated as legacy and skips preflight. Any
+    other episode must pass the review gate and audio preflight before it can
+    enter the local feed.
+
+    The exemption is keyed on _legacy_episode_numbers(), NOT on the ledger
+    status literal "published". That literal does not establish imported
+    history and never did: this function itself writes it (verified ->
+    published), so every episode produced here occupies it between publish and
+    the Zotero move to published_and_moved, and load_ledger()'s bootstrap maps
+    published_and_moved -> "published", putting the WHOLE catalogue there at
+    once whenever the ledger is rebuilt from manifest.json. Run 036 established
+    exactly this and fixed the same one-part test in verify_feed(), but left it
+    standing here -- in the actual publication gate, where the waiver skips the
+    review gate, the disclosure and citation checks and the audio check
+    together, while publish_feed.main() re-copies the episode's notes and audio
+    to feed-site for the next push to deploy.
+
+    _legacy_episode_numbers() requires all three of: the literal status
+    "published", no in-pipeline production transition, and no script.md on
+    disk. It can only ever narrow the exempt set, so this change adds refusals
+    and grants nothing.
     """
     try:
         from .publish_feed import main as build_feed
@@ -1106,9 +1124,9 @@ def publish_local(episodes: list[str] | None = None, remote: str | None = None) 
     ledger = load_ledger()
     selected = episodes or sorted(load_manifest().get("episodes", {}))
     checks = []
+    legacy_numbers = _legacy_episode_numbers()
     for number in selected:
-        record = ledger.get("episodes", {}).get(number, {})
-        if record.get("status") != "published":
+        if number not in legacy_numbers:
             check = preflight(number, require_audio=True, enforce_review=True)
             checks.append(check)
             if not check["ok"]:
