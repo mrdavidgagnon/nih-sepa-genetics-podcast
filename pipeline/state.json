@@ -1252,7 +1252,9 @@
             }
           ],
           "deadline_at": "2026-11-12T05:54:00.082901Z",
-          "outcome": null,
+          "detail": "run041: lanes empty; publish_local now asserts feed_coverage (erasure class); repro 29/29 proof 39/39; feed byte-identical; pushed 0573dac",
+          "finished_at": "2026-11-12T05:42:15.118256Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T05:29:00.082901Z"
         }
@@ -1263,5 +1265,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T05:41:45Z"
+  "updated_at": "2026-11-12T05:42:15Z"
 }
