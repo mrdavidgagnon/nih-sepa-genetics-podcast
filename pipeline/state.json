@@ -1364,13 +1364,40 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T18:14:23.560295Z"
+        },
+        {
+          "attempt_id": "501-1794522331",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-12T22:25:31.102833Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-12T22:31:12.427527Z",
+              "detail": "run045: preflight() hashes interview audio but compares it to nothing; repro 26/26",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-12T22:35:29.017921Z",
+              "detail": "run045: preflight binds audio to artifacts.audio_sha256; repro 26/26, proof 50/50, feed unchanged",
+              "stage": "fix_validated"
+            }
+          ],
+          "deadline_at": "2026-11-12T22:50:31.102833Z",
+          "detail": "run045: preflight audio-provenance gate (interview lane); repro 26/26, proof 50/50; feed byte-identical",
+          "finished_at": "2026-11-12T22:35:42.047742Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-12T22:25:31.102833Z"
         }
       ],
-      "attempts": 39,
+      "attempts": 40,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T18:23:20Z"
+  "updated_at": "2026-11-12T22:35:42Z"
 }

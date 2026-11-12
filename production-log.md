@@ -2407,3 +2407,95 @@ names a gate as unchanged, ask whether it should have changed.
 **Outcome:** no episode or reading created, rendered or published. One latent
 publication-gate defect closed with the feed byte-identical. Standing blocker
 unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.
+
+
+## 2026-11-12 — run 045: the interview publication gate hashed the audio and compared it to nothing
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same 18 on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds 10 parents (001-003's sources, all moved). No
+production unit available, so the slice closed a latent defect. Opening
+`coverage` was `ok: true`, 3 items / 3 published, no issues; manifest and state
+agree at `published_and_moved` for 001-003; stale lock with dead owner pid
+806998 (normal steady state, advisory `flock` free, cleared with
+`unlock --force`).
+
+**Defect.** `preflight()` is the interview lane's deterministic publication gate
+and the only episode-level check `publish_local()` runs. With `require_audio`
+it computed `sha256(audio[0])`, stored it in `checks.audio.sha256`, and compared
+it to **nothing**:
+
+    result["checks"]["audio"] = {"path": ..., "size": ..., "sha256": sha256(audio[0])}
+
+Every other check in that function scores `script.md` and `episode-notes.md` —
+the three-reviewer panel, both spoken disclosures, the citation and
+evidence-boundary checks — and none of them can tell which episode's audio sits
+in the directory. The reader existed in the wrong place: `render_episode()`
+records the rendered bytes' digest at `state.json` -> `artifacts.audio_sha256`
+and `reconcile()` compares it (run 043 restored that field), but `reconcile` is
+**not in the publish path**. `publish_local()` runs `preflight`, `verify_feed`
+and `feed_coverage`; the latter two inspect feed *structure*.
+
+Proved on real code with 001's mp3 replaced by 002's: pre-fix `preflight`
+returned `ok: true` with `issues: []`, the real `publish --episode 001` exited 0
+reporting `ok: true`, and the swapped bytes reached
+`feed-site/episode-001.mp3` — what the next `push` deploys — while `reconcile`
+on the identical tree returned `ok: false` naming the digest mismatch. That
+control is what makes this a finding rather than a guess: the detector worked
+and the gate never called it.
+
+**Fix.** `preflight` now compares the computed digest against the recorded one
+and reports both in `checks.audio`. It grants nothing: an **absent** digest
+stays acceptable (001-003 lost theirs once to the run-043 bug and are genuinely
+published, so refusing a pre-provenance record would be a false failure — the
+same policy `reconcile()` applies), and only a digest that is present and wrong
+is refused.
+
+**Validation (deterministic, final window):**
+- repro `mm_interview_provenance_repro_run045.py` **26/26** against the
+  **unmodified** module (incl. the `reconcile` control and the
+  propagation-to-`feed-site` step)
+- proof `mm_interview_provenance_proof_run045.py` **50/50**, exit 0
+- `py_compile` clean on all `pipeline/*.py`
+- real `preflight NNN --audio` for 001/002/003: `ok: true`, `issues: []`,
+  computed digest == recorded digest on all three
+- real bare `publish`: `ok: true`, all **3** episodes preflighted (none waived),
+  all provenance-bound, `verification ok`, `coverage ok`
+- `coverage` ok, 3 items / 3 published; `verify` local ok, `issues: []`,
+  `legacy_exempt_episodes: []`, no warnings; `verify --remote` live ok
+- `feed.xml` md5 local == live == `9fc23235fcb49ca809059092da619b54` (unchanged
+  across the whole slice), `grep -c '<item>'` = 3
+- 3x `reconcile --write` clean, 0 stored errors on every episode (run-008
+  dedupe holding)
+- exactly **one** function changed; 47 byte-identical incl. `reconcile`,
+  `publish_local`, `verify_feed`, `feed_coverage`, `review_gate`,
+  `fidelity_gate`, `render_episode`, `_legacy_episode_numbers`,
+  `lane_ownership`, `push_to_remote`, `status`, `watchdog`
+- docs: `ROBUST_PIPELINE.md` preflight contract now states the provenance
+  clause, plus a dated run-045 section; additive apart from the one reworded
+  contract line
+
+Backups `robust_pipeline.py.bak-run045`, `ROBUST_PIPELINE.md.bak-run045`,
+`production-log.md.bak-run045`.
+
+**Harness bugs, neither a code defect** (run 029's rule, twice): `publish`
+prints a human summary line before its JSON so `json.loads(stdout)` raises —
+parse from the first brace; and `publish --episode NNN` selects **one** episode,
+so asserting three preflights needs a **bare** `publish`. A scratch tree also
+lands on another filesystem, so `os.link` fails with `EXDEV` — symlink the mp3s
+(`stat()` and `read()` follow the link, so size and sha256 are the real ones).
+
+**Lesson.** This is run 042's fix, which landed in the **read lane only**: run
+040 stored a reading's `audio_sha256` with no reader and run 042 wired
+`fidelity_gate()` to it, but the interview lane's identically-shaped gate was
+never revisited *because its digest did have a reader* — just not one on the
+publish path. So a field with a reader is not a field with a gate, and run 032's
+lane-asymmetry axis extends again: ask whether this lane's reader is reachable
+from **the command the operator runs to ship**, not merely whether a reader
+exists somewhere in the file.
+
+**Outcome:** no episode or reading created, rendered or published. One latent
+publication-gate defect closed with the feed byte-identical and the live site
+unchanged. Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting
+David's lane decision (Summerize = interview, Read = verbatim reading).

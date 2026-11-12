@@ -783,7 +783,40 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
         if len(audio) != 1 or audio[0].stat().st_size == 0:
             result["issues"].append("exactly one non-empty episode MP3 is required")
         else:
-            result["checks"]["audio"] = {"path": str(audio[0].relative_to(ROOT)), "size": audio[0].stat().st_size, "sha256": sha256(audio[0])}
+            digest = sha256(audio[0])
+            result["checks"]["audio"] = {"path": str(audio[0].relative_to(ROOT)), "size": audio[0].stat().st_size, "sha256": digest}
+            # Bind the verdict to the AUDIO it was earned on (the interview
+            # lane's half of run 042's fix, which landed in the read lane
+            # only).
+            #
+            # This block already computed the digest and compared it to
+            # NOTHING, so the gate held the evidence and discarded it. Every
+            # other check here scores script.md and episode-notes.md -- the
+            # reviewer panel, both spoken disclosures, the citation and
+            # evidence-boundary checks -- none of which can tell which
+            # episode's audio sits in the directory. render_episode() records
+            # the rendered bytes' digest in state.json artifacts.audio_sha256,
+            # and reconcile() compares it, but reconcile is NOT in the publish
+            # path: publish_local() runs preflight, verify_feed and
+            # feed_coverage, and all three inspect the feed's structure. So a
+            # swapped mp3 passed the publication gate with an empty issue list
+            # and publish_feed.main() re-copied it into feed-site/ for the next
+            # push to deploy.
+            #
+            # It grants nothing. An ABSENT digest is still acceptable: 001-003
+            # lost theirs once to the artifacts-overwrite bug and are genuinely
+            # published, so refusing a record that predates provenance would be
+            # a false failure -- the same policy reconcile() applies. Only a
+            # digest that is present and WRONG is refused, which means the mp3
+            # on disk is not the mp3 that was rendered and gated.
+            recorded = ((load_ledger().get("episodes") or {})
+                        .get(episode, {}).get("artifacts") or {}).get("audio_sha256")
+            result["checks"]["audio"]["recorded_sha256"] = recorded
+            if isinstance(recorded, str) and recorded and recorded != digest:
+                result["issues"].append(
+                    f"audio does not match the digest recorded at render time "
+                    f"(recorded {recorded[:12]}..., on disk {digest[:12]}...); "
+                    f"the mp3 was replaced after it was rendered and gated")
     result["ok"] = not result["issues"]
     return result
 

@@ -248,7 +248,9 @@ each, required revisions, and a revision record with no unresolved/blocking
 language. `preflight` additionally checks dialogue syntax, required fictional
 correspondent and AI-summary disclosures, the exact Zotero access reminder,
 manifest source ownership, numbered source citations with year/metadata/link,
-and (with `--audio`) exactly one non-empty MP3.
+and (with `--audio`) exactly one non-empty MP3 whose sha256 matches the digest
+`render_episode()` recorded in `state.json` (`artifacts.audio_sha256`). An
+absent digest is accepted; a digest that is present and different is refused.
 
 ## Watchdog
 
@@ -895,6 +897,68 @@ Harness notes. Deleting `feed-site/episode-NNN-notes.md` does **not** simulate a
 `description`. And `feed_coverage()` unions the published set from **both**
 `state.json` and `manifest.json`, so it catches a status-route erasure too; an
 expectation that it would be blind there was a harness bug, not a code defect.
+
+## The interview gate hashed the audio and compared it to nothing (fixed run 045)
+
+`preflight()` is the interview lane's deterministic publication gate and the
+only episode-level check `publish_local()` runs. With `--audio` it computed
+`sha256(audio[0])`, stored it in `checks.audio.sha256` -- and compared it to
+**nothing**. Every other check it runs scores `script.md` and
+`episode-notes.md`: the reviewer panel, both spoken disclosures, the citation
+and evidence-boundary checks. None of those can tell which episode's audio sits
+in the directory.
+
+The reader already existed in the wrong place. `render_episode()` records the
+rendered bytes' digest at `state.json` -> `artifacts.audio_sha256`, and
+`reconcile()` compares it (run 043 restored that field after an
+artifacts-overwrite bug destroyed it) -- but `reconcile` is **not in the publish
+path**. `publish_local()` runs `preflight`, `verify_feed` and `feed_coverage`,
+and the latter two inspect feed *structure*. So a swapped mp3 passed the
+publication gate with an **empty issue list**, and `publish_feed.main()`
+re-copied it into `feed-site/` for the next `push` to deploy.
+
+Proved on real code: with 001's audio replaced by 002's, the pre-fix
+`preflight` returned `ok: true` / `issues: []`, the real
+`publish --episode 001` exited 0 with `ok: true`, and the swapped bytes reached
+`feed-site/episode-001.mp3` -- while `reconcile` on the identical tree returned
+`ok: false` naming the digest mismatch. That control is what makes it a finding
+rather than a guess: the detector worked and the gate simply never called it.
+
+`preflight` now compares the two. It grants nothing: an **absent** digest stays
+acceptable (001-003 lost theirs once to the run-043 bug and are genuinely
+published, so refusing a record that predates provenance would be a false
+failure -- the same policy `reconcile()` applies), and only a digest that is
+present and wrong is refused.
+
+Two lessons:
+
+- **This is run 042's fix, which landed in the read lane only.** Run 042 wired
+  `fidelity_gate()` to re-hash a reading's mp3 after run 040 stored a digest no
+  reader consumed. The interview lane's gate had the same shape and was never
+  revisited, because the digest *did* have a reader -- just not one on the
+  publish path. Run 032's lane-asymmetry axis therefore extends again: ask not
+  only "does the other lane hold a guard this lane lacks?" but "is this lane's
+  reader reachable from the **command the operator runs to ship**?"
+- **A field with a reader is not a field with a gate.** `grep -n audio_sha256`
+  returned hits in `reconcile` and looked healthy; the question that exposed
+  this was which of those hits `publish_local()` can reach.
+
+Harnesses `/opt/data/tmp/mm_interview_provenance_repro_run045.py` (26/26 against
+the **unmodified** module, including the `reconcile` control and the
+propagation-to-`feed-site` step) and `mm_interview_provenance_proof_run045.py`
+(50/50: pre-fix backup still reproduces; post-fix the swap is refused by
+`preflight` *and* by the real `publish`, and the corrupted bytes never reach
+`feed-site`; nothing granted -- 001-003 still pass with digests matching, a bare
+`publish` still preflights all three, an absent digest is accepted yet waives
+nothing else, and a truncated mp3, a missing panel and missing audio are each
+still refused; exactly **one** function changed with 47 byte-identical incl.
+`reconcile`, `publish_local`, `verify_feed`, `feed_coverage`, `review_gate`,
+`fidelity_gate` and `render_episode`).
+
+Two harness bugs failed first and neither was a code defect (run 029's rule):
+`publish` prints a human summary line before its JSON, so `json.loads(stdout)`
+raises -- parse from the first brace; and `publish --episode NNN` selects
+**one** episode, so asserting three preflights requires a **bare** `publish`.
 
 ## `reconcile()` DELETED the interview lane's audio provenance (fixed run 043)
 
