@@ -1274,7 +1274,9 @@
             }
           ],
           "deadline_at": "2026-11-12T10:08:38.046614Z",
-          "outcome": null,
+          "detail": "run042: lanes empty; fidelity_gate now binds read verdict to audio sha256 (provenance recorded run040 was never read); repro 19/19 proof 39/39; feed byte-identical; pushed cfc24c6",
+          "finished_at": "2026-11-12T09:54:58.248371Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T09:43:38.046614Z"
         }
@@ -1285,5 +1287,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T09:54:25Z"
+  "updated_at": "2026-11-12T09:54:58Z"
 }
