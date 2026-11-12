@@ -5,6 +5,8 @@
         "audio": [
           "episodes/001/episode-001.mp3"
         ],
+        "audio_bytes": 11639084,
+        "audio_sha256": "3911eb020b1e4e993e92181586b8655ff4766fbf227cbc6b74deb2bcb82c6ac9",
         "notes": "episodes/001/episode-notes.md"
       },
       "attempts": 1,
@@ -64,6 +66,11 @@
           "from": "published",
           "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
           "to": "published_and_moved"
+        },
+        {
+          "at": "2026-11-12T14:07:37Z",
+          "reason": "run043 backfill: restored audio_sha256 destroyed by reconcile()'s artifact replacement. Evidence: in-pipeline render transition, episode-dir and feed-site audio byte-identical at the advertised enclosure length (11639084), local feed byte-identical to live, preflight --audio ok with a matching digest. No status change.",
+          "to": "published_and_moved"
         }
       ]
     },
@@ -72,6 +79,8 @@
         "audio": [
           "episodes/002/episode-002.mp3"
         ],
+        "audio_bytes": 20217260,
+        "audio_sha256": "7da8ddbc107cd1f4b9d0351d247d79a8a24571b7eb4be7581e5697efbf533844",
         "notes": "episodes/002/episode-notes.md"
       },
       "attempt_log": [
@@ -246,6 +255,11 @@
           "from": "published",
           "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
           "to": "published_and_moved"
+        },
+        {
+          "at": "2026-11-12T14:07:37Z",
+          "reason": "run043 backfill: restored audio_sha256 destroyed by reconcile()'s artifact replacement. Evidence: in-pipeline render transition, episode-dir and feed-site audio byte-identical at the advertised enclosure length (20217260), local feed byte-identical to live, preflight --audio ok with a matching digest. No status change.",
+          "to": "published_and_moved"
         }
       ]
     },
@@ -254,6 +268,8 @@
         "audio": [
           "episodes/003/episode-003.mp3"
         ],
+        "audio_bytes": 16613036,
+        "audio_sha256": "9e2e6729ee1b161dd405ccb342a6dbb359a1721ca568a92ba2c2c101ed783672",
         "notes": "episodes/003/episode-notes.md"
       },
       "attempt_log": [
@@ -400,6 +416,11 @@
           "at": "2026-11-06T03:05:36Z",
           "from": "published",
           "reason": "run007 reconcile: feed-present, preflight ok, all source parents confirmed in Produced (6P2KVFKQ) via live Zotero read",
+          "to": "published_and_moved"
+        },
+        {
+          "at": "2026-11-12T14:07:37Z",
+          "reason": "run043 backfill: restored audio_sha256 destroyed by reconcile()'s artifact replacement. Evidence: in-pipeline render transition, episode-dir and feed-site audio byte-identical at the advertised enclosure length (16613036), local feed byte-identical to live, preflight --audio ok with a matching digest. No status change.",
           "to": "published_and_moved"
         }
       ]
@@ -1279,13 +1300,43 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T09:43:38.046614Z"
+        },
+        {
+          "attempt_id": "501-1794492127",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-12T14:02:07.185639Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-12T14:04:06.093748Z",
+              "detail": "run043: reconcile() replaces rec[artifacts] wholesale, destroying render_episode()'s audio_sha256+turns; repro 28/28 on unmodified module; live 001-003 all show the loss",
+              "stage": "repro_proved"
+            },
+            {
+              "at": "2026-11-12T14:07:59.587240Z",
+              "detail": "run043: reconcile merges artifacts + checks preserved audio_sha256; proof 39/39, 1 function changed, 48 identical; 001-003 digests backfilled on evidence; reconcile x3 clean",
+              "stage": "fix_proved"
+            },
+            {
+              "at": "2026-11-12T14:09:19.251363Z",
+              "detail": "run043: ROBUST_PIPELINE.md stale provenance passage updated + section added; production-log entry; log title rebranded off sibling show",
+              "stage": "docs_updated"
+            }
+          ],
+          "deadline_at": "2026-11-12T14:27:07.185639Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-12T14:02:07.185639Z"
         }
       ],
-      "attempts": 37,
+      "attempts": 38,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T09:54:58Z"
+  "updated_at": "2026-11-12T14:09:19Z"
 }

@@ -1,4 +1,4 @@
-# Human in the Loop: Moral Machine Edition - production log
+# Moral Machines - production log
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
@@ -2296,3 +2296,49 @@ is present cannot validate what is absent.
 **Outcome:** no episode or reading created, rendered or published. One latent
 publication-path defect closed with the feed byte-identical. Standing blocker
 unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision.
+
+## 2026-11-12T14:08Z — run 043 (interview lane: reconcile stopped deleting audio provenance)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in parent YF84AUZK, David's call). `coverage` ok 3/3, `verify` ok with
+no issues, live feed byte-identical to local. No production unit available, so
+the slice closed a latent defect.
+
+**Defect.** `render_episode()` records the rendered audio's provenance into the
+ledger as `artifacts.audio_sha256` plus the turn count. `reconcile()` rebuilt a
+`{notes, audio}` dict from disk and assigned it over the top, so
+`reconcile --write` -- which runs every slice -- destroyed both on the first
+pass after any render. Permanent and silent: nothing re-derives them and
+reconcile still returned `ok: true`. The live tree proved it, not a fixture:
+001/002/003 each show a `rendering -> rendered` transition reading "atomic
+render complete" beside `artifacts` holding only `{audio, notes}`.
+
+This is run 042's class with the sign flipped -- there the read lane stored a
+digest no gate read; here the interview lane stored one another function
+deleted.
+
+**Fix.** `reconcile()` now merges the disk-derived fields into the existing
+artifact dict, and (same slice, per run 042's lesson) re-hashes the audio and
+refuses a mismatch naming both digests. An absent digest stays silent by
+design: 001-003 had already lost theirs, so refusing them would be a false
+failure and waiving them would be a gate with the sign flipped. Their digests
+were backfilled on evidence -- in-pipeline render transition, episode-dir and
+feed-site audio byte-identical at the advertised enclosure length, local feed
+byte-identical to live, `preflight --audio` ok with a matching digest.
+
+Backups `robust_pipeline.py.bak-run043`, `state.json.bak-run043`,
+`ROBUST_PIPELINE.md.bak-run043`. Exactly one function changed, 48
+byte-identical including `preflight`, `review_gate`, `fidelity_gate`,
+`verify_feed`, `feed_coverage` and `publish_local`. `feed-site/feed.xml`
+md5-unchanged throughout; three post-fix `reconcile --write` passes clean with
+the digests surviving.
+
+Also updated the now-stale `ROBUST_PIPELINE.md` passage asserting the interview
+lane relies on `parts/render-plan.json` as its only provenance record.
+
+Proof: repro 28/28 against unmodified code, fix proof 39/39 including
+pre-fix-still-reproduces and seven nothing-granted refusals. Two harness bugs
+failed first and neither was a code defect (run 029's lesson): the repro's
+fixture lacked the real `REQUIRED_DISCLOSURE`, and the backfill's shallow
+`dict()` snapshot shared the transitions list so the integrity assertion
+false-failed before writing anything.

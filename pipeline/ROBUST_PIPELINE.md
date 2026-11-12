@@ -444,8 +444,10 @@ checks duration against the new word count; the interview lane's
 shape. None of those can tell what the audio was rendered from. For the read
 lane that hole is now closed downstream: run 042 made `fidelity_gate()` compare
 the recorded `audio_sha256` against the mp3 on disk, so a stale or swapped
-render is refused even when the plan guard was bypassed. The interview lane
-still relies on `parts/render-plan.json` as its only provenance record.
+render is refused even when the plan guard was bypassed. As of run 043 the
+interview lane no longer relies on `parts/render-plan.json` alone either:
+`reconcile()` compares the ledger's recorded `audio_sha256` against the mp3 on
+disk and refuses a mismatch (see the run-043 section below).
 
 A third instance surfaced in the same pass: the interview lane read its plan with
 a bare `json.loads`, so a truncated plan -- what a killed background render
@@ -805,3 +807,65 @@ Harness notes. Deleting `feed-site/episode-NNN-notes.md` does **not** simulate a
 `description`. And `feed_coverage()` unions the published set from **both**
 `state.json` and `manifest.json`, so it catches a status-route erasure too; an
 expectation that it would be blind there was a harness bug, not a code defect.
+
+## `reconcile()` DELETED the interview lane's audio provenance (fixed run 043)
+
+`render_episode()` records the rendered audio's provenance into the ledger:
+
+    record["artifacts"] = {"audio": ..., "audio_sha256": sha256(output),
+                           "turns": len(turns)}
+
+`reconcile()` then rebuilt a `{notes, audio}` dict from disk and **assigned it
+over the top**:
+
+    artifacts = {"notes": ..., "audio": [...]}
+    rec["artifacts"] = artifacts
+
+`reconcile --write` runs every slice, so the digest and the turn count were
+destroyed on the first reconcile after any render, permanently and silently --
+nothing re-derives them and `reconcile` still returned `ok: true`. All three
+published episodes in this tree carried the fingerprint: a
+`rendering -> rendered` transition reading *atomic render complete* (so a digest
+was definitely written) beside `artifacts` holding only `{audio, notes}`.
+
+Fixed by **merging** the freshly-derived fields into the existing dict instead
+of replacing it, and -- in the same slice -- wiring a reader: `reconcile()`
+already has the audio in hand, so it re-hashes it and reports a mismatch as an
+issue naming both digests. An **absent** digest is deliberately silent rather
+than an issue: 001-003 had already lost theirs to this bug and are genuinely
+published, so refusing them would be a false failure. Their digests were
+backfilled on evidence (in-pipeline render transition, episode-dir and
+feed-site audio byte-identical at the advertised enclosure length, local feed
+byte-identical to live, `preflight --audio` passing with a matching digest).
+
+Two lessons:
+
+- **This is run 042's class with the sign flipped.** There the read lane
+  *stored* `audio_sha256` and nothing read it; here the interview lane stored it
+  and another function *deleted* it. Same field, same tree, opposite failure --
+  so when you add a provenance field, grep for both its readers **and** every
+  writer of the structure that holds it (`grep -n 'artifacts' pipeline/*.py`).
+- **A whole-dict assignment is a silent deleter.** `rec[x] = {...}` discards
+  keys another stage owns, and no gate notices because the result is
+  structurally valid. Prefer merge semantics for any record more than one
+  function writes.
+
+Latent in the now-familiar way: `coverage` 3/3, `verify ok: true` and 3x
+`reconcile --write` at 0/0/0 were all accurate and all blind, because the field
+they would have checked was the field being destroyed.
+
+Harnesses `/opt/data/tmp/mm_artifacts_clobber_repro_run043.py` (28/28 against
+the **unmodified** module: the digest present, destroyed by one reconcile, never
+restored, and a swapped mp3 then passing `preflight` and `reconcile` with
+nothing left to contradict it) and `mm_artifacts_clobber_proof_run043.py` (39/39:
+pre-fix backup still reproduces; post-fix the digest survives three passes and a
+swap is refused; nothing granted -- an absent digest stays silent, the run-031
+missing-audio refusal, missing notes, the run-008 dedupe at [1,1,1], a `planned`
+exemption and the read lane are all unchanged; exactly **one** function changed
+with 48 byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/
+`verify_feed`/`feed_coverage`/`publish_local`).
+
+Harness note: the backfill script's integrity assertion false-failed on a
+**shallow** `dict()` snapshot, which shares the `transitions` list so appending
+mutated both sides. The guard was right and the snapshot was wrong -- deep-copy
+the before-state. Nothing had been written when it fired.

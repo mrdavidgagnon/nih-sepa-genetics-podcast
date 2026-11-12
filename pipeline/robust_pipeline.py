@@ -455,8 +455,35 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
         status_now = str(rec.get("status", ""))
         if (status_now in {"rendered", "verified"} or status_now.startswith("published")) and not audio:
             issues.append("ledger says audio exists but no MP3 is present")
-        artifacts = {"notes": str(notes.relative_to(ROOT)) if notes.exists() else None,
-                     "audio": [str(p.relative_to(ROOT)) for p in audio]}
+        # MERGE, never replace. render_episode() records the rendered audio's
+        # provenance here -- audio_sha256 and the turn count -- and this
+        # function runs with write=True every slice, so assigning a freshly
+        # built {notes, audio} dict over the top destroyed that digest on the
+        # first reconcile after any render. All three published episodes in
+        # this tree show the fingerprint: a "rendering -> rendered / atomic
+        # render complete" transition (so a digest was definitely written) and
+        # artifacts holding only {audio, notes}. Nothing re-derives it, so the
+        # loss was permanent and silent: reconcile still returned ok: true.
+        artifacts = dict(rec.get("artifacts") or {})
+        artifacts.update({"notes": str(notes.relative_to(ROOT)) if notes.exists() else None,
+                          "audio": [str(p.relative_to(ROOT)) for p in audio]})
+        # Recording provenance is not checking it (run 042's lesson, here in
+        # the interview lane). reconcile() already has the audio in hand, so
+        # verify the preserved digest against the file rather than leaving a
+        # field with no reader. A digest that is ABSENT is not an issue --
+        # 001-003 lost theirs to the bug being fixed above and are genuinely
+        # published, so refusing them would be a false failure. Only a digest
+        # that is present and WRONG is reported: that means the audio on disk
+        # is not the audio that was rendered and gated.
+        recorded_digest = artifacts.get("audio_sha256")
+        if recorded_digest and len(audio) == 1:
+            actual_digest = sha256(audio[0])
+            if actual_digest != recorded_digest:
+                issues.append(
+                    f"audio does not match the digest recorded at render time "
+                    f"(recorded {recorded_digest[:12]}..., on disk "
+                    f"{actual_digest[:12]}...); the mp3 was replaced after it "
+                    f"was gated")
         rec["artifacts"] = artifacts
         if issues:
             report["ok"] = False
