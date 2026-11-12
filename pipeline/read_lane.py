@@ -786,6 +786,55 @@ def register(number: str, item: dict, citation: str, extraction: dict,
     sync_durable_state(number, manifest["episodes"][number])
 
 
+def record_verdict(number: str, verification: dict) -> dict:
+    """Persist a fidelity-gate verdict into the read registry + durable state.
+
+    register() runs inside build(), which is necessarily BEFORE any audio
+    exists, so the verdict it stores is always the pre-render one:
+    verified: false, with the single issue "no audio rendered yet". Nothing
+    afterwards rewrote it -- render_episode() returns a dict and writes no
+    registry, and verify() only computed and printed. So a reading that
+    genuinely passed the gate after rendering stayed recorded as unverified,
+    and both consumers of that flag refuse it: fidelity_gate() reports
+    "automated fidelity gate has not passed" and publish_feed.read_episodes()
+    emits no item. The only route that ever flipped the flag was re-running
+    build() after the render -- i.e. --force, the rebuild-in-place path whose
+    whole hazard is shipping a previous paper's audio.
+
+    This grants nothing. It stores exactly what verify() returned, a failing
+    verdict included, and it will not invent a registry entry that build()
+    has not created -- the citation, item key and GUID only exist there.
+    """
+    manifest = load_read_manifest()
+    record = (manifest.get("episodes") or {}).get(number)
+    if not isinstance(record, dict):
+        raise SystemExit(
+            f"reading {number} has no pipeline/read-episodes.json entry; "
+            f"run read_lane.py build --item KEY first"
+        )
+
+    audio = EPISODES / number / f"episode-{number}.mp3"
+    record["verified"] = bool(verification.get("ok"))
+    record["coverage"] = verification.get("coverage")
+    record["source_words"] = verification.get("source_words", record.get("source_words"))
+    record["spoken_words"] = verification.get("spoken_words")
+    record["audio_words"] = verification.get("audio_words")
+    record["audio_seconds"] = verification.get("audio_seconds")
+    record["gate_issues"] = list(verification.get("issues") or [])
+    record["verified_at"] = datetime.now(timezone.utc).isoformat()
+    # Provenance the gate itself never inspects: verify() compares script.md
+    # against source.txt, so it cannot tell which paper the audio came from.
+    # Recording the rendered bytes' digest beside the verdict makes a later
+    # audio swap detectable instead of silent.
+    if audio.exists():
+        record["audio_sha256"] = sha256(audio)
+        record["audio_bytes"] = audio.stat().st_size
+    save_read_manifest(manifest)
+    touched = sync_durable_state(number, record)
+    return {"episode": number, "verified": record["verified"],
+            "coverage": record["coverage"], "durable_state": touched}
+
+
 def occupied_numbers() -> set[int]:
     """Every episode number any registry or the episodes tree already owns.
 
@@ -1014,7 +1063,11 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps(asyncio.run(render_episode(args.episode, args.force)), indent=1))
     elif args.cmd == "verify":
         result = verify(args.episode)
-        print(json.dumps(result, indent=1))
+        # Persist the verdict the gate just produced. verify() itself stays
+        # side-effect free so harnesses can score a tree without mutating its
+        # registries; the operator-facing command is what records the result.
+        stored = record_verdict(args.episode, result)
+        print(json.dumps({**result, "recorded": stored}, indent=1))
         return 0 if result["ok"] else 1
     elif args.cmd == "zotero-read":
         for item in read_collection_items():

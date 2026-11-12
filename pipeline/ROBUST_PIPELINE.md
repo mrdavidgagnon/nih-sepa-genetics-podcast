@@ -651,3 +651,49 @@ registered without a `description` key used to ship a live item with an empty
 `<description>`** (this happened to episode 002) while `publish` and `verify`
 both returned `ok: true`. When registering an episode, write `description` and
 `number` into the manifest alongside `title`/`sources`.
+
+### The fidelity-gate verdict is persisted by `verify` (fixed run 040)
+
+`read_lane.py register()` is called from exactly one place -- `build()` --
+which necessarily runs **before** any audio exists. So the verdict it stored
+was always the pre-render one: `verified: false` in `read-episodes.json` and
+status `built` in `state.json`/`manifest.json`, with the single gate issue
+`no audio rendered yet`.
+
+Nothing afterwards rewrote it. `render` returns a dict and writes no registry;
+`verify` computed the verdict, printed it and exited 0/1. A reading that
+genuinely **passed** the gate after rendering therefore stayed recorded as
+unverified forever, and both consumers of that flag refused it:
+
+- `robust_pipeline.fidelity_gate()` reports *automated fidelity gate has not
+  passed* (it reads `record["verified"]`), so `publish --episode NNN` aborts.
+- `publish_feed.read_episodes()` emits an item only for `verified: true`, so
+  the reading never reaches the feed.
+
+The only route that ever flipped the flag was re-running `build()` **after**
+the render -- i.e. `--force`, the rebuild-in-place path whose entire hazard
+(run 032) is shipping the previous paper's audio under a new script. So the
+sole workaround for an unpublishable reading was the documented hazard.
+
+Fixed by adding `record_verdict(number, verification)`, called from the CLI
+`verify` branch. `verify()` the *function* stays side-effect free, so a harness
+can score a tree without mutating its registries; the operator-facing command
+is what persists. It also records `audio_sha256`/`audio_bytes` beside the
+verdict -- provenance the gate itself never inspects, since it compares
+`script.md` against `source.txt` and cannot tell which paper the audio came
+from.
+
+It grants nothing: a failing verdict is stored as failing with its issue list,
+`fidelity_gate()` still refuses it, and `record_verdict` raises rather than
+invent a registry entry `build()` never created.
+
+**Operator note:** after `read_lane.py render --episode NNN`, run
+`read_lane.py verify --episode NNN`. That single command now both gates and
+records; there is no hand-written registry step and no `--force` rebuild.
+
+Harnesses: `/opt/data/tmp/mm_verified_persist_repro_run040.py` (29/29 against
+the unmodified module) and `mm_verified_persist_proof_run040.py` (56/56:
+pre-fix backup still reproduces; post-fix records and unblocks; truncated
+audio, dropped source text and injected commentary all still refused and
+stored as failures; `verify()` still side-effect free; only `main()` changed
+with 30+ functions byte-identical).

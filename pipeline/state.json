@@ -1208,13 +1208,35 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-11T19:58:12.123709Z"
+        },
+        {
+          "attempt_id": "501-1794444353",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-12T00:45:53.121870Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-12T00:53:25.392345Z",
+              "detail": "run040: verify persists fidelity verdict (record_verdict); repro 29/29, proof 56/56",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-12T01:10:53.121870Z",
+          "detail": "run040 read-lane verify-verdict persistence fixed+documented; lanes empty",
+          "finished_at": "2026-11-12T00:53:25.890845Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-12T00:45:53.121870Z"
         }
       ],
-      "attempts": 34,
+      "attempts": 35,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-11T20:24:42Z"
+  "updated_at": "2026-11-12T00:53:25Z"
 }
