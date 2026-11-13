@@ -11,3 +11,14 @@ check_zotero.py
 # copyrighted paper text and this repository is PUBLIC -- never commit them.
 # Regenerate with items/<key>/children -> items/<attachkey>/file + pypdf.
 source-*.txt
+
+# Read-lane extraction artifacts: same copyright class as source-*.txt above,
+# written by pipeline/read_lane.py build() under names that pattern does NOT
+# match -- source.txt (verbatim body text), source-<KEY>.pdf (the publisher's
+# own PDF), extraction-report.json (per-page audit trail). This repository is
+# PUBLIC and robust_pipeline.py push runs `git add -A`, so an unignored
+# reading's extraction would be committed verbatim. Regenerable from Zotero:
+# items/<key>/children -> items/<attachkey>/file + pypdf.
+source.txt
+source-*.pdf
+extraction-report.json

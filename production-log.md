@@ -2,6 +2,87 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-13 — run 051: the read lane's extraction artifacts were one `git add -A` from a public repo
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same **18** on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds 10 parents (001-003's sources). No production unit
+(27th consecutive), so the slice closed a durable defect. Opening `coverage` ok
+3/3, `verify` ok with no issues and `legacy_exempt_episodes: []`, manifest and
+state agree at `published_and_moved` for 001-003. Stale lock owner pid 1640237
+dead with the advisory lock free (`flock` LOCK_NB succeeded) — the normal steady
+state, cleared with `unlock --force`. Standing blocker unchanged and **not
+re-raised** (the lane call is David's).
+
+**Defect.** Run 047 found the interview lane's extracted source text untracked
+but **not ignored** in a repository that is public, and added `source-*.txt` to
+`.gitignore`. The read lane writes **three** artifacts of the same copyright
+class under names that pattern does not match, and none of them was ignored:
+
+    episodes/NNN/source.txt              verbatim extracted body text
+    episodes/NNN/source-<KEY>.pdf        the publisher's own PDF
+    episodes/NNN/extraction-report.json  per-page extraction audit trail
+
+All three are written unconditionally by `read_lane.build()` (lines ~1031-1034
+and the `target = directory / f"source-{item_key}.pdf"` fetch above them). The
+reachability is not hypothetical: `push_to_remote()` runs **`git add -A`** on the
+clone it builds, so the first real Read item would have committed a verbatim
+copyrighted paper — and the publisher's PDF itself — to a public GitHub
+repository, through a push that reports `ok: true`.
+
+`source.txt` is the worse of the three. The interview pattern keys on the
+`source-<KEY>` *prefix*, and the read lane deliberately uses a **fixed** filename
+because `verify()` reads `(directory / "source.txt")` — so the one artifact the
+fidelity gate depends on is precisely the one the ignore rule could never match.
+
+**Proved on real state before fixing.** A scratch `episodes/992/` carrying all
+three files: `git check-ignore` returned NOT IGNORED for each, and
+`git add -A --dry-run` listed all three as `add`. The **control** that makes this
+a finding rather than a guess: `source-ZZZZ1111.txt` in the same directory *was*
+ignored pre-fix, so the pattern worked for the lane it was written for and the
+gap was lane-shaped, not a broken `.gitignore`.
+
+**Fix.** Three patterns appended to `.gitignore` with a comment naming the
+writer, the `git add -A` path and how to regenerate them. Additive only: 0
+removals in a unified diff, every original non-blank line present verbatim,
+exactly 10 lines added.
+
+**Validation (deterministic, final window):**
+- proof `/opt/data/tmp/mm_gitignore_proof_run051.py` **32/32**: pre-fix backup
+  still reproduces all three exposures plus the interview control; post-fix all
+  three ignored and `git add -A` leaks none
+- **nothing granted** — `script.md`, `episode-notes.md`, `review-panel.md`, the
+  mp3s, `feed-site/feed.xml` and `pipeline/*.py` all still trackable; the bare
+  `source.txt` pattern does **not** swallow `sources.md` or `source-notes.md`
+- tracked-file set **unchanged at 52**, no `source.txt` and no `*.pdf` tracked
+- `coverage` ok 3/3; `verify` ok, `issues: []`, `legacy_exempt_episodes: []`
+- `preflight NNN --audio` ok with `issues: []` for **all three** episodes
+- `reconcile --write` x3 at **0, 0, 0** issues (run-008 dedupe holding)
+- `tests/` **38/38 OK**; `py_compile` clean on all `pipeline/*.py`
+- `feed.xml` md5 `9fc23235fcb49ca809059092da619b54`, **unchanged** and
+  byte-identical to the live feed; `grep -c '<item>'` = 3
+- scratch `episodes/992/` removed; `state.json`, `manifest.json` and
+  `read-episodes.json` carry no 992 entry
+
+Backup `.gitignore.bak-run051`, `production-log.md.bak-run051`.
+
+**Lesson.** Run 047's exposure and this one are the *same defect in the same
+file*, and the census that would have caught it is not a code census at all —
+it is "which artifacts does each lane write, and is every one of them either a
+deliverable or ignored?" A `.gitignore` pattern is a gate like any other, and
+run 032's lane-asymmetry axis applies to **data** rules as much as to code
+paths: run 047 fixed the lane it was standing in and the sibling lane in the
+same tree kept the hole. The sharper form: when a protective pattern keys on a
+**filename shape**, enumerate every writer of that class rather than trusting
+the shape — the read lane's fixed `source.txt` was unmatchable by construction.
+
+**Outcome:** no episode or reading created, rendered or published. One copyright
+exposure closed before the first Read item could trigger it. Feed byte-identical
+to live, live site unchanged. Standing blocker unchanged: 18 items unfiled in
+`YF84AUZK` awaiting David's lane decision (Summerize = interview, Read =
+verbatim reading).
+
 ## 2026-11-13 — run 050: the read lane had run 049's waiver, one lane over
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the

@@ -1511,13 +1511,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T19:24:49.828287Z"
+        },
+        {
+          "attempt_id": "501-1794613191",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T23:39:51.211484Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T23:44:51.040841Z",
+              "detail": "run051: read-lane source.txt/source-KEY.pdf/extraction-report.json were NOT ignored in a public repo; push runs git add -A. proof 32/32, additive, feed byte-identical",
+              "stage": "gitignore_read_lane_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-14T00:04:51.211484Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-13T23:39:51.211484Z"
         }
       ],
-      "attempts": 45,
+      "attempts": 46,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T19:37:01Z"
+  "updated_at": "2026-11-13T23:44:51Z"
 }
