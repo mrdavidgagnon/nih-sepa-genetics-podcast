@@ -10,7 +10,7 @@
 
 **Host:** So people want the self-sacrificing car. Case closed?
 
-**Rowan:** That's the trap. The same people, asked what they'd actually buy, moved sharply. When respondents imagined themselves and a family member in the car that would sacrifice them, their reported likelihood of purchase dropped to a median of nineteen, against a median of fifty for the self-protective model. In a later study participants allocated a hundred points across algorithms. The self-sacrificing car scored fifty for morality and fifty for "good for other people to have" — but only thirty-three on purchase intention.
+**Rowan:** That's the trap. The same people, asked what they'd actually buy, moved sharply. When respondents imagined themselves and a family member in the car that would sacrifice them, their reported likelihood of purchase dropped to a median of nineteen, against a median of fifty for the self-protective model. In a later study participants allocated a hundred points across algorithms. The self-sacrificing car scored fifty for morality and fifty for being "a good algorithm for other people to have" — but only thirty-three on purchase intention.
 
 **Host:** They want everyone else to buy the moral car.
 

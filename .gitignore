@@ -5,3 +5,9 @@ parts-*/
 check_zotero.py
 *.bak-*
 *.tmp
+
+# Extracted source full text: inputs to pipeline/quoted_span_gate.py, fetched
+# from Zotero on demand (see the run-047 fetch script). These are verbatim
+# copyrighted paper text and this repository is PUBLIC -- never commit them.
+# Regenerate with items/<key>/children -> items/<attachkey>/file + pypdf.
+source-*.txt

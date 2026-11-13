@@ -1418,13 +1418,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T02:40:35.154603Z"
+        },
+        {
+          "attempt_id": "501-1794552582",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T06:49:42.100519Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T06:54:24.300315Z",
+              "detail": "run047: ported quoted_span_gate.py (byte-identical, 0 sibling refs) + fetched 9/10 source texts; gate found 1 real misquote in ep001",
+              "stage": "quoted_span_gate_ported"
+            },
+            {
+              "at": "2026-11-13T06:57:07.457488Z",
+              "detail": "run047: 23/23 tests (load-bearing: 9 fail crippled), ep001 misquote fixed, source-*.txt gitignored (public repo), doc appended",
+              "stage": "gate_proven_and_documented"
+            }
+          ],
+          "deadline_at": "2026-11-13T07:14:42.100519Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-13T06:49:42.100519Z"
         }
       ],
-      "attempts": 41,
+      "attempts": 42,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T02:48:06Z"
+  "updated_at": "2026-11-13T06:57:07Z"
 }

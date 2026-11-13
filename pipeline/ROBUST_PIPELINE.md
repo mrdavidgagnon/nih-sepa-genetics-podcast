@@ -1089,3 +1089,63 @@ Harness note: the fixture's spoken disclosure must be the exact
 word-fidelity tampering belongs to `read_lane.verify()`, which recomputes
 coverage; `fidelity_gate()` reads the **recorded** verdict by design, so
 asserting text tampering against it is a harness bug, not a weakened gate.
+
+## The quoted-span gate (run 047)
+
+`pipeline/quoted_span_gate.py` asserts that every `"..."` span in a deliverable
+appears in the episode's extracted source text. Ported byte-identical from the
+sibling tree (its run 488, a file created after this tree's clone date, so the
+run-009/010 line-count census could not have found it) with 20 tests, plus three
+regression tests pinning this tree's own catalogue.
+
+    python3 pipeline/quoted_span_gate.py --source episodes/NNN/source-KEY.txt \
+        --check episodes/NNN/script.md --check episodes/NNN/episode-notes.md \
+        --whitelist "a known-benign span"
+
+Exit 0 = every span verified, exit 1 = at least one span absent from the source.
+It is **not** a publication gate: `preflight()` does not call it, and it grants
+nothing. Run it **before** writing `script.md`, and match each deliverable
+against the **source**, never against the other deliverable -- the sibling's
+run-474 defect was the notes dropping two words inside quotation marks while the
+script was correct, which a script-vs-notes comparison cannot see.
+
+### Its input did not exist here, which is why porting the tool was half the job
+
+No interview episode in this tree had ever retained its extracted source text,
+so the gate was unusable the moment it landed -- run 010's lesson (verifying the
+stages around a stage is not verifying the stage) applied to an imported tool:
+check that each stage's **inputs are obtainable by the actor that will run it**.
+The 10 source parents of 001-003 were re-fetched from Zotero
+(`items/<key>/children` -> `items/<attachkey>/file`, extracted with the sibling
+venv's `pypdf`); 9 of 10 succeeded. `EIUADNKU` (003's only source) has **no
+stored PDF attachment** -- consistent with the production log, which records it
+as read from the arXiv preprint `1803.07170v2` -- so 003's spans remain
+unverifiable until a PDF is attached.
+
+### `source-*.txt` is gitignored and must stay that way
+
+Those files are verbatim copyrighted paper text and this repository is
+**public**. They are regenerable verification inputs, not deliverables. The
+pattern `source-*.txt` was added to `.gitignore` in the same slice that created
+them; do not commit them and do not "fix" that ignore rule.
+
+### What the first real run found
+
+Episode 001's script quoted a scale label as `"good for other people to have"`
+while Awad/Bonnefon's text reads *"a good **algorithm** for other people to
+have"* -- a word dropped inside quotation marks, on a **published** episode,
+past a three-reviewer panel and every deterministic gate. Corrected to the
+source's exact words (script only; the notes never carried the span -- verified
+by per-file count, not assumed). The other four source-0 hits were the benign
+classes the sibling skill documents: the Host's own rhetorical framing
+(`"most people feel this way"` / `"the machine shall do this"`), a dismissive
+paraphrase the script itself coins (`"aggregation is hard."`), and a
+bibliographic title the notes quote in their own reference list. Only an
+**author-attributed** span with source 0 is the blocking class -- triage every
+hit before filing it, and prefer `--whitelist` to loosening the checker.
+
+Lesson: the reviewer panel and `preflight` both read the script against the
+*citation record*, never against the *source text*, so a misquote inside
+quotation marks was invisible to every gate this pipeline had. A gate that
+derives both sides of its comparison from the deliverables cannot see fidelity
+to the paper.

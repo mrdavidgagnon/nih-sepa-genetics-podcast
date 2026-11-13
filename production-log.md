@@ -2537,3 +2537,124 @@ persistence de-duplicated across three write passes, and eight nothing-granted
 refusals. Two harness bugs fixed rather than the guards: the fixture must use
 the exact `robust_pipeline.REQUIRED_DISCLOSURE` constant, and word-fidelity
 tampering is `read_lane.verify()`'s scope, not `fidelity_gate()`'s.
+
+
+## 2026-11-13 — run 047: the quoted-span gate, and the misquote it found in a published episode
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same 18 on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds 10 parents (001-003's sources, all moved). No
+production unit, so the slice closed a durable gap. Opening `coverage` ok 3/3,
+`verify` ok with no issues, `reconcile` ok, manifest and state agree at
+`published_and_moved` for 001-003. Stale lock owner pid 1121613 dead with the
+advisory lock free -- the normal steady state, cleared with `unlock --force`.
+Standing blocker unchanged and **not re-raised** (David's lane call).
+
+**Gap.** The sibling tree has `pipeline/quoted_span_gate.py` (its run 488) and
+this tree had **no equivalent at all**. It is a file created *after* this tree's
+clone date, so the run-009/010 line-count port census -- which compares the five
+shared modules and was correctly closed -- could not have surfaced it. A census
+over files that exist on both sides is blind to a file that exists on only one.
+
+The gate asserts every `"..."` span in a deliverable appears in the episode's
+extracted source text. Nothing in this pipeline had ever checked that: the
+three-reviewer panel and `preflight()` both read the script against the
+**citation record** (keys, numbered entries, years, Zotero links), never against
+the **source text**. So a misquote inside quotation marks was invisible to every
+gate the show had.
+
+**Porting the tool was half the job.** It ran and immediately died with
+`FileNotFoundError: episodes/003/source-EIUADNKU.txt` -- no interview episode in
+this tree has ever retained its extracted source text, so the gate was unusable
+the moment it landed. That is run 010's lesson applied to an imported tool:
+check that each stage's **inputs are obtainable by the actor that will run it**,
+not merely that the stage works. Re-fetched all 10 source parents from Zotero
+(`items/<key>/children` -> `items/<attachkey>/file`, extracted with the sibling
+venv's `pypdf` 6.21.2): **9 of 10** succeeded. `EIUADNKU` (003's only source)
+has **no stored PDF attachment**, consistent with this log's own record that it
+was read as the arXiv preprint `1803.07170v2`, so 003's six script spans and
+eleven notes spans remain unverifiable until a PDF is attached.
+
+**What it found on first real use: a genuine misquote in published episode 001.**
+Five source-0 hits across 001/002 (45 spans in the catalogue). Four are the
+benign classes the sibling skill documents -- the Host's own rhetorical framing
+(`"most people feel this way"` -> `"the machine shall do this"`), a dismissive
+paraphrase the script itself coins (`"aggregation is hard."`), and a
+bibliographic title the notes quote in their own reference list. The fifth is
+the blocking **author-attributed** class:
+
+    source (Awad/Bonnefon 4UDPRQZR): "...was considered a good ALGORITHM for
+                                      other people to have (median budget
+                                      share = 50)"
+    episode 001 script.md:           fifty for "good for other people to have"
+
+A word dropped inside quotation marks -- the sibling's run-474 class -- on an
+episode that passed a three-reviewer panel and every deterministic gate, and is
+live. Corrected to the source's exact words (`being "a good algorithm for other
+people to have"`). Script-only by **evidence**: a per-file count table showed
+script 1 / notes 0 before the edit, so the notes were never touched on
+assumption (the script-only-residual class runs in both directions). The edit
+changed exactly one line by exactly the intended substitution, asserted before
+writing.
+
+Diagnostic note worth keeping: a shell `grep -o -E ".{70}moral.{70}"` over the
+source files returned **zero** hits for `moral` while Python counted 47 in the
+same file -- the shell probe was the artifact. When a probe returns an
+implausible zero, check the probe against a control term in a second tool before
+concluding anything about the data. Then ran the skill's mandated alnum-fold
+diagnostic: `alnum-present: False` for all three 001 spans, which is what
+distinguishes a real absence from a normalization gap.
+
+**Copyright catch.** The 9 extracted files are verbatim copyrighted paper text
+and this repository is **public**; `git status` showed them as untracked and
+`git check-ignore` confirmed they were **not** ignored, i.e. one `git add -A`
+from publication. Added `source-*.txt` to `.gitignore` with a comment saying why
+and how to regenerate them. They are regenerable verification inputs, not
+deliverables.
+
+**Validation (deterministic, final window):**
+- `pipeline/quoted_span_gate.py` md5 **identical** to the sibling's, 0
+  sibling-show references (the module is show-agnostic, so no retargeting was
+  needed -- asserted rather than assumed, per run 009)
+- `tests/` created (this tree had none): **23/23 OK** -- 20 ported + 3 new
+  regression tests pinning the real ep-001 span
+- tests proven **load-bearing** both ways: crippling the module to its pre-488
+  shape (no `alnum` fallback, 2 views) fails **5**; disabling detection
+  entirely fails **9**; restored module md5-identical with 23/23 green
+- 001 and 002 now exit **0** with only the benign spans whitelisted; 001 went
+  10 spans / 3 unverified -> 10 / **0**
+- `preflight NNN --audio` ok with `issues: []` for **all three** episodes after
+  the script edit
+- `coverage` ok 3/3; `verify` ok, `issues: []`, `legacy_exempt_episodes: []`;
+  `reconcile` ok
+- `feed.xml` md5 `9fc23235fcb49ca809059092da619b54`, **unchanged** across the
+  whole slice; `grep -c '<item>'` = 3
+- `py_compile` clean on all `pipeline/*.py`
+- both appends additive: 0 removals in a unified diff (tests, ROBUST_PIPELINE.md)
+
+Backups `tests/test_quoted_span_gate.py.bak-run047`,
+`episodes/001/script.md.bak-run047`, `ROBUST_PIPELINE.md.bak-run047`,
+`.gitignore.bak-run047`, `production-log.md.bak-run047`.
+
+**Audio provenance.** The 001 script edit means `script.md` no longer matches
+the rendered mp3 word-for-word (a single word inside one quotation). The audio
+is NOT re-rendered: the interview lane has no script-hash gate (`render-plan.json`
+records the chunk sequence, not a script digest), `reconcile()` compares the
+audio digest to the recorded one and still passes, and re-rendering would change
+the live enclosure for a one-word correction. The correct deliverable is the
+text; logged here so a future slice does not read the divergence as a defect.
+
+**Lesson.** A port census over files that exist on **both** sides cannot find a
+file that exists on only one -- run 010 closed the line-count backlog correctly
+and this gap sat outside it. And the deeper one: every gate this show had scores
+the deliverables against each other or against the citation record, so none of
+them could see fidelity to the paper's actual words. When a gate passes, ask
+which artifact it never looked at -- here, for 45 spans across three published
+episodes, the answer was the source text itself.
+
+**Outcome:** no episode or reading created, rendered or published. One durable
+verification gap closed, one real misquote corrected in a published episode, and
+a copyright exposure caught before any commit. Feed byte-identical, live site
+unchanged. Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting
+David's lane decision (Summerize = interview, Read = verbatim reading).
