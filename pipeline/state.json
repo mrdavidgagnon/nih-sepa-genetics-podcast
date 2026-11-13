@@ -1528,7 +1528,9 @@
             }
           ],
           "deadline_at": "2026-11-14T00:04:51.211484Z",
-          "outcome": null,
+          "detail": "run051: read-lane extraction artifacts (source.txt, source-KEY.pdf, extraction-report.json) were untracked-but-NOT-ignored in a public repo while push_to_remote runs git add -A; run 047's source-*.txt pattern matched none. Fixed additively in .gitignore. proof 32/32, pre-fix repro + interview control, nothing granted, 52 tracked files unchanged, suite 38 OK, feed byte-identical to live, pushed 8e0",
+          "finished_at": "2026-11-13T23:45:22.236097Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T23:39:51.211484Z"
         }
@@ -1539,5 +1541,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T23:44:51Z"
+  "updated_at": "2026-11-13T23:45:22Z"
 }
