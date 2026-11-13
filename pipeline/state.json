@@ -1440,7 +1440,9 @@
             }
           ],
           "deadline_at": "2026-11-13T07:14:42.100519Z",
-          "outcome": null,
+          "detail": "run047: ported quoted_span_gate.py + 23 load-bearing tests, fetched 9/10 source texts (EIUADNKU no PDF), fixed real ep001 dropped-word misquote, gitignored copyrighted source-*.txt, feed byte-identical, pushed 72bd35f",
+          "finished_at": "2026-11-13T06:58:28.656740Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T06:49:42.100519Z"
         }
@@ -1451,5 +1453,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T06:57:07Z"
+  "updated_at": "2026-11-13T06:58:28Z"
 }
