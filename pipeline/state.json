@@ -1462,7 +1462,9 @@
             }
           ],
           "deadline_at": "2026-11-13T11:24:50.414858Z",
-          "outcome": null,
+          "detail": "run048: wired quoted_span_gate into preflight (publish path), union-of-sources + manifest whitelists; fixed ep003 notes misquote; recovered 003 source from arXiv 1803.07170v2; proof 52/52, tests 23->31 load-bearing; feed byte-identical; pushed a5be7ed",
+          "finished_at": "2026-11-13T11:11:55.726505Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T10:59:50.414858Z"
         }
@@ -1473,5 +1475,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T11:08:29Z"
+  "updated_at": "2026-11-13T11:11:55Z"
 }
