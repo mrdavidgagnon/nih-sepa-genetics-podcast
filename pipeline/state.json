@@ -1484,7 +1484,9 @@
             }
           ],
           "deadline_at": "2026-11-13T15:38:43.235201Z",
-          "outcome": null,
+          "detail": "run049: preflight now refuses an interview episode declaring no manifest sources (quoted-span gate + whole citation apparatus were vacuous at cardinality zero); +checked_against_sources; repro 20/20, proof 50/50, suite 31->38 load-bearing; feed byte-identical; pushed d5fce9e",
+          "finished_at": "2026-11-13T15:22:54.181692Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T15:13:43.235201Z"
         }
@@ -1495,5 +1497,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T15:21:21Z"
+  "updated_at": "2026-11-13T15:22:54Z"
 }
