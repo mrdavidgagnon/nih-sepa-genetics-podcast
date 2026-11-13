@@ -14,7 +14,9 @@ Two directions, both load-bearing:
 
 Fixtures marked "real" are verbatim from episode source text.
 """
+import shutil
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -217,6 +219,123 @@ class MoralMachinesRegressionTests(unittest.TestCase):
         allowed = G.verify_text(self.SOURCE, text,
                                 ["most people feel this way", "the machine shall do this"])
         self.assertTrue(allowed["ok"], allowed["unverified"])
+
+
+class PreflightIntegrationTests(unittest.TestCase):
+    """The gate must be reachable from the PUBLISH PATH, not just the CLI.
+
+    Run 047 ported quoted_span_gate.py with zero callers: it was reachable only
+    as a hand-typed command, so `publish --episode NNN` could not reach the one
+    check in this tree that compares a deliverable against the paper's actual
+    words. Every other preflight check scores the script against the citation
+    record, which is why a misquote inside quotation marks passed a
+    three-reviewer panel and every deterministic gate in published episodes 001
+    and 003. These tests pin the call site rather than the module.
+    """
+
+    @classmethod
+    def setUpClass(cls):
+        import importlib.util
+        spec = importlib.util.spec_from_file_location(
+            "rp_under_test",
+            Path(__file__).resolve().parents[1] / "pipeline" / "robust_pipeline.py")
+        cls.rp = importlib.util.module_from_spec(spec)
+        sys.modules["rp_under_test"] = cls.rp
+        spec.loader.exec_module(cls.rp)
+
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp(prefix="span_gate_preflight_")
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+        self.ep = Path(self.tmp) / "episodes" / "007"
+        self.ep.mkdir(parents=True)
+        (self.ep / "source-AAAA1111.txt").write_text(
+            "The secondary driver is considered more causally responsible "
+            "than the primary driver. Perceived competence did not mediate "
+            "the blame effect.\n")
+        (self.ep / "script.md").write_text(
+            '**Host:** Welcome.\n\n'
+            '**Rowan:** The paper reports that "the secondary driver is '
+            'considered more causally responsible" here.\n')
+        (self.ep / "episode-notes.md").write_text("Notes.\n")
+
+    def residuals(self, manifest, files=("script.md", "episode-notes.md")):
+        """Run just the gate's logic the way preflight() composes it."""
+        keys = [str(k) for k in manifest.get("sources", [])]
+        whitelist = [str(w) for w in manifest.get("quoted_span_whitelist", [])]
+        texts, missing = {}, []
+        for key in keys:
+            path = self.ep / f"source-{key}.txt"
+            if path.exists():
+                texts[key] = path.read_text()
+            else:
+                missing.append(key)
+        out = {"missing": missing}
+        for name in files:
+            text = (self.ep / name).read_text()
+            residual = None
+            for src in texts.values():
+                bad = set(G.verify_text(src, text, whitelist)["unverified"])
+                residual = bad if residual is None else (residual & bad)
+            out[name] = sorted(residual or set())
+        return out
+
+    def test_preflight_defines_a_quoted_spans_check(self):
+        import inspect
+        source = inspect.getsource(self.rp.preflight)
+        self.assertIn("quoted_span_gate", source,
+                      "preflight() must import the gate; a CLI-only tool is "
+                      "not on the publish path")
+        self.assertIn('"quoted_spans"', source)
+
+    def test_real_quotation_passes(self):
+        r = self.residuals({"sources": ["AAAA1111"]})
+        self.assertEqual(r["script.md"], [])
+
+    def test_invented_author_attributed_quote_is_refused(self):
+        p = self.ep / "script.md"
+        p.write_text(p.read_text() +
+                     '**Rowan:** The authors conclude that "blame is a '
+                     'conserved quantity that transfers to the human."\n')
+        r = self.residuals({"sources": ["AAAA1111"]})
+        self.assertEqual(len(r["script.md"]), 1)
+        self.assertIn("conserved quantity", r["script.md"][0])
+
+    def test_dropped_word_inside_quotes_is_refused(self):
+        p = self.ep / "script.md"
+        p.write_text(p.read_text().replace(
+            "the secondary driver is considered more causally responsible",
+            "the secondary driver is considered causally responsible"))
+        r = self.residuals({"sources": ["AAAA1111"]})
+        self.assertEqual(len(r["script.md"]), 1)
+
+    def test_missing_source_extract_is_not_a_waiver(self):
+        (self.ep / "source-AAAA1111.txt").unlink()
+        r = self.residuals({"sources": ["AAAA1111"]})
+        self.assertEqual(r["missing"], ["AAAA1111"],
+                         "a missing extract must be reported, never skipped")
+
+    def test_union_of_sources_verifies_across_papers(self):
+        """A span quoted from paper A must not be 'missing' because of paper B."""
+        (self.ep / "source-BBBB2222.txt").write_text(
+            "An unrelated paper about voting rules.\n")
+        r = self.residuals({"sources": ["AAAA1111", "BBBB2222"]})
+        self.assertEqual(r["script.md"], [])
+
+    def test_whitelist_waives_only_its_own_span(self):
+        p = self.ep / "script.md"
+        p.write_text(p.read_text() +
+                     '**Host:** As I put it, "aggregation is hard."\n'
+                     '**Rowan:** They measured "liability exposure directly."\n')
+        r = self.residuals({"sources": ["AAAA1111"],
+                            "quoted_span_whitelist": ["aggregation is hard."]})
+        self.assertEqual(len(r["script.md"]), 1)
+        self.assertIn("liability exposure", r["script.md"][0])
+
+    def test_notes_are_checked_against_the_source_not_the_script(self):
+        (self.ep / "episode-notes.md").write_text(
+            'The notes assert "a mechanism the paper never names."\n')
+        r = self.residuals({"sources": ["AAAA1111"]})
+        self.assertEqual(len(r["episode-notes.md"]), 1)
 
 
 if __name__ == "__main__":

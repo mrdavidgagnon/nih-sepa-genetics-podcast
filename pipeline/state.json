@@ -1445,13 +1445,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T06:49:42.100519Z"
+        },
+        {
+          "attempt_id": "501-1794567590",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T10:59:50.414858Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T11:05:27.848069Z",
+              "detail": "run048: fetched 003 source from arXiv 1803.07170v2, fixed notes misquote, wired quoted_span_gate into preflight with manifest whitelists",
+              "stage": "span_gate_wired"
+            }
+          ],
+          "deadline_at": "2026-11-13T11:24:50.414858Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-13T10:59:50.414858Z"
         }
       ],
-      "attempts": 42,
+      "attempts": 43,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T06:58:28Z"
+  "updated_at": "2026-11-13T11:08:29Z"
 }

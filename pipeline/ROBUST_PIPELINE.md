@@ -1103,8 +1103,31 @@ regression tests pinning this tree's own catalogue.
         --whitelist "a known-benign span"
 
 Exit 0 = every span verified, exit 1 = at least one span absent from the source.
-It is **not** a publication gate: `preflight()` does not call it, and it grants
-nothing. Run it **before** writing `script.md`, and match each deliverable
+It **is** now a publication gate, and it grants nothing: `preflight()` runs it for every interview
+episode (run 048), reporting under `checks.quoted_spans`, so
+`publish --episode NNN` cannot skip it. Before run 048 it had **zero callers**
+and was reachable only as the hand-typed command above -- which is how a
+misquote inside quotation marks passed a three-reviewer panel and every
+deterministic gate in two published episodes.
+
+Three semantics to know:
+
+* **Union-of-sources.** An episode may group several papers, so a span verifies
+  if it appears in ANY of the episode's `source-KEY.txt` files. The CLI takes a
+  single `--source`, so a bare CLI run on a multi-source episode reports spans
+  quoted from the other papers as missing -- expect exit 1 there and trust
+  `preflight` instead.
+* **Whitelists live in `manifest.json`** per episode, under
+  `quoted_span_whitelist`, so the waiver is durable and reviewable rather than
+  retyped each slice. Justify every entry in the production log; a waiver is a
+  gate with the sign flipped.
+* **A missing `source-KEY.txt` is an issue, not a waiver.** The extracts are
+  gitignored (verbatim copyrighted text, public repo) and regenerable from
+  Zotero `items/<key>/children` -> `items/<attachkey>/file`, or from the
+  preprint the episode actually read -- 003's text is arXiv `1803.07170v2`.
+
+Readings are exempt: the read lane's fidelity gate compares the whole script to
+`source.txt` word by word, which strictly subsumes a quoted-span check. Run it **before** writing `script.md`, and match each deliverable
 against the **source**, never against the other deliverable -- the sibling's
 run-474 defect was the notes dropping two words inside quotation marks while the
 script was correct, which a script-vs-notes comparison cannot see.

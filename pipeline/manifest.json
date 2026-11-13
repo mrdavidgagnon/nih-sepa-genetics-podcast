@@ -3,6 +3,10 @@
     "001": {
       "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on crowdsourced moral preferences for autonomous vehicles, and why a preference distribution is not a decision procedure.",
       "number": "001",
+      "quoted_span_whitelist": [
+        "most people feel this way",
+        "the machine shall do this"
+      ],
       "sources": [
         "4UDPRQZR",
         "FFGWMS4C",
@@ -17,6 +21,10 @@
       "audio": "episode-002.mp3",
       "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on what it takes to turn crowdsourced moral preferences into a machine that actually decides: a utility model fit to human judgements, a voting rule that aggregates them, and the gap between an aggregate that can be computed and one that can only be estimated.",
       "number": "002",
+      "quoted_span_whitelist": [
+        "aggregation is hard.",
+        "Drivers are blamed more than their automated cars when both make mistakes"
+      ],
       "slug": "episode-002-building-the-decider",
       "sources": [
         "W5Q7PFMK",
@@ -31,6 +39,14 @@
       "audio": "episode-003.mp3",
       "description": "A playful, dramatized interview with fictional correspondent Dr. Rowan Field on who the public blames when a human driver and an automated system both make mistakes \u2014 and why that blame pattern may quietly weaken the liability pressure meant to force safer designs.",
       "number": "003",
+      "quoted_span_whitelist": [
+        "Drivers are blamed more than their automated cars when both make mistakes",
+        "Sacrifice one for the good of many? People apply different moral norms to human and robot agents",
+        "people always blame humans more",
+        "these participants",
+        "US survey respondents",
+        "absorption"
+      ],
       "slug": "episode-003-who-gets-blamed-when-both-are-wrong",
       "sources": [
         "EIUADNKU"

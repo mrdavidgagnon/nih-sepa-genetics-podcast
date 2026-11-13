@@ -2,6 +2,132 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-13 — run 048: the quoted-span gate was not on the publish path
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same 18 on-topic sources still sit directly in `YF84AUZK` with no
+subcollection, so neither lane reads them. Produced `6P2KVFKQ` holds 10 parents.
+No production unit, so the slice closed a durable gap. Opening `coverage` ok
+3/3, `verify` ok with no issues, manifest and state agree at
+`published_and_moved` for 001-003. Stale lock owner pid 1286041 dead with the
+advisory lock free — the normal steady state, cleared with `unlock --force`.
+Standing blocker unchanged and **not re-raised** (David's lane call).
+
+**Defect.** Run 047 ported `pipeline/quoted_span_gate.py` and left it with
+**zero callers** — `grep -rn quoted_span pipeline/*.py` matched only the module
+itself. So the one check in this tree that compares a deliverable against the
+**paper's actual words** was reachable solely as a hand-typed CLI command, and
+`publish --episode NNN` could not reach it. Every other `preflight()` check
+scores the script against the **citation record** (keys, numbered entries,
+years, Zotero links), which is exactly why a misquote inside quotation marks
+passed a three-reviewer panel and every deterministic gate in **two published
+episodes**. Run 047 found the first (001's dropped word) and called the tool
+"not a publication gate"; that was the finding, not the fix.
+
+This is runs 042/045's class with the axis rotated again: 042 wired a reader to
+a field the gate ignored, 045 asked whether a field's reader is reachable from
+the command the operator runs to ship. Here the thing off the publish path was
+a whole **module**.
+
+**003's source text was obtainable all along.** Run 047 recorded 003 as
+permanently unverifiable because `items/EIUADNKU/children` has no stored PDF.
+But this log's own ep-003 entry says the episode was read from the authors'
+arXiv preprint `1803.07170v2` — fetched here in one call (6.0 MB, 40 pages,
+48,998 chars via the sibling venv's `pypdf`). Lesson: when an intake probe
+fails, re-read the record for the route that *was* used; "no Zotero PDF" is not
+"no source text".
+
+**What the gate found on 003's first run: a second real misquote in a published
+episode.** Nine source-0 spans; eight are the documented benign classes
+(bibliographic titles in the notes' reference list — including the focal
+paper's *published* title, absent from the preprint because the preprint
+carries a different title the episode discloses on air — plus the show's own
+scoping vocabulary and two readings the script explicitly **rejects**). The
+ninth is the blocking author-attributed class:
+
+    source (EIUADNKU preprint): the table legend defines the term "Mistake"
+                                 (`made a mistake` appears 0 times)
+    episodes/003/episode-notes.md: the "made a mistake" coefficient
+
+Quotation marks around a regression-term name the authors never print.
+Corrected to the paper's own `"Mistake"`. Notes-only **by evidence** — a
+per-file count table showed script 0 / notes 1 before the edit, so `script.md`
+was not touched on assumption (run 047's lesson, which runs in both
+directions). The edit changed exactly one line by exactly the intended
+substitution, asserted before writing.
+
+**Fix.** `preflight()` now runs the gate for interview episodes, contributing
+issues like every other check, under `checks.quoted_spans`. Three design points:
+
+- **Union-of-sources.** An episode may group several papers (001 has five). The
+  CLI takes a single `--source`, so a per-source run reports every span quoted
+  from paper A as missing from paper B — a false positive shaped exactly like a
+  fabrication. A span verifies if it appears in **any** of the episode's
+  sources.
+- **Whitelists live in `manifest.json`** (`quoted_span_whitelist`), per episode,
+  not on a command line: the waiver is durable, reviewable, attached to the
+  record, and inherited by a fresh clone. Per run 036 (a waiver is a gate with
+  the sign flipped) all twelve entries across 001-003 are individually justified
+  in `/opt/data/tmp/mm_span_whitelist_run048.py`. Neither real defect was
+  whitelisted; both were fixed.
+- **A missing `source-KEY.txt` is an issue, not a waiver.** The extracts are
+  gitignored and regenerable, so a tree that lost them must be told rather than
+  silently waived — which is how 003 went unverified for a run.
+
+Readings stay exempt: the read lane's fidelity gate compares the entire script
+to `source.txt` word by word, strictly subsuming a quoted-span check.
+
+**Proof (`/opt/data/tmp/mm_span_gate_proof_run048.py`, 52/52).**
+A: the unmodified `.bak-run048` module **accepts** an invented, author-attributed
+quotation with an empty issue list, while the CLI tool catches the same span —
+the control proving the detector worked and only the call site was missing.
+B: post-fix it is refused by `preflight` **and** by the real
+`publish --episode 003`, with the scratch feed never moving.
+C: nothing granted — 001/002/003 still pass with empty residuals, a word dropped
+inside quotes is refused, a whitelisted episode still refuses a *new* invented
+span, a missing source extract refuses, readings are exempt, and the missing
+panel / missing mp3 classes still bite.
+D: exactly **one** function changed (`preflight`), 47 byte-identical including
+`review_gate`, `verify_feed`, `feed_coverage`, `publish_local`, `fidelity_gate`,
+`reconcile` and `render_episode`.
+
+Tests: **23 -> 31**, the eight new ones pinning the *call site* (run 047's 23
+all test the module, so the suite could not have caught this). Proven
+load-bearing: against the pre-fix module the suite **fails**, and the restored
+module is md5-identical with 31/31 green.
+
+Harness note: the proof's first run reported `render_episode` as changed. The
+code was right and the harness was wrong — its function-extraction regex was
+`^def `, which never matches `async def`. A unified diff showing **0 removals**
+settled it. Run 029's rule again: confirm which side is wrong before touching
+either.
+
+**Validation (deterministic, final window):** `coverage` ok 3/3; `verify` ok,
+`issues: []`, `legacy_exempt_episodes: []`; three `reconcile --write` passes at
+0/0/0; `preflight NNN --audio` ok with `issues: []` for all three episodes;
+`feed.xml` md5 `9fc23235fcb49ca809059092da619b54` **unchanged** across the whole
+slice with `grep -c '<item>'` = 3; `py_compile` clean on all `pipeline/*.py`;
+both appends additive (0 removals).
+
+Backups: `robust_pipeline.py.bak-run048`, `manifest.json.bak-run048`,
+`episodes/003/episode-notes.md.bak-run048`,
+`tests/test_quoted_span_gate.py.bak-run048`, `ROBUST_PIPELINE.md.bak-run048`,
+`production-log.md.bak-run048`.
+
+**Lesson.** A ported tool is not a gate until something on the publish path
+calls it. When a slice ends with "use this command every run", that is operator
+discipline, not enforcement — ask which command the operator actually runs to
+ship, and put the check there. And the corollary this run paid for twice: the
+gate that scores deliverables against the **source text** is the only one that
+can see a misquote, and it has now found one in each of the two published
+episodes whose sources it could read.
+
+**Outcome:** no episode or reading created, rendered or published. One durable
+verification gap closed, a second real misquote corrected in a published
+episode, 003's source text recovered and installed, eight tests added. Feed
+byte-identical, live site unchanged. Standing blocker unchanged: 18 items
+unfiled in `YF84AUZK` awaiting David's lane decision.
+
 ## 2026-11-03 — voices locked
 
 David chose the male voice from audition A plus the Human in the Loop main

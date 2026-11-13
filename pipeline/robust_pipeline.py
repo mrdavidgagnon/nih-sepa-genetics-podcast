@@ -778,6 +778,67 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
             result["checks"]["review_gate"] = gate
             if not gate["ok"]:
                 result["issues"].extend("review gate: " + issue for issue in gate["issues"])
+    if not is_read:
+        # Quoted-span fidelity: every "..." span in the deliverables must appear
+        # in one of the episode's extracted source texts.
+        #
+        # Run 047 ported pipeline/quoted_span_gate.py and left it with ZERO
+        # callers -- reachable only as a hand-typed CLI command. So the one
+        # check in this tree that compares a deliverable against the PAPER'S
+        # ACTUAL WORDS was not on the publish path, and `publish --episode NNN`
+        # could not reach it. Every other check here scores the script against
+        # the CITATION RECORD (keys, numbered entries, years, Zotero links),
+        # which is why a misquote inside quotation marks passed a three-reviewer
+        # panel and every deterministic gate in published episodes 001 and 003.
+        # That is run 045's lesson ("ask whether the reader is reachable from
+        # the command the operator runs to ship") applied to a whole module.
+        #
+        # Union-of-sources: an episode may group several papers, so a span is
+        # verified if it appears in ANY of them. Scoring per source reports
+        # every span quoted from paper A as missing from paper B -- a false
+        # positive shaped exactly like a fabrication.
+        #
+        # A missing source-KEY.txt is an ISSUE, not a waiver: the extracts are
+        # gitignored and regenerable, so a tree that lost them must be told.
+        result["checks"]["quoted_spans"] = spans_check = {}
+        try:
+            from quoted_span_gate import extract_spans, verify_text
+        except ImportError:  # pragma: no cover - module sits beside this file
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from quoted_span_gate import extract_spans, verify_text
+        keys = [str(k) for k in (manifest.get("sources") or [])]
+        whitelist = [str(w) for w in (manifest.get("quoted_span_whitelist") or [])]
+        spans_check["sources"] = keys
+        spans_check["whitelisted"] = len(whitelist)
+        texts = {}
+        for key in keys:
+            path = directory / f"source-{key}.txt"
+            if path.exists():
+                texts[key] = path.read_text(errors="replace")
+            else:
+                result["issues"].append(
+                    f"quoted-span gate: extracted source text is missing for "
+                    f"{key} (expected episodes/{episode}/source-{key}.txt); "
+                    f"re-fetch it so quoted spans can be verified")
+        spans_check["sources_present"] = sorted(texts)
+        for name in ("script.md", "episode-notes.md"):
+            deliverable = directory / name
+            if not deliverable.exists():
+                continue
+            text = deliverable.read_text()
+            residual = None
+            for source_text in texts.values():
+                missing = set(verify_text(source_text, text, whitelist)["unverified"])
+                residual = missing if residual is None else (residual & missing)
+            residual = sorted(residual or set())
+            spans_check[name] = {
+                "spans": len(extract_spans(text)),
+                "unverified": residual,
+            }
+            for span in residual:
+                result["issues"].append(
+                    f"quoted-span gate: {name} quotes \"{span}\", which appears "
+                    f"in none of this episode's source texts")
     if require_audio:
         audio = list(directory.glob("*.mp3"))
         if len(audio) != 1 or audio[0].stat().st_size == 0:
