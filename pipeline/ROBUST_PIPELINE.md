@@ -1021,3 +1021,71 @@ Harness note: the backfill script's integrity assertion false-failed on a
 **shallow** `dict()` snapshot, which shares the `transitions` list so appending
 mutated both sides. The guard was right and the snapshot was wrong -- deep-copy
 the before-state. Nothing had been written when it fired.
+
+## The read lane's audio provenance never reached `reconcile()` (fixed run 046)
+
+`read_lane.sync_durable_state()` mirrors a reading into `state.json` and
+`manifest.json` so it is visible to `status`, the watchdog and duplicate
+detection (run 009). It mirrored the **text** artifacts -- `script`, `notes`,
+`source_pdf` -- and omitted the audio entirely. `reconcile()` compares
+`artifacts.audio_sha256` against the mp3 on disk and reports *"the mp3 was
+replaced after it was gated"*; with nothing ever written to that key for a
+reading, the catalogue's **post-publication** drift detector was structurally
+dead for the entire read lane.
+
+The interview lane has had it all along: `render_episode()` writes
+`artifacts.audio_sha256`, and run 043 made `reconcile()` stop destroying it. So
+the identical audio swap was caught for an interview and silent for a reading,
+in the same tree, by the same function.
+
+Fixed by mirroring `audio_sha256`, the audio path and `audio_bytes` out of the
+read registry record `record_verdict()` already populates (run 040). The digest
+existed in `read-episodes.json` the whole time -- the evidence was on disk and
+simply never reached the registry `reconcile()` reads.
+
+Note this is **not** a duplicate of run 042. `fidelity_gate()` checks the same
+property on the **publish path**; `reconcile()` is the out-of-band audit that
+notices a swap *after* publication, which no publish-path gate re-runs. Two
+readers of one source of truth, covering different moments.
+
+It grants nothing: a record predating run 040 carries no digest, so nothing is
+mirrored and `reconcile()` does not refuse it -- the same
+absent-is-acceptable/present-and-wrong-refuses policy `reconcile()` and
+`preflight()` already apply to 001-003, which lost their digests to the run-043
+bug. `fidelity_gate()` still refuses that record on the publish path, unchanged.
+
+Two lessons:
+
+- **A write-side mirror must carry every field its readers gate on.** Run 030
+  taught that adding a mirror creates read-side debt; this is the inverse
+  omission -- the mirror existed and under-reported, so a reader that was
+  working fine went blind for one lane. When mirroring a record, diff the key
+  set against what every consumer reads, not against what the lane itself needs.
+- **Lane asymmetry recurs on the same axis in a new direction (runs 032/045).**
+  Run 045 asked whether a lane's reader is reachable from the publish command;
+  this asks whether a lane's *writer* populates what the shared auditor reads.
+  Diff the two lanes' state writes, not just their gates.
+
+Latent in the now-familiar way -- no reading has ever registered here, so
+`coverage` 3/3, `verify ok: true` and three `reconcile --write` passes at 0/0/0
+were all accurate and all blind. It would have fired on the first re-render or
+file swap of a real reading.
+
+Harnesses `/opt/data/tmp/mm_read_reconcile_prov_repro_run046.py` (23/23 against
+the **unmodified** module, including the interview-lane **control** that proves
+the detector works and the missing mirror field was the whole difference) and
+`mm_read_reconcile_prov_proof_run046.py` (45/45: pre-fix backup still
+reproduces; post-fix the swap is caught, persisted and de-duplicated across
+three write passes; nothing granted -- a digest-less record is mirrored empty
+and still refused by `fidelity_gate`, truncated/deleted audio and a deleted
+`source.txt` still refused, a dropped source sentence and injected commentary
+still refused by `read_lane.verify`, a `published*` status never downgraded and
+`attempt_log`/`errors`/prior artifact keys preserved; exactly one function
+changed with 32 byte-identical and `robust_pipeline.py` untouched).
+
+Harness note: the fixture's spoken disclosure must be the exact
+`robust_pipeline.REQUIRED_DISCLOSURE` constant (it is **not** defined in
+`read_lane.py`, whose own `DISCLOSURE` is the spoken intro template). Also,
+word-fidelity tampering belongs to `read_lane.verify()`, which recomputes
+coverage; `fidelity_gate()` reads the **recorded** verdict by design, so
+asserting text tampering against it is a harness bug, not a weakened gate.

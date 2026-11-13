@@ -1391,13 +1391,40 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-12T22:25:31.102833Z"
+        },
+        {
+          "attempt_id": "501-1794537635",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T02:40:35.154603Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T02:43:29.527014Z",
+              "detail": "run046: read-lane mirror omits audio_sha256 so reconcile digest check is dead for readings; repro 23/23 w/ interview control",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-13T02:47:58.210285Z",
+              "detail": "run046: mirrored read audio_sha256/bytes into state.json artifacts; repro 23/23, proof 45/45; docs appended",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-13T03:05:35.154603Z",
+          "detail": "run046: read-lane audio provenance now mirrored to state.json so reconcile catches a post-publication swap; repro 23/23 w/ interview control, proof 45/45; feed byte-identical",
+          "finished_at": "2026-11-13T02:48:06.282804Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-13T02:40:35.154603Z"
         }
       ],
-      "attempts": 40,
+      "attempts": 41,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-12T22:35:42Z"
+  "updated_at": "2026-11-13T02:48:06Z"
 }

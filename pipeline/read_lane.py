@@ -724,6 +724,30 @@ def sync_durable_state(number: str, entry: dict) -> dict:
         "notes": f"episodes/{number}/episode-notes.md",
         "source_pdf": f"episodes/{number}/source-{item_key}.pdf",
     })
+    # Mirror the AUDIO's provenance too, not just the text artifacts.
+    #
+    # robust_pipeline.reconcile() compares artifacts.audio_sha256 against the
+    # mp3 on disk and reports "the mp3 was replaced after it was gated" -- the
+    # catalogue's drift detector for a post-publication audio swap. The
+    # interview lane populates that field in render_episode(); this mirror
+    # recorded script/notes/source_pdf and omitted it, so reconcile was
+    # structurally DEAD for every reading while catching the identical swap in
+    # the interview lane. The digest already existed in read-episodes.json
+    # (run 040 stores it beside the verdict), so the evidence was on disk the
+    # whole time and simply never reached the registry reconcile reads.
+    #
+    # fidelity_gate() checks the same property on the publish path (run 042);
+    # this is the out-of-band check that notices a swap AFTER publication,
+    # which no publish-path gate re-runs. Both readers, one source of truth.
+    #
+    # Additive and gate-free: copied from the record the caller passes in, only
+    # when present, so an entry that predates run 040 mirrors nothing rather
+    # than mirroring a null that reconcile would have to special-case.
+    if entry.get("audio_sha256"):
+        rec["artifacts"]["audio_sha256"] = entry["audio_sha256"]
+        rec["artifacts"]["audio"] = f"episodes/{number}/episode-{number}.mp3"
+    if isinstance(entry.get("audio_bytes"), int):
+        rec["artifacts"]["audio_bytes"] = entry["audio_bytes"]
     rec.setdefault("checks", {})["fidelity_gate"] = {
         "at": now,
         "ok": verified,

@@ -2499,3 +2499,41 @@ exists somewhere in the file.
 publication-gate defect closed with the feed byte-identical and the live site
 unchanged. Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting
 David's lane decision (Summerize = interview, Read = verbatim reading).
+
+## 2026-11-13T02:5xZ — run 046 (read-lane audio provenance reaches reconcile)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's lane call -- unchanged, not re-raised).
+`coverage` ok 3/3, `verify` ok with no issues, three `reconcile --write` passes
+at 0/0/0, preflight 001-003 ok. Root and `feed-site/` copies byte-identical for
+all nine deployed files. Stale lock owner pid 962084 dead and the advisory lock
+free -- the normal steady state. No production unit, so the slice closed a
+latent defect.
+
+**Defect.** `read_lane.sync_durable_state()` mirrored a reading's text artifacts
+(`script`, `notes`, `source_pdf`) into `state.json` and omitted the audio.
+`reconcile()` gates on `artifacts.audio_sha256`, so the catalogue's
+post-publication audio-swap detector was structurally dead for every reading --
+while catching the identical swap in the interview lane, where
+`render_episode()` writes that field. The digest already existed in
+`read-episodes.json` (run 040); it never reached the registry `reconcile()`
+reads.
+
+Distinct from run 042: `fidelity_gate()` covers the publish path, `reconcile()`
+is the out-of-band audit for a swap that happens *after* publication, which no
+publish-path gate re-runs.
+
+**Fix.** Mirror `audio_sha256`, the audio path and `audio_bytes` from the record
+the caller already passes in, only when present. Backup
+`read_lane.py.bak-run046`; purely additive (0 removals in a unified diff),
+exactly one function changed with 32 byte-identical and `robust_pipeline.py`
+untouched. Live registries and feed.xml md5-unchanged throughout. Also appended
+the ROBUST_PIPELINE.md section so the doc does not outlive the fix (run 031).
+
+Proof: repro 23/23 against unmodified code **with an interview-lane control**
+proving the detector works and the absent mirror field was the whole
+difference; fix proof 45/45 including pre-fix-still-reproduces, ledger
+persistence de-duplicated across three write passes, and eight nothing-granted
+refusals. Two harness bugs fixed rather than the guards: the fixture must use
+the exact `robust_pipeline.REQUIRED_DISCLOSURE` constant, and word-fidelity
+tampering is `read_lane.verify()`'s scope, not `fidelity_gate()`'s.
