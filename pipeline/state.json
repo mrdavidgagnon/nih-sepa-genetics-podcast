@@ -1506,7 +1506,9 @@
             }
           ],
           "deadline_at": "2026-11-13T19:49:49.828287Z",
-          "outcome": null,
+          "detail": "run050: preflight now refuses zero declared source keys in BOTH lanes; the read lane's read_source waiver was open after run 049 guarded only the interview quoted-span block, and was more reachable (read_source derived with silent empty defaults). repro 26/26, proof 40/40, one function changed/45 byte-identical, suite 38 OK, feed byte-identical to live, pushed 330989e",
+          "finished_at": "2026-11-13T19:37:01.419698Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T19:24:49.828287Z"
         }
@@ -1517,5 +1519,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T19:36:29Z"
+  "updated_at": "2026-11-13T19:37:01Z"
 }
