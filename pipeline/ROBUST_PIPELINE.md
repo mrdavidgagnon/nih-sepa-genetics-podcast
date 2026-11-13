@@ -173,6 +173,28 @@ verbatim/TTS disclosure, the Zotero-links disclosure absent from **both** script
 and notes, no `**Reader:**` turns, an empty MP3, and a citation with no year. A
 `kind` of `"READ"` in the wrong case does not unlock the read branch.
 
+**Zero declared source keys is refused in BOTH lanes (run 050).** The citation
+apparatus in `preflight()` — duplicate ownership, manifest-key-in-notes, and the
+numbered-entry / year / metadata-length / Zotero-link loop — iterates
+`expected_keys`, drawn from `read_source` for a reading and `sources` for an
+interview. Every one of those is an all-of loop, so at **cardinality zero** they
+return no findings and `preflight` reported `ok: true` with an empty issue list:
+a reading with no citation apparatus whatsoever passed the only episode-level
+check `publish_local()` runs. Run 049 guarded the interview half inside the
+interview-only quoted-span block; the apparatus itself is lane-shared, so the
+reading half stayed open one run longer. Both are now refused, each naming its
+own field and registry.
+
+The read lane's reachability was the **stronger** of the two. An interview's
+`sources` is hand-written, so an empty list means somebody wrote one. A reading's
+`read_source` is *derived* by `read_lane.sync_durable_state()` as
+`[item_key] if item_key else []`, with `item_key` itself read as
+`entry.get("item_key", "")` — so a registry entry that never recorded an item key
+silently becomes `read_source: []` and took the free pass with no hand-editing
+anywhere. Harnesses: `/opt/data/tmp/mm_read_sources_waiver_repro_run050.py`
+(26 against unmodified code) and `mm_read_sources_waiver_proof_run050.py` (40,
+exactly one function changed with 45 byte-identical).
+
 Consequently the historical advice to prefer Summerize over Read is **lifted**:
 prefer Read items when any wait, since a reading is cheaper than an interview and
 `build` pulls its own Zotero PDF (run 010). Ship a reading with the mandated

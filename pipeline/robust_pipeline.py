@@ -741,6 +741,42 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
     # citation checks below still apply to it.
     expected_keys = list(manifest.get("read_source", []) if is_read else manifest.get("sources", []))
     result["checks"]["notes_zotero_keys"] = sorted(set(keys))
+    # Zero declared source keys waives EVERY check below that iterates them:
+    # duplicate ownership, manifest-key-in-notes, and the numbered citation /
+    # year / metadata-length / Zotero-link loop. With expected_keys == [] all
+    # of those are all-of loops over an empty collection, so they return no
+    # findings and preflight reported ok: true with an EMPTY issue list -- the
+    # only episode-level check publish_local() runs.
+    #
+    # Run 049 established this for the interview lane and guarded it inside the
+    # interview-only quoted-span block below. But the apparatus here is lane
+    # SHARED, so the reading half stayed open; this is run 032's lane-asymmetry
+    # axis ("does the other lane here lack a guard this lane holds?") applied
+    # to a guard added one run earlier, in the same function.
+    #
+    # The read lane's reachability is STRONGER, not weaker. An interview's
+    # `sources` is hand-written, so an empty list means somebody wrote one. A
+    # reading's `read_source` is DERIVED by read_lane.sync_durable_state() as
+    # `[item_key] if item_key else []`, with item_key itself read as
+    # `entry.get("item_key", "")` -- so a registry entry that never recorded an
+    # item key silently becomes read_source: [] with no hand-editing anywhere,
+    # and takes the free pass.
+    #
+    # Both lanes are built FROM a paper, so zero declared sources is a defect
+    # in every case and this only ever adds refusals. Each lane is named with
+    # the field and registry that actually fixes it.
+    if not expected_keys:
+        if is_read:
+            result["issues"].append(
+                "no Zotero source key is declared for this reading, so every "
+                "citation check below it is vacuous; record item_key in "
+                "pipeline/read-episodes.json and re-run read_lane.py verify "
+                "so read_source is mirrored into pipeline/manifest.json")
+        else:
+            result["issues"].append(
+                "no Zotero source keys are declared in the manifest for this "
+                "episode, so every citation check below it is vacuous; "
+                "register sources in pipeline/manifest.json")
     # Count owners in THIS episode's lane. expected_keys already comes from
     # read_source for a reading, so looking it up in an interview-only map made
     # the count 0 or 1 forever: no number of readings of one paper could ever
@@ -830,11 +866,10 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
         # defect in every case; there is no legitimate interview episode this
         # refuses. Readings are unaffected (this whole block is interview-only
         # and a reading's key lives under read_source).
-        if not keys:
-            result["issues"].append(
-                "no Zotero source keys are declared in the manifest for this "
-                "episode, so the quoted-span gate and every citation check "
-                "are vacuous; register sources in pipeline/manifest.json")
+        # The zero-declared-sources refusal now lives with the lane-shared
+        # citation apparatus above, so it covers readings too; keeping a second
+        # interview-only copy here would be the open-coded duplicate run 044
+        # warns about.
         texts = {}
         for key in keys:
             path = directory / f"source-{key}.txt"

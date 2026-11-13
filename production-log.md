@@ -2,6 +2,100 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-13 — run 050: the read lane had run 049's waiver, one lane over
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same **18** on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds 10 parents (001-003's sources). No production unit, so
+the slice closed a durable defect. Opening `coverage` ok 3/3, `verify` ok with no
+issues and `legacy_exempt_episodes: []`, manifest and state agree at
+`published_and_moved` for 001-003. Stale lock owner pid 1516053 dead with the
+advisory lock free (`flock` LOCK_NB succeeded) — the normal steady state, cleared
+with `unlock --force`. Standing blocker unchanged and **not re-raised** (the lane
+call is David's).
+
+**Defect.** Run 049 refused an interview episode declaring no source keys, and
+placed the guard inside `preflight()`'s **interview-only** quoted-span block. But
+the citation apparatus it protects is lane **shared**: duplicate ownership, the
+manifest-key-in-notes check and the numbered-entry / year / metadata-length /
+Zotero-link loop all iterate `expected_keys`, which is drawn from `read_source`
+for a reading and `sources` for an interview. All of them are all-of loops, so at
+cardinality zero they return no findings — and a **reading** with no citation
+apparatus at all therefore passed `preflight` with `ok: true` and an **empty
+issue list**, the only episode-level check `publish_local()` runs.
+
+Proved on real code: the identical reading, notes carrying no numbered entry, no
+year, no author/title/venue metadata and no Zotero link, is **refused** with
+`read_source: ['ZZZZ1111']` and **passes clean** with `read_source: []`. The
+fidelity gate passed in both cases, so the declaration was the only difference.
+
+The read lane's reachability is the **stronger** of the two, which is why this
+half mattered more than the half run 049 fixed. An interview's `sources` is
+hand-written, so an empty list means somebody wrote one. A reading's
+`read_source` is *derived* by `read_lane.sync_durable_state()` as
+`[item_key] if item_key else []`, with `item_key` itself read as
+`entry.get("item_key", "")` — so a registry entry that never recorded an item key
+silently becomes `read_source: []`. Demonstrated by calling the real
+`sync_durable_state()` with an entry carrying no `item_key`: it wrote
+`read_source: []` into `manifest.json`, and that derived state reached the waiver.
+
+**Fix.** The zero-declared-keys refusal moved **up** to the lane-shared apparatus
+in `preflight()`, branching on lane so each message names the field and registry
+that actually fixes it — a reading is pointed at `item_key` in
+`read-episodes.json` and told to re-run `read_lane.py verify` so `read_source` is
+mirrored, an interview at `sources` in `manifest.json`. Run 049's interview-only
+copy was **retired rather than layered**: a centralized predicate with an
+open-coded duplicate still inline is run 044's lesson, so exactly one copy of
+each message exists. Both lanes are built *from* a paper, so zero declared
+sources is a defect in every case and this only adds refusals.
+
+**Two lessons.**
+
+- **A guard added one run earlier, in the same function, is still a port
+  candidate.** Run 032 established lane asymmetry as an axis the line-count
+  census does not cover ("does the other lane here lack a guard this lane
+  holds?"). The instinct is to apply that across trees or across files; here the
+  gap was between two branches of a single function, opened by the *previous
+  slice*. When you harden one lane's path, ask immediately whether the machinery
+  you hardened is shared — and if it is, whether you guarded the machinery or
+  just the one caller.
+- **Where a field is DERIVED, cardinality zero is reachable without anyone
+  intending it.** Run 049 reasoned about an empty `sources` as a registration
+  gap. The read lane's empty `read_source` needs no gap at all: two chained
+  `.get(x, "")`/`if else []` defaults manufacture it from a merely incomplete
+  registry entry. A field with a silent empty default deserves the same scrutiny
+  as a gate with a waiver, because it *is* one.
+
+**Validation (deterministic, final window):**
+- repro `/opt/data/tmp/mm_read_sources_waiver_repro_run050.py` **26/26** against
+  the **unmodified** module: the waiver, each of the five waived checks
+  individually, the declared-key control that catches them, the derived-state
+  reachability demonstration through the real `sync_durable_state()`, and the
+  interview-lane control proving run 049's guard localizes the gap
+- proof `/opt/data/tmp/mm_read_sources_waiver_proof_run050.py` **40/40**: pre-fix
+  backup still reproduces; both lanes now refused with their own wording and no
+  cross-wording; **nothing granted** — 001/002/003 still `preflight ok` with
+  `issues: []` under `require_audio`/`enforce_review`, a declared-key reading is
+  still fully scored, a **complete** reading still passes (so the guard is not a
+  blanket refusal), and ten read-lane refusal classes each still bite one at a
+  time: missing year, missing Zotero link, missing notes, missing verbatim
+  disclosure, Rowan in a reading, missing Zotero-links disclosure, empty mp3,
+  missing `source.txt`, `verified: false`, and wrong-case `kind: "READ"`;
+  **exactly one function changed** (`preflight`) with **45 byte-identical**
+  including `review_gate`, `fidelity_gate`, `verify_feed`, `feed_coverage`,
+  `publish_local`, `lane_ownership` and `reconcile`
+- real state: 38-test suite OK, `coverage` ok 3/3, `verify` ok with no issues,
+  three `reconcile --write` passes at 0/0/0, `preflight 001-003` ok with empty
+  issue lists, `feed-site/feed.xml` md5 **unchanged** (`9fc23235…`), and the live
+  registries md5-asserted unchanged throughout both harnesses
+- `ROBUST_PIPELINE.md` gained a run-050 subsection so the read-lane section no
+  longer understates the gate (run 031's rule: a doc that outlives a fix routes
+  the next slice around it); doc edit additive, 0 removals
+
+Backups: `pipeline/robust_pipeline.py.bak-run050`,
+`pipeline/ROBUST_PIPELINE.md.bak-run050`.
+
 ## 2026-11-13 — run 049: declaring no sources waived the quoted-span gate AND every citation check
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the

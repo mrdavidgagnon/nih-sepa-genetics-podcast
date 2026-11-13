@@ -1489,13 +1489,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T15:13:43.235201Z"
+        },
+        {
+          "attempt_id": "501-1794597889",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T19:24:49.828287Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T19:36:29.608126Z",
+              "detail": "run050: preflight refuses zero declared source keys in BOTH lanes (read_source waiver was open); repro 26/26, proof 40/40",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-13T19:49:49.828287Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-13T19:24:49.828287Z"
         }
       ],
-      "attempts": 44,
+      "attempts": 45,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T15:22:54Z"
+  "updated_at": "2026-11-13T19:36:29Z"
 }
