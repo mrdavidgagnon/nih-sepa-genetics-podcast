@@ -1467,13 +1467,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T10:59:50.414858Z"
+        },
+        {
+          "attempt_id": "501-1794582823",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-13T15:13:43.235201Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-13T15:20:05.515287Z",
+              "detail": "run049: preflight refuses an interview episode declaring no manifest sources (quoted-span gate + whole citation apparatus were vacuous); repro 20/20, proof 50/50",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-13T15:38:43.235201Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-13T15:13:43.235201Z"
         }
       ],
-      "attempts": 43,
+      "attempts": 44,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T11:11:55Z"
+  "updated_at": "2026-11-13T15:21:21Z"
 }

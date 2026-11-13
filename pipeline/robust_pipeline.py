@@ -810,6 +810,31 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
         whitelist = [str(w) for w in (manifest.get("quoted_span_whitelist") or [])]
         spans_check["sources"] = keys
         spans_check["whitelisted"] = len(whitelist)
+        # An episode that declares NO sources waived this gate and the whole
+        # citation apparatus below it. With keys == [] no source text is
+        # loaded, so the `residual` intersection below stays None and every
+        # quoted span is VACUOUSLY verified -- a deliverable could quote a
+        # sentence present in no paper on earth and preflight returned
+        # ok: true with an empty issue list. The same empty list skips the
+        # ownership check, the manifest-key-in-notes check and the numbered
+        # citation / year / Zotero-link loop.
+        #
+        # That is run 036's lesson ("a waiver is a gate with the sign
+        # flipped") one level up from the comment below it: a missing
+        # source-KEY.txt was already an issue rather than a waiver, while
+        # declaring no sources at all skipped the check entirely. It is
+        # reachable by the ordinary registration gap that hid 042 -- a slice
+        # that renders and publishes without writing the manifest entry.
+        #
+        # An interview is built FROM papers, so zero declared sources is a
+        # defect in every case; there is no legitimate interview episode this
+        # refuses. Readings are unaffected (this whole block is interview-only
+        # and a reading's key lives under read_source).
+        if not keys:
+            result["issues"].append(
+                "no Zotero source keys are declared in the manifest for this "
+                "episode, so the quoted-span gate and every citation check "
+                "are vacuous; register sources in pipeline/manifest.json")
         texts = {}
         for key in keys:
             path = directory / f"source-{key}.txt"
@@ -831,9 +856,14 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
                 missing = set(verify_text(source_text, text, whitelist)["unverified"])
                 residual = missing if residual is None else (residual & missing)
             residual = sorted(residual or set())
+            # Record whether the spans were actually scored against anything.
+            # With no source texts present, `unverified: []` is not a pass --
+            # it is an unscored file, and a report that cannot tell the two
+            # apart is how this defect read as healthy.
             spans_check[name] = {
                 "spans": len(extract_spans(text)),
                 "unverified": residual,
+                "checked_against_sources": bool(texts),
             }
             for span in residual:
                 result["issues"].append(

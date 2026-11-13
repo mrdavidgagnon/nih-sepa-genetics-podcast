@@ -2,6 +2,117 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-13 — run 049: declaring no sources waived the quoted-span gate AND every citation check
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same **18** on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds 10 parents (the sources of 001-003). No production
+unit, so the slice closed a durable defect. Opening `coverage` ok 3/3, `verify`
+ok with no issues and `legacy_exempt_episodes: []`, manifest and state agree at
+`published_and_moved` for 001-003. Stale lock owner pid 1401672 dead with the
+advisory lock free (`flock` LOCK_NB succeeded) — the normal steady state,
+cleared with `unlock --force`. Standing blocker unchanged and **not re-raised**
+(the lane call is David's).
+
+**Defect.** Run 048 put `quoted_span_gate` on the publish path, keyed on the
+manifest's `sources` list. But nothing required that list to be **non-empty**,
+and with `keys == []` the gate loads no source text, so the `residual`
+intersection stays `None` and `sorted(residual or set())` is `[]` — **every
+quoted span is vacuously verified**. The same empty list also skips the
+ownership check, the manifest-key-in-notes check and the entire numbered
+citation / year / length / Zotero-link loop. So an interview episode that
+declared no sources could quote a sentence present in no paper on earth and
+`preflight` returned **`ok: true` with an empty issue list** — the only
+episode-level check `publish_local()` runs.
+
+Proved on real code: the identical deliverable, quoting
+`"every single participant demanded a kill switch"` against a source text that
+contains nothing of the kind, is **refused** with `sources: ['AAAAAAAA']` and
+**passes clean** with `sources: []`. That contrast is the whole finding — the
+detector works and the declaration was the only difference.
+
+It is reachable by an ordinary registration gap, not a contrived one: a slice
+that renders and publishes without writing the manifest entry is exactly the
+class that hid **042** for a run and **026** for two months in the sibling
+tree, and the pre-produced path never registers an entry at all. An episode
+with no manifest entry whatsoever took the same free pass.
+
+**Fix.** `preflight()` now appends an issue when an interview episode declares
+no source keys, naming `pipeline/manifest.json` as the place to fix it. An
+interview is built *from* papers, so zero declared sources is a defect in every
+case — there is no legitimate interview episode this refuses. The read lane is
+untouched: the whole block is interview-only and a reading's key lives under
+`read_source`. Also added `checked_against_sources` to each file's
+`quoted_spans` report, because `unverified: []` previously could not be
+distinguished from *never compared* — and that ambiguity is precisely how the
+defect read as healthy.
+
+**Two lessons.**
+
+- **This is run 036's "a waiver is a gate with the sign flipped" one level up
+  from where that lesson was applied.** A *missing* `source-KEY.txt` was
+  already an issue rather than a waiver — run 048 wrote that policy and a
+  comment explaining it. Declaring **no keys at all** skipped the check
+  entirely, which is the stronger waiver sitting directly above the weaker one
+  that had been reasoned about carefully. When you harden the "evidence is
+  missing" branch, ask what happens when the evidence is never *requested*.
+- **An empty collection is not a passing collection.** Runs 005/013/031/041
+  each fixed a selector that wrongly dropped a record, and run 041 generalized
+  it to "a check that validates what is present cannot validate what is
+  absent". Here the iterated collection was the *source list itself*: zero
+  iterations, zero findings, `ok: true`. When a gate's verdict is an
+  intersection or an all-of loop, test it at **cardinality zero** — that is
+  where it silently inverts.
+
+**Validation (deterministic, final window):**
+- repro `/opt/data/tmp/mm_sources_waiver_repro_run049.py` **20/20** against the
+  **unmodified** module: the waiver, the no-manifest-entry variant, the waived
+  citation apparatus (notes with no numbered entry, no year, no Zotero link all
+  pass), plus the sourced-episode control that catches the invention
+- proof `/opt/data/tmp/mm_sources_waiver_proof_run049.py` **50/50**: pre-fix
+  backup still reproduces; post-fix refuses both variants; **nothing granted** —
+  001/002/003 still `preflight ok` with `issues: []` under
+  `require_audio`/`enforce_review`, a sourced episode is still scored and still
+  catches an invented quotation, a clean one still passes, a declared-but-absent
+  extract is still refused under its own message, duplicate ownership still
+  fires, and missing notes / both disclosures / review panel / audio each still
+  bite; **exactly one function changed** (`preflight`) with **48
+  byte-identical**, including `review_gate`, `fidelity_gate`, `verify_feed`,
+  `feed_coverage`, `publish_local` and `reconcile`
+- `tests/test_sources_declared_gate.py` added: suite **31 -> 38**, all OK
+- tests proven **load-bearing**: reverting the module to `.bak-run049` fails
+  **4**; restored module md5-identical (`1a0e8c8a6d01e59a8c73869f6b988499`) with
+  38/38 green
+- `coverage` ok 3/3; `verify` ok, `issues: []`, `legacy_exempt_episodes: []`;
+  three `reconcile --write` passes at 0/0/0 issues with stored-errors total
+  **0, 0, 0** (the run-008 dedupe holding)
+- `feed.xml` md5 `9fc23235fcb49ca809059092da619b54`, **unchanged** across the
+  whole slice; `grep -c '<item>'` = 3
+- `py_compile` clean on all `pipeline/*.py`; the fix landed additively (0
+  original non-blank lines lost, replacement text asserted present)
+
+**Harness bug, not a code defect** (run 029's rule, which held again): the proof
+false-failed 2/48 on its own fixture — the scratch tree accumulated several
+episodes all declaring the key `AAAAAAAA`, so `source AAAAAAAA is assigned to
+multiple episodes` fired **correctly** on the clean-episode case. Fixed by
+giving each scratch episode its own key, and the duplicate-ownership refusal
+that caused the confusion is now pinned as an explicit assertion rather than
+being worked around.
+
+**Note on `healthy: false`.** `status` still reports it, unchanged from the
+slice start: `501` is a bare ledger stub with **no `episodes/501/` directory**
+and no manifest entry, so its issues (no script, no notes, no disclosures, no
+panel) are **accurate**. The new undeclared-sources issue also appears there and
+is equally accurate — the same situation as the sibling tree's planned stubs
+017/018/020, whose genuine issues are deliberately left standing.
+
+**Outcome:** no episode or reading created, rendered or published. One
+publication-gate waiver closed, with the gate proven still to refuse everything
+it refused before. Feed byte-identical, live site unchanged. Standing blocker
+unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision
+(Summerize = interview, Read = verbatim reading).
+
 ## 2026-11-13 — run 048: the quoted-span gate was not on the publish path
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
