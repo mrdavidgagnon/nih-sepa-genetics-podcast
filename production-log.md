@@ -2,6 +2,112 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-14 - run 054: the Produced mover stripped BOTH intake lanes
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same **18** on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds the 10 parents of 001-003, each exactly
+`['6P2KVFKQ']`. No production unit, so the slice closed a durable defect.
+Opening audits: `coverage` ok 3/3, `registry` ok (ledger 4 / manifest 3 - the
+501 no-work stub, correctly not demanded), `verify` ok with no issues and
+`legacy_exempt_episodes: []`, manifest and state agree at `published_and_moved`
+for 001-003, preflight 001-003 ok with audio, suite 45 OK. Stale lock owner pid
+2012405 dead with the advisory lock free - the normal steady state, cleared with
+`unlock --force`. Standing blocker unchanged and **not re-raised** (the lane
+call is David's).
+
+**Defect.** `pipeline/move_verified_sources.py` held one tuple of *both* intake
+collection keys and did `[c for c in old if c not in LANES]` for **every** key
+it collected, with no notion of which lane the episode came from. So the move
+deleted the other lane's membership as collateral:
+
+- publishing an **interview** of a paper David had also filed in Read destroyed
+  the **Read** membership - the only durable record that he wanted a reading of
+  it - de-queueing the reading before it was ever produced;
+- publishing a **reading** destroyed a pending **Summerize** membership the
+  same way.
+
+One interview plus one reading of the same paper is **legal in this tree by
+design**: run 033 keys ownership on the field name (`sources` vs `read_source`)
+precisely so the pairing is not a false duplicate. The mover destroyed the other
+half of exactly that sanctioned pairing. And the loss is **silent and
+unrecoverable by inspection**: a Zotero collection edit raises no deletion
+event, so an item dropping out of a lane is indistinguishable from David
+unfiling it, which is this show's *documented* signal that he cleared the queue
+on purpose. A future slice would have read the empty lane as his intent.
+
+Two further defects in the same function: a reading was moved **without
+consulting `read-episodes.json`**, so a source whose fidelity gate failed could
+be filed as produced; and the plan was a flat key list, so a dual-use key could
+not express one move per lane.
+
+**Latent in the now-familiar way** (runs 008/013/031/033/036/040/042/045/053):
+all 10 published parents are single-lane interview sources already sitting in
+Produced, so `coverage` 3/3, `registry ok`, `verify ok` and a real `--dry-run`
+on live state were all accurate and all blind. It fires on the first dual-use
+paper - and 18 unfiled items are waiting for exactly the lane call that creates
+one.
+
+**Fix.** Lane-aware rewrite. `build_plan(manifest, state, read_manifest)` emits
+one entry per **(source key, intake collection)**, deriving the intake from the
+field the key is registered under; `move_one()` strips `c != intake` - exactly
+one membership - and adds Produced. A dual-use key published in both lanes now
+yields two entries and leaves each intake once. Readings require
+`verified: true`. Backup `move_verified_sources.py.bak-run054`; 58 -> 217 lines.
+
+**Deliberately NOT ported from the sibling tree.** Its mover selects on the
+literal `published_pending_zotero_move`. Copying that would silently skip this
+tree's documented end state `published_and_moved` - the run-005 gate-string
+class, already fixed here in run 011. The `published*` family test is kept and
+is now pinned by test. Same judgement as run 053's two retargets: read the
+sibling's assumptions against **this** tree's behaviour, not just its code.
+
+**Proof.** Repro **13/13** against the unmodified module (both directions of
+the lane destruction, the ungated reading, live tree untouched). Fix proof
+**61/61**: the pre-fix backup still reproduces; post-fix each lane strips only
+itself with the parent and an unrelated collection preserved; **nothing
+granted** - already-moved still issues no PUT, all six non-published statuses
+and wrong-case `PUBLISHED_AND_MOVED` are refused, all three `published*`
+statuses still selected, the ledger still governs selection over the manifest,
+an unverified reading refused four ways, the version guard on the wire, two
+412s retried, `--dry-run` writing nothing, and no sibling-show identifier in
+the file.
+
+**New committed tests, and a mutant sweep that found a gap in my own tests.**
+`tests/test_move_verified_sources.py` (suite 45 -> 64). Reverting to the backup
+is a **weak** load-bearing proof here - the pre-fix module has no import guard,
+dies at import and proves only that the file changed - so I built **12
+single-fault mutants on the new structure** instead. Eleven were caught and
+**M7 survived**: deleting `If-Unmodified-Since-Version` from `make_client()`
+passed a suite that only asserted on the version handed to an *injected fake*
+`put()`, because a fake never exercises the header-building code at all. That is
+the exact trap the sibling's notes record. Added `RealClientWireTests`, which
+drives the real `make_client()` against a stubbed `urlopen` and asserts on the
+outgoing `Request`: **12/12** caught, 64 OK, module restored md5-identical.
+
+**Integrity.** `manifest.json`, `state.json`, `read-episodes.json` and
+`feed-site/feed.xml` md5-identical throughout (`md5sum -c` clean). Live Zotero
+re-read after the work: 10/10 source parents still exactly `['6P2KVFKQ']`, both
+intake lanes still 0 - no write was made to the library. `ROBUST_PIPELINE.md`
+gains "Only the episode's OWN intake lane is stripped" (purely additive bar one
+whitelisted reworded line, diff removals 1 of 1 expected).
+
+**Lessons.**
+
+- **A bookkeeping step can destroy the queue it reads from.** The mover is
+  documented as granting no gate, and that is true - but "grants nothing" says
+  nothing about what it *deletes*. Audit a post-publication step for
+  destructive scope, not just for whether it can wrongly pass something.
+- **When two concepts are expressed by two fields, every writer needs the
+  discriminator too.** Runs 033 and 053 fixed *readers* that consulted one of
+  `sources`/`read_source`; this is the same axis rotated to the write side -
+  the mover collected both fields and then threw the distinction away.
+- **A mutant sweep tests the tests.** The no-weakening proof and the committed
+  suite were both green while the version guard was untested. When the
+  back-to-backup proof is weak, mutate the new structure one fault at a time
+  and treat a survivor as a real gap in coverage.
+
 ## 2026-11-14 - run 052: the quoted-span CLI silently scored ONE paper of five
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the

@@ -1587,13 +1587,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T07:59:16.909235Z"
+        },
+        {
+          "attempt_id": "501-1794658178",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-14T12:09:38.979428Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-14T12:09:39.499997Z",
+              "detail": "run054: Summerize 0, Read 0, 18 unfiled in YF84AUZK (David's lane call, not re-raised); coverage ok 3/3, registry ok, verify ok, suite 45 OK, stale lock pid 2012405 dead cleared",
+              "stage": "audits"
+            },
+            {
+              "at": "2026-11-14T12:25:51.504682Z",
+              "detail": "run054: mover stripped BOTH intake lanes per key, destroying the other lane's membership on a dual-use paper (de-queues a sanctioned reading/interview, run033 says the pairing is legal). Lane-aware rewrite: one plan entry per (key,intake), strips only the episode's own lane, reading gated on verified. Kept run-011 published* family. repro 13/13, proof 61/61, new tests 64 OK, mutants 12/12",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-14T12:34:38.979428Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-14T12:09:38.979428Z"
         }
       ],
-      "attempts": 48,
+      "attempts": 49,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T08:06:23Z"
+  "updated_at": "2026-11-14T12:25:51Z"
 }

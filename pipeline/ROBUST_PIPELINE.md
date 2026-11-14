@@ -140,7 +140,48 @@ interview-versus-verbatim treatment).
 The version-guarded move is **not** a `robust_pipeline.py` subcommand; it lives
 in `pipeline/move_verified_sources.py`, which moves the `sources` and
 `read_source` keys of every manifest episode whose ledger status is in the
-`published*` family (it needs `ZOTERO_API_KEY` exported).
+`published*` family (it needs `ZOTERO_API_KEY` exported). Run it with
+`--dry-run` to print the plan without writing anything.
+
+### Only the episode's OWN intake lane is stripped
+
+This is the mover's load-bearing invariant and it is easy to undo by accident.
+The intake collection is derived from the **field** the key is registered
+under -- `sources` means the key arrived through Summarize, `read_source` means
+it arrived through Read -- which is the same discriminator `lane_ownership()`
+uses. Each plan entry therefore removes exactly one collection membership.
+
+Until run 054 the mover held a single tuple of both intake keys and removed
+**both** from every key it touched. One interview plus one reading of the same
+paper is legal in this tree by design (that is precisely why ownership is keyed
+on the field name), so publishing the interview of a dual-use paper deleted the
+Read membership that was the only durable record David wanted a reading of it,
+and publishing the reading deleted a pending Summarize membership the same way.
+The affected lane simply went quiet: a Zotero collection edit raises no
+deletion event, so the loss is indistinguishable from David unfiling the item,
+which is this show's documented signal that he cleared the queue on purpose.
+
+A dual-use key published in both lanes yields **two** plan entries and leaves
+each intake exactly once. Every other membership, including the parent
+`YF84AUZK`, is preserved and no item is ever deleted.
+
+Two further properties worth not regressing:
+
+- Selection accepts the whole `published*` family from `state.json`, not the
+  literal `published_pending_zotero_move` the sibling tree uses. A narrower
+  test silently skipped this tree's documented end state `published_and_moved`,
+  so re-running the mover after a status bump moved nothing and still exited 0
+  (run 011; the same gate-string class as the run-005 `interview_episodes()`
+  fix).
+- A reading additionally requires `verified: true` in `read-episodes.json`, so
+  a source whose fidelity gate failed cannot be filed as produced. The mover
+  grants no gate of its own.
+
+`tests/test_move_verified_sources.py` pins all of the above. The version guard
+is asserted against the **outgoing `Request` object**, not against a value
+handed to an injected fake `put()` -- a mutant that deleted the
+`If-Unmodified-Since-Version` header survived the fake-based assertion, because
+a fake never exercises the header-building code at all.
 
 ## The Read lane
 
