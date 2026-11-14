@@ -1609,16 +1609,38 @@
             }
           ],
           "deadline_at": "2026-11-14T12:34:38.979428Z",
-          "outcome": null,
+          "detail": "run054: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Fixed move_verified_sources.py stripping BOTH intake lanes per key -- destroyed the other lane's membership on a dual-use paper, silently de-queueing a sanctioned reading/interview (run033 says the pairing is legal; Zotero sends no deletion event so it reads as David unfiling). Lane-aware: one entry per (key,intake), s",
+          "finished_at": "2026-11-14T12:28:02.228035Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T12:09:38.979428Z"
+        },
+        {
+          "attempt_id": "501-1794673775",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-14T16:29:35.466281Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-14T16:45:38.362319Z",
+              "detail": "run055: publish gated only --episode selection while publish_feed rebuilds whole feed + recopies all enclosures; both lanes shipped ungated episodes. Fixed to gate selected|emitted.",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-14T16:54:35.466281Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-14T16:29:35.466281Z"
         }
       ],
-      "attempts": 49,
+      "attempts": 50,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T12:25:51Z"
+  "updated_at": "2026-11-14T16:45:51Z"
 }

@@ -1360,6 +1360,31 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
     return result
 
 
+def _emitted_episode_numbers() -> set[str]:
+    """Every episode number the next publish_feed.main() will put in the feed.
+
+    Read from publish_feed's OWN derivation rather than re-implemented here, so
+    the gate's scope cannot drift from what actually gets emitted and copied
+    into feed-site/. Both lanes are covered: interview_episodes() reads the
+    manifest plus the ledger status, read_episodes() reads read-episodes.json.
+
+    A derivation that cannot be imported or that raises returns the empty set,
+    leaving the caller's own selection to be gated as before: this helper can
+    only ever widen the gated set, never narrow it.
+    """
+    try:
+        try:
+            from .publish_feed import interview_episodes, read_episodes
+        except ImportError:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from publish_feed import interview_episodes, read_episodes
+        numbers = {str(row[0]) for row in interview_episodes()}
+        numbers |= {str(num) for num, _ in read_episodes()}
+        return numbers
+    except Exception:
+        return set()
+
+
 def publish_local(episodes: list[str] | None = None, remote: str | None = None) -> dict[str, Any]:
     """Build the checked-in local feed and verify it; never performs a git push.
 
@@ -1393,7 +1418,31 @@ def publish_local(episodes: list[str] | None = None, remote: str | None = None) 
     selected = episodes or sorted(load_manifest().get("episodes", {}))
     checks = []
     legacy_numbers = _legacy_episode_numbers()
-    for number in selected:
+    # Gate every episode this publish will EMIT, not merely the ones named.
+    #
+    # `selected` controls which ledger records transition, and that is all it
+    # ever controlled. It does NOT bound the blast radius: publish_feed.main()
+    # rebuilds the whole feed from its own derivation (interview_episodes()
+    # plus read_episodes()) and re-copies every emitted episode's audio and
+    # notes into feed-site/ for the next push to deploy. So
+    # `publish --episode 001` re-shipped every other episode without running a
+    # single check on it, and a bare `publish` covered them only by the
+    # accident of the manifest and the feed derivation agreeing.
+    #
+    # Proven reachable in BOTH lanes on real code: an interview whose review
+    # panel is missing, and a reading whose audio was swapped after its verdict
+    # (the run-042 provenance refusal), each stayed in the rebuilt feed and had
+    # their bytes re-copied into feed-site/ while `publish --episode 001`
+    # returned ok: true with an empty issue list. The reading case is the
+    # sharper one, because read_episodes() emits on the registry's `verified`
+    # flag alone and nothing on the publish path re-derived it.
+    #
+    # This is run 041's erasure check with the sign flipped: that one asks
+    # whether the feed LOST an episode it should carry, this asks whether it
+    # CARRIES one nothing gated. It grants nothing -- the selected set is still
+    # gated exactly as before, legacy exemptions are unchanged, and every
+    # addition is a refusal.
+    for number in sorted(set(selected) | _emitted_episode_numbers()):
         if number not in legacy_numbers:
             check = preflight(number, require_audio=True, enforce_review=True)
             checks.append(check)

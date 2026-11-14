@@ -2,6 +2,42 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-14T16:5xZ — run 055 (publish gates every episode it ships)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's lane call, not re-raised). Opening
+audits all clean and all blind: `coverage` ok 3/3, `registry` ok (ledger 4 /
+manifest 3), `verify` ok with no issues, status/manifest agree at
+`published_and_moved` for 001-003, stale lock with a dead owner pid. No
+production unit, so the slice closed a latent defect.
+
+**Defect.** `publish_local()` preflighted only its `selected` set, but
+`publish_feed.main()` rebuilds the whole feed and re-copies every emitted
+episode's audio and notes into `feed-site/`. So `publish --episode 001` shipped
+every other episode ungated. Proven in both lanes on real code: an interview
+with no review panel, and a reading whose audio was swapped after its verdict
+(the run-042 provenance refusal), each reached the rebuilt feed with their bytes
+copied into `feed-site/` while publish returned ok: true and an empty issue
+list. The read lane was never covered even by a bare `publish`, since a
+reading's registry of record is read-episodes.json.
+
+**Fix.** Gate `sorted(set(selected) | _emitted_episode_numbers())`, the helper
+reading publish_feed's own derivation so the gate's scope cannot drift from what
+is emitted. Fail-open by design. Backup `robust_pipeline.py.bak-run055`; exactly
+one pre-existing function changed, 10 checked gate functions byte-identical.
+
+Verified on the real tree after the fix: suite 72 OK, `coverage` ok 3/3,
+`registry` ok, `verify` ok, and `publish --episode 001` now gates **001, 002 and
+003** (was 001 alone) with all three passing, `feed.xml` md5 **unchanged** and
+still 3 items. state.json moved only in `updated_at`/`attempt_log`; no episode
+status changed.
+
+Proof: repro 13/13 against unmodified code, fix proof 38/38 including
+pre-fix-still-reproduces and seven nothing-granted cases. New regression tests
+proven load-bearing (6 failures against the pre-fix module, green after restore,
+md5 identical). Harness bug, not a code defect: a stale HITL `publish_feed.py`
+in /opt/data/tmp shadowed the tree's copy via the bare-name import.
+
 ## 2026-11-14 - run 054: the Produced mover stripped BOTH intake lanes
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the

@@ -1293,3 +1293,69 @@ Lesson: the reviewer panel and `preflight` both read the script against the
 quotation marks was invisible to every gate this pipeline had. A gate that
 derives both sides of its comparison from the deliverables cannot see fidelity
 to the paper.
+
+## `publish` gated only the episodes you NAMED, not the ones it ships (fixed run 055)
+
+`publish_local()` preflights its `selected` set -- the `--episode` arguments, or
+every manifest episode for a bare `publish`. That set controls which ledger
+records transition, and that is all it ever controlled. It does **not** bound
+the blast radius: `publish_feed.main()` rebuilds the **whole feed** from its own
+derivation (`interview_episodes()` plus `read_episodes()`) and re-copies every
+emitted episode's audio and notes into `feed-site/` for the next `push` to
+deploy.
+
+So `publish --episode 001` re-shipped every other episode with **no check run
+against it**. Proven on real code in both lanes, each returning `ok: true` with
+an empty issue list:
+
+- an interview whose `review-panel.md` was missing (`preflight` refuses it
+  individually) stayed in the rebuilt feed and had its audio re-copied;
+- a **reading whose audio was swapped** after its verdict -- the run-042
+  provenance refusal -- shipped the wrong paper's bytes to
+  `feed-site/episode-990-reading.mp3`.
+
+The reading case is the sharper one: `read_episodes()` emits on the registry's
+`verified` flag alone, and nothing on the publish path re-derived it. A bare
+`publish` covered the interview lane only by the accident of the manifest and
+the feed derivation agreeing, and never covered the read lane at all, since a
+reading's registry of record is `read-episodes.json`.
+
+Fixed by gating `sorted(set(selected) | _emitted_episode_numbers())`. The new
+helper reads **publish_feed's own derivation** rather than re-implementing it,
+so the gate's scope cannot drift from what actually gets emitted; it is
+deliberately **fail-open** (an unimportable derivation returns the empty set and
+the previous selection-only behaviour stands), because a helper that could raise
+would make every publish impossible instead of degrading. Legacy exemptions are
+unchanged and a non-emitted `planned` stub is still not demanded.
+
+This is run 041's erasure check with the sign flipped: that one asks whether the
+feed **lost** an episode it should carry, this asks whether it **carries** one
+nothing gated.
+
+**Lesson that generalizes: a gate's scope must match its command's blast
+radius.** When a function takes a selection argument, ask whether that argument
+actually limits the side effects -- here `selected` named which *records moved*
+while the *whole feed and every enclosure* were rewritten regardless. Runs
+029/045 asked whether a gate is *reached* by the command the operator runs;
+this asks the converse, whether everything that command *touches* is gated.
+
+Harnesses `/opt/data/tmp/mm_read_publish_gate_repro_run055.py` (13/13 against
+the unmodified module) and `mm_publish_scope_proof_run055.py` (38/38: pre-fix
+reproduces both lanes; post-fix refuses both with `feed.xml` unchanged and the
+bytes never reaching `feed-site/`; nothing granted -- the healthy catalogue
+still publishes, a gate-clean reading still ships and is itself gated now, a
+planned stub is not demanded, the helper is fail-open; exactly one pre-existing
+function changed with `preflight`/`review_gate`/`fidelity_gate`/`verify_feed`/
+`feed_coverage`/`registry_audit`/`reconcile`/`push_to_remote` byte-identical).
+Regression tests in `tests/test_publish_scope_gate.py` (suite 64 -> 72), proven
+load-bearing: 6 failures against the pre-fix module.
+
+**Harness trap, a harness bug not a code defect (run 029's rule).** A stale HITL
+`publish_feed.py` has sat in `/opt/data/tmp` since Oct 24, and `publish_local()`
+imports `publish_feed` by **bare name** -- so leaving `/opt/data/tmp` on
+`sys.path` runs the **sibling show's** feed builder against this tree. It
+presents as a `FileNotFoundError` deep inside `atomic_copy` pointing at
+`/opt/data/feed-site/`, nothing like an import error. Drop the scratch dir from
+`sys.path` after importing a helper from it, put each scratch tree's `pipeline/`
+at the front, and `sys.modules.pop("publish_feed")` between trees or every later
+tree silently reuses the first one's builder.
