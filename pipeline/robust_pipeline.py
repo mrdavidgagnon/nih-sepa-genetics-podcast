@@ -505,6 +505,115 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
     return report
 
 
+def registry_audit() -> dict[str, Any]:
+    """Audit that the durable registries agree about every episode.
+
+    READ-ONLY. It grants nothing, writes nothing, and is NOT a publication
+    gate -- the registry analogue of :func:`feed_coverage`, which proves a
+    published episode reached the feed. This proves the two registries agree
+    it exists at all.
+
+    They are written by independent paths: ``state.json`` by the state
+    machine, ``manifest.json`` separately at registration, so a slice that
+    stops early leaves them disagreeing with nothing to notice. That silence
+    is the documented cause of the worst publication gaps in the sibling tree
+    (one episode live-absent for two months, another marked published while
+    absent from the manifest), and until now this tree's docs asked each run
+    to diff the two files BY HAND.
+
+    Three findings, separated because they differ in severity:
+
+    ``missing_from_manifest``
+        Published in the ledger, no manifest entry. The dangerous one: the
+        manifest is what ``publish_feed.py``'s item derivation and
+        ``move_verified_sources.py``'s ownership logic read, so the episode is
+        invisible to both while the ledger insists it shipped.
+    ``missing_from_ledger``
+        The manifest knows an episode the ledger has never heard of, so
+        ``status``, the watchdog and the attempt ledger are all blind to it.
+        Worse here than mere silence: ``reconcile(write=True)`` runs every
+        slice and SILENTLY RECREATES the record as a ``planned`` stub,
+        destroying the published status rather than reporting the gap.
+    ``status_divergence``
+        Both registries know it and disagree about how far it got. A ledger
+        ``published`` against a manifest ``published_and_moved`` is the
+        ordinary Zotero-move lag, so it is reported separately under
+        ``benign_move_lag`` and does NOT fail the audit. The reverse direction
+        does: a manifest behind the ledger means a registration never landed.
+
+    Source ownership is checked with :func:`lane_ownership`, not a bare
+    ``sources`` sweep -- readings record their key under ``read_source`` so a
+    paper with both an interview and a verbatim reading is not a false
+    conflict (run 029), while two readings of the same paper are a real one
+    (run 033). A reading IS required to appear in both registries here,
+    because ``read_lane.sync_durable_state()`` mirrors it into both by design
+    (run 009); its registry of record is still ``read-episodes.json``.
+    """
+    report: dict[str, Any] = {
+        "ok": True,
+        "ledger_episodes": 0,
+        "manifest_episodes": 0,
+        "missing_from_manifest": [],
+        "missing_from_ledger": [],
+        "status_divergence": [],
+        "benign_move_lag": [],
+        "duplicate_sources": {},
+        "issues": [],
+    }
+
+    def _episodes(path: Path) -> dict[str, Any]:
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, json.JSONDecodeError) as exc:
+            report["ok"] = False
+            report["issues"].append(f"cannot read {path.name}: {exc}")
+            return {}
+        return {str(k): (v or {}) for k, v in (data.get("episodes") or {}).items()}
+
+    ledger = _episodes(LEDGER_PATH)
+    manifest = _episodes(MANIFEST_PATH)
+    report["ledger_episodes"] = len(ledger)
+    report["manifest_episodes"] = len(manifest)
+
+    def _published(rec: dict[str, Any]) -> bool:
+        return str(rec.get("status", "")).startswith("published")
+
+    for number in sorted(ledger):
+        if number in manifest or not _published(ledger[number]):
+            continue
+        report["missing_from_manifest"].append(number)
+        report["issues"].append(
+            f"episode {number} is published in the ledger but absent from the manifest")
+
+    for number in sorted(manifest):
+        if number in ledger:
+            continue
+        report["missing_from_ledger"].append(number)
+        report["issues"].append(
+            f"episode {number} is in the manifest but absent from the ledger")
+
+    for number in sorted(set(ledger) & set(manifest)):
+        a = str(ledger[number].get("status", ""))
+        b = str(manifest[number].get("status", ""))
+        if a == b:
+            continue
+        entry = {"episode": number, "ledger": a, "manifest": b}
+        if a == "published" and b == "published_and_moved":
+            report["benign_move_lag"].append(entry)
+            continue
+        report["status_divergence"].append(entry)
+        report["issues"].append(
+            f"episode {number} status disagrees: ledger {a!r} vs manifest {b!r}")
+
+    interview_owners, read_owners = lane_ownership(manifest)
+    for key, owners in sorted(duplicate_owners(interview_owners, read_owners).items()):
+        report["duplicate_sources"][key] = owners
+        report["issues"].append(
+            f"source {key} is assigned to multiple episodes: {owners}")
+
+    report["ok"] = not report["issues"]
+    return report
+
 def parse_turns(script: Path) -> list[tuple[str, str]]:
     turns = []
     for line in script.read_text().splitlines():
@@ -1685,6 +1794,7 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("push"); p.add_argument("--episode", action="append", dest="episodes"); p.add_argument("--wait", type=int, default=120, help="seconds to wait for GitHub Pages to go live"); p.add_argument("--push-timeout", type=int, default=None, dest="push_timeout", help="seconds to allow the git push itself (default: derived from staged bytes, floor 300)")
     sub.add_parser("status")
     p = sub.add_parser("coverage"); p.add_argument("feed", nargs="?", default=None)
+    sub.add_parser("registry")
     p = sub.add_parser("watchdog"); p.add_argument("--max-render-minutes", type=int, default=120)
     p.add_argument("--stall-seconds", type=int, default=DEFAULT_STALL_SECONDS)
     p = sub.add_parser("unlock"); p.add_argument("--force", action="store_true")
@@ -1725,6 +1835,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "push": result = push_to_remote(args.episodes, args.wait, getattr(args, "push_timeout", None))
         elif args.command == "status": result = status()
         elif args.command == "coverage": result = feed_coverage(args.feed)
+        elif args.command == "registry": result = registry_audit()
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)
         elif args.command == "unlock": unlock(args.force); result = {"unlocked": True}
         elif args.command == "attempt":
@@ -1740,7 +1851,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = {"ok": True, "attempts": attempts_report(load_ledger())}
         print_result(result)
-        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage"}:
+        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry"}:
             return 0 if result.get("ok", result.get("healthy", True)) else 1
         return 0
     except Exception as exc:

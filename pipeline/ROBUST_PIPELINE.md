@@ -36,6 +36,7 @@ python3 pipeline/robust_pipeline.py render 007
 python3 pipeline/robust_pipeline.py publish --episode 007
 python3 pipeline/robust_pipeline.py verify pipeline/../feed-site/feed.xml
 python3 pipeline/robust_pipeline.py coverage
+python3 pipeline/robust_pipeline.py registry
 python3 pipeline/robust_pipeline.py push --episode 007 --wait 240
 python3 pipeline/robust_pipeline.py status
 python3 pipeline/robust_pipeline.py watchdog
@@ -72,6 +73,41 @@ audit never inverts that gate into a publication requirement. `coverage`
 writes nothing and declares no gate satisfied; it only reports disagreement
 between the registries and the feed. **Run it as the first command of every
 slice**, and after any publish or push.
+
+`registry` is the read-only companion to `coverage`, and the two answer
+different questions. `coverage` proves an episode the registries call
+published actually reached the feed; `registry` proves `state.json` and
+`manifest.json` agree it exists at all. They are written by independent paths
+-- the ledger by the state machine, the manifest at registration -- so a slice
+that stops early leaves them disagreeing with nothing to notice. **Run it
+alongside `coverage` as the opening audit of every slice.** It replaces the
+hand-rolled manifest-vs-ledger one-liner this document used to ask each run to
+paste.
+
+Three findings, ordered by severity:
+
+- `missing_from_manifest` -- published in the ledger, no manifest entry. The
+  dangerous one: the manifest is what `publish_feed.py`'s item derivation and
+  `move_verified_sources.py`'s ownership logic read, so the episode is
+  invisible to both while the ledger insists it shipped.
+- `missing_from_ledger` -- the manifest knows an episode the ledger does not,
+  so `status`, the watchdog and the attempt ledger are all blind to it. Worse
+  than silence here: `reconcile --write` runs every slice and silently
+  **recreates** the record as a `planned` stub, destroying the published
+  status rather than reporting the gap.
+- `status_divergence` -- both registries know it and disagree about how far it
+  got. A ledger `published` against a manifest `published_and_moved` is the
+  ordinary Zotero-move lag, reported separately under `benign_move_lag`, and
+  does **not** fail the audit. The reverse direction does: a manifest behind
+  the ledger means a registration never landed.
+
+Source ownership is checked through `lane_ownership()`, not a bare `sources`
+sweep, so one interview plus one reading of the same paper stays legal while
+two readings of it are a conflict. A reading **is** required in both
+registries here, because `read_lane.sync_durable_state()` mirrors it into both
+by design; its registry of record is still `read-episodes.json`. The audit
+writes nothing and is **not** a publication gate -- it grants nothing and does
+not replace `preflight`/`review_gate`/`fidelity_gate`/`verify_feed`.
 
 `push --episode NNN --wait 240` is the only correct way to ship: it clones the
 repo, copies `feed-site/*` to the repo root, commits, pushes `main`, then
@@ -288,13 +324,14 @@ with JSON output; callers should treat `healthy: false` as an alert.
 ```sh
 python3 -m py_compile pipeline/*.py
 python3 pipeline/robust_pipeline.py coverage
+python3 pipeline/robust_pipeline.py registry
 ```
 
 This tree has **no `tests/` directory** (the sibling show's suite is
 HITL-only); `python3 -m unittest discover -s tests` dies with
 *Start directory is not importable*, which is expected here, not breakage.
-`py_compile` plus the read-only `coverage` audit are the standing sanity
-checks.
+`py_compile` plus the read-only `coverage` and `registry` audits are the
+standing sanity checks.
 
 ## Production attempts
 

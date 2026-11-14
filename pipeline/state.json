@@ -1560,13 +1560,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T03:47:13.178995Z"
+        },
+        {
+          "attempt_id": "501-1794643156",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-14T07:59:16.909235Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-14T08:01:20.244286Z",
+              "detail": "run053: registry divergence undetected here; repro 28/28 incl. reconcile --write recreating a published ledger entry as a planned stub",
+              "stage": "repro_proven"
+            },
+            {
+              "at": "2026-11-14T08:05:50.107230Z",
+              "detail": "run053: registry_audit()+CLI ported with lane-aware ownership; repro 28/28, proof 61/61, 47 funcs byte-identical, docs updated",
+              "stage": "registry_audit_ported"
+            }
+          ],
+          "deadline_at": "2026-11-14T08:24:16.909235Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-14T07:59:16.909235Z"
         }
       ],
-      "attempts": 47,
+      "attempts": 48,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T03:56:56Z"
+  "updated_at": "2026-11-14T08:05:50Z"
 }
