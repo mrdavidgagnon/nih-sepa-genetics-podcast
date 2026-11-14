@@ -1582,7 +1582,9 @@
             }
           ],
           "deadline_at": "2026-11-14T08:24:16.909235Z",
-          "outcome": null,
+          "detail": "run053: both lanes empty; ported registry_audit()+CLI from HITL run491 with lane-aware ownership (run033) and no reading exemption (run009). coverage masks the gap by unioning both registries; reconcile --write silently recreates an absent ledger record as a planned stub, destroying published status. repro 28/28, proof 61/61, load-bearing vs backup, 47 funcs byte-identical, only main() changed (3 ",
+          "finished_at": "2026-11-14T08:06:23.336840Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T07:59:16.909235Z"
         }
@@ -1593,5 +1595,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T08:05:50Z"
+  "updated_at": "2026-11-14T08:06:23Z"
 }
