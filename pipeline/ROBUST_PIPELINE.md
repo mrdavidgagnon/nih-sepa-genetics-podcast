@@ -1121,8 +1121,29 @@ run-009/010 line-count census could not have found it) with 20 tests, plus three
 regression tests pinning this tree's own catalogue.
 
     python3 pipeline/quoted_span_gate.py --source episodes/NNN/source-KEY.txt \
+        [--source episodes/NNN/source-OTHER.txt ...] \
         --check episodes/NNN/script.md --check episodes/NNN/episode-notes.md \
         --whitelist "a known-benign span"
+
+**Pass `--source` once per paper.** An episode may group several sources (001
+has five, 002 has four) and a span is verified if it appears in ANY of them.
+Before run 052 `--source` was a plain argparse store, so a repeated flag was
+**silently discarded down to the last path** -- no warning, no usage error --
+and every span quoted from the other papers reported `SOURCE 0`. On episode 001
+that was four real quotations reading exactly like fabrications, which is the
+most dangerous false positive this gate has. The whitelist is **not** read from
+the manifest by the CLI, so pass the episode's recorded
+`quoted_span_whitelist` entries explicitly or its benign own-speech spans show
+up as residuals.
+
+Each source is scored independently and the residual sets are intersected --
+the same semantics `preflight()` uses on the publish path, so the
+operator-facing command and the publication gate agree by construction. The
+sources are deliberately **not** concatenated into one haystack: a span
+straddling the boundary between two joined papers matches the join while
+existing in no single paper (on 001's real extracts, `"Child Study 6d MIT Open
+Access"` spans the tail of `source-4UDPRQZR` and the head of
+`source-BGWWIUWC`), which would be a quiet weakening of the gate.
 
 Exit 0 = every span verified, exit 1 = at least one span absent from the source.
 It **is** now a publication gate, and it grants nothing: `preflight()` runs it for every interview

@@ -338,5 +338,100 @@ class PreflightIntegrationTests(unittest.TestCase):
         self.assertEqual(len(r["episode-notes.md"]), 1)
 
 
+class CliMultiSourceTests(unittest.TestCase):
+    """The operator-facing CLI must score EVERY --source, not just the last.
+
+    Run 052: --source had no action="append", so a repeated flag was silently
+    discarded down to the last path -- no warning, no usage error. On episodes
+    001 (five papers) and 002 (four), spans correctly quoted from the other
+    papers reported SOURCE 0, which is indistinguishable from a fabricated
+    quotation and is the most dangerous false positive this gate has.
+
+    The CLI scores each source independently and intersects the residuals, the
+    same semantics preflight() uses on the publish path. It must NOT concatenate
+    the sources: a span straddling the boundary between two joined papers
+    matches the join while existing in no single paper.
+    """
+
+    def setUp(self):
+        self.dir = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
+        self.a = self.dir / "source-AAAA1111.txt"
+        self.b = self.dir / "source-BBBB2222.txt"
+        self.a.write_text("Participants rated it a good algorithm to deploy widely.\n")
+        self.b.write_text("The voting rule aggregates each pairwise comparison.\n")
+
+    def run_cli(self, *args):
+        import contextlib
+        import io
+        buf = io.StringIO()
+        with contextlib.redirect_stdout(buf):
+            rc = G.main(list(args))
+        return rc, buf.getvalue()
+
+    def _check(self, body):
+        p = self.dir / "script.md"
+        p.write_text(body)
+        return str(p)
+
+    def test_span_from_the_second_source_verifies(self):
+        c = self._check('**Host:** It "aggregates each pairwise comparison" cleanly.\n')
+        rc, out = self.run_cli("--source", str(self.a), "--source", str(self.b),
+                               "--check", c)
+        self.assertEqual(rc, 0, out)
+        self.assertNotIn("SOURCE 0:", out)
+
+    def test_span_from_the_first_source_verifies(self):
+        """Order must not matter: the pre-fix bug kept only the LAST source."""
+        c = self._check('**Host:** They called it "a good algorithm to deploy" then.\n')
+        rc, out = self.run_cli("--source", str(self.a), "--source", str(self.b),
+                               "--check", c)
+        self.assertEqual(rc, 0, out)
+
+    def test_single_source_alone_still_reports_the_other_papers_span(self):
+        """The control: one source legitimately cannot verify another's span."""
+        c = self._check('**Host:** It "aggregates each pairwise comparison" cleanly.\n')
+        rc, out = self.run_cli("--source", str(self.a), "--check", c)
+        self.assertEqual(rc, 1)
+        self.assertIn("SOURCE 0:", out)
+
+    def test_invented_span_still_rejected_with_many_sources(self):
+        c = self._check('**Host:** Every participant demanded "an immediate kill switch."\n')
+        rc, out = self.run_cli("--source", str(self.a), "--source", str(self.b),
+                               "--check", c)
+        self.assertEqual(rc, 1)
+        self.assertIn("kill switch", out)
+
+    def test_cross_source_boundary_span_is_refused(self):
+        """A span straddling two sources exists in neither and must fail.
+
+        This is why the CLI intersects per-source residuals instead of
+        concatenating the sources into one haystack.
+        """
+        c = self._check('**Host:** The file read "deploy widely. The voting rule" there.\n')
+        rc, out = self.run_cli("--source", str(self.a), "--source", str(self.b),
+                               "--check", c)
+        self.assertEqual(rc, 1, "a concatenated haystack would wrongly accept this")
+        self.assertIn("SOURCE 0:", out)
+
+    def test_report_records_every_source(self):
+        src = (Path(__file__).resolve().parents[1]
+               / "pipeline" / "quoted_span_gate.py").read_text()
+        self.assertIn('ap.add_argument("--source", action="append"', src,
+                      "a repeated --source must accumulate, not overwrite")
+        self.assertIn('"sources": list(args.source)', src)
+        self.assertNotIn('source_text = "\\n".join(', src,
+                         "sources must be scored independently, never concatenated")
+
+    def test_whitelist_still_waives_only_its_own_span(self):
+        c = self._check('**Host:** As I say, "aggregation is hard." They measured '
+                        '"liability exposure directly."\n')
+        rc, out = self.run_cli("--source", str(self.a), "--source", str(self.b),
+                               "--check", c, "--whitelist", "aggregation is hard.")
+        self.assertEqual(rc, 1)
+        self.assertIn("liability exposure", out)
+        self.assertNotIn("aggregation is hard", out)
+
+
 if __name__ == "__main__":
     unittest.main()

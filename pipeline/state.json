@@ -1533,13 +1533,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-13T23:39:51.211484Z"
+        },
+        {
+          "attempt_id": "501-1794628033",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-14T03:47:13.178995Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-14T03:48:46.777392Z",
+              "detail": "run052: quoted_span_gate CLI --source lacks action=append; repeated flag silently keeps last file only; 4 real spans on ep001 false-report SOURCE 0. repro 25/25",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-14T03:56:26.921960Z",
+              "detail": "run052: --source now appends and scores each source independently with intersected residuals (not concatenated); repro 25/25, proof 37/37, suite 38->45 load-bearing vs both pre-fix states, feed md5 unchanged",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-14T04:12:13.178995Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-14T03:47:13.178995Z"
         }
       ],
-      "attempts": 46,
+      "attempts": 47,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-13T23:45:22Z"
+  "updated_at": "2026-11-14T03:56:26Z"
 }

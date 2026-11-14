@@ -55,12 +55,25 @@ Pass --whitelist to name them explicitly rather than loosening the assertion:
   * the notes quoting their own editorial shorthand ("paper only") or
     source-type labels ("German healthcare report") that describe the episode's
     own speech, not the authors' wording
+  * SCARE-QUOTED OWN-SPEECH -- the largest class in the back catalogue. The
+    house style states a position by quoting what it is not ("The headline is
+    not \"this model is unfair.\"") or names a phrase as the correspondent's
+    own ("an average is a place to hide"). Correctly attributed in the script,
+    and supposed to be absent from the source.
+  * a spoken number rendered as words ("thirty-six of fifty") where the source
+    prints digits ("36 of the 50 skills")
+  * the SOURCE PAPER'S OWN TITLE, which extraction strips as front matter, so
+    an episode naming the paper it is about cannot match
 
-Only an AUTHOR-ATTRIBUTED span with source 0 is the blocking class.
+Only an AUTHOR-ATTRIBUTED span with source 0 is the blocking class. Read the
+~200 characters before the span: if the turn attributes it to an author or to
+the paper, source 0 is blocking; if the episode is quoting itself, a position
+it rejects, or a number it is reading aloud, it is not.
 
 USAGE
 -----
   python3 pipeline/quoted_span_gate.py --source episodes/049/source-KEY.txt \
+      [--source episodes/NNN/source-OTHER.txt ...] \
       --check episodes/049/script.md --check episodes/049/episode-notes.md
 
 Exit 0 = every quoted span verified. Exit 1 = at least one unverified span.
@@ -148,19 +161,49 @@ def verify_text(source_text: str, text: str,
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(
         description="Assert every quoted span in each deliverable appears in the source.")
-    ap.add_argument("--source", required=True,
-                    help="extracted source text (episodes/NNN/source-KEY.txt)")
+    ap.add_argument("--source", action="append", required=True, metavar="FILE",
+                    help="extracted source text (episodes/NNN/source-KEY.txt); "
+                         "repeat for an episode with several sources")
     ap.add_argument("--check", action="append", required=True, metavar="FILE",
                     help="deliverable to scan; repeat for script.md and episode-notes.md")
     ap.add_argument("--whitelist", action="append", default=[], metavar="SPAN",
                     help="a known-benign span (own apparatus / reference-list title)")
     args = ap.parse_args(argv)
 
-    source_text = Path(args.source).read_text(encoding="utf-8", errors="replace")
-    report = {"source": args.source, "files": {}, "ok": True}
+    # An episode can group several papers (001 has five, 002 has four), so a
+    # span is verified if it appears in ANY of them. Each source is scored
+    # INDEPENDENTLY and the residual sets are intersected -- the same semantics
+    # preflight() uses on the publish path, so the operator-facing command and
+    # the publication gate agree by construction rather than by coincidence.
+    #
+    # Do NOT concatenate the sources into one haystack. A span that straddles
+    # the boundary between two joined papers matches the JOIN while existing in
+    # no single paper: on episode 001's real extracts, "Child Study 6d MIT Open
+    # Access" spans the tail of source-4UDPRQZR and the head of
+    # source-BGWWIUWC, verifies against the concatenation, and verifies against
+    # none of the five sources alone. That is a quiet weakening of the gate.
+    #
+    # Before run 052 this argument was a plain store, so a repeated --source was
+    # SILENTLY discarded down to the last path with no warning and no usage
+    # error: the operator saw a confident verdict scored against one paper, and
+    # every span quoted from the others reported SOURCE 0 -- indistinguishable
+    # from a fabricated quotation, the most dangerous false positive this gate
+    # has.
+    source_texts = [Path(p).read_text(encoding="utf-8", errors="replace")
+                    for p in args.source]
+    report = {"sources": list(args.source), "files": {}, "ok": True}
     for target in args.check:
         text = Path(target).read_text(encoding="utf-8", errors="replace")
-        result = verify_text(source_text, text, args.whitelist)
+        residual = None
+        spans = 0
+        for source_text in source_texts:
+            scored = verify_text(source_text, text, args.whitelist)
+            spans = scored["spans"]
+            missing = set(scored["unverified"])
+            residual = missing if residual is None else (residual & missing)
+        unverified = sorted(residual or set())
+        result = {"spans": spans, "unverified": unverified,
+                  "ok": not unverified, "sources_scored": len(source_texts)}
         report["files"][target] = result
         report["ok"] = report["ok"] and result["ok"]
 

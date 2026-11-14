@@ -2,6 +2,115 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-14 - run 052: the quoted-span CLI silently scored ONE paper of five
+
+**Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
+same **18** on-topic sources still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']` and no subcollection, so neither lane reads them.
+Produced `6P2KVFKQ` holds the 10 parents of 001-003. No production unit, so the
+slice closed a durable defect. Opening audits: `coverage` ok 3/3, `verify` ok
+with no issues and `legacy_exempt_episodes: []`, `reconcile` ok, manifest and
+state agree at `published_and_moved` for 001-003, suite 38 OK. Stale lock owner
+pid 1748266 dead with the advisory lock free (`flock` LOCK_NB succeeded) - the
+normal steady state, cleared with `unlock --force`. Standing blocker unchanged
+and **not re-raised** (the lane call is David's).
+
+**Defect.** `pipeline/quoted_span_gate.py`'s operator-facing CLI declared
+`--source` as a plain argparse **store**, not `action="append"`. So a repeated
+`--source` was **silently discarded down to the last path** - no warning, no
+usage error, and a confident verdict printed as though every paper had been
+read. Episode 001 has **five** extracted sources and 002 has **four**, so the
+documented command scored the deliverables against one paper and reported every
+span quoted from the other four as `SOURCE 0`.
+
+That is the checker-bug class the module's own docstring calls the most
+dangerous false positive this gate has, because a correctly quoted sentence
+reporting source 0 is indistinguishable from a fabricated quotation. On 001 it
+produced **four** of them, each a real quotation present in another of the
+episode's own sources - including `a good algorithm for other people to have`,
+the exact span run 047 corrected after finding it misquoted.
+
+**Control that makes this a finding rather than a guess:** `preflight()`'s
+publish-path caller already iterates every declared key and intersects the
+residuals, so the **detector was fine** and the CLI's argument shape was the
+whole difference. Real `preflight 001` returns `ok: true` with 5 sources loaded
+and 0 unverified spans while the CLI on the same episode returned 7 residuals.
+
+**Fix.** `--source` now appends, and each source is scored **independently**
+with the residual sets intersected - the same semantics `preflight()` uses, so
+the operator command and the publication gate now agree by construction rather
+than by coincidence. `ROBUST_PIPELINE.md` documents the repeat, the whitelist
+caveat (the CLI cannot read the manifest) and why concatenation is wrong.
+
+**A first cut of the fix was itself a weakening, and the harness caught it.**
+Concatenating the sources into one haystack - the sibling tree's shape - makes a
+span straddling the **boundary** between two joined papers verify while existing
+in no single paper. Demonstrated on 001's real extracts: `"Child Study 6d MIT
+Open Access"` spans the tail of `source-4UDPRQZR` and the head of
+`source-BGWWIUWC`, matches the concatenation, and matches none of the five
+sources alone. Replaced with per-source intersection in run 052b; the assertion
+that caught it is kept as C5a-e.
+
+**Three harness bugs, none a code defect** (run 029's rule, applied four times):
+a 260-char anchor window spilled into the neighbouring `--check` line and
+false-failed on *its* legitimate `action="append"`; the docstring's single
+literal backslash became two in a non-raw Python anchor, so the anchor count
+came back 0 **before any write**; a raw `span in text` residual test could not
+see PDF line-wrapping and reported correctly-quoted spans as absent (the very
+artefact the module's four normalization views exist for); and the proof omitted
+the manifest's `quoted_span_whitelist`, leaving two benign own-speech spans
+residual. Each time the guard was right and the harness was wrong.
+
+**Lessons.**
+
+- **An argparse `store` where the caller expects `append` is a silent
+  data-loss gate.** `--check` was already `action="append"` in the same
+  function; the asymmetry was the tell. When two arguments are both naturally
+  repeatable, check that both accumulate.
+- **Porting a sibling fix can import a weaker invariant than the local code
+  already had.** This tree's `preflight()` was *stricter* than the sibling's CLI
+  shape. Before copying the sibling's implementation, diff it against the local
+  caller that already solves the same problem and keep the stronger semantics -
+  run 010's "this tree's derivation is the better design" applied to a helper.
+- **Verify a defect's blast radius against the command the operator is told to
+  run.** The publish path was never broken; only the documented CLI was. Run
+  045's question ("is that consumer on the publish path?") has an inverse: a
+  non-publish-path consumer can still be the one every slice actually types.
+
+**Validation (deterministic, final window):**
+- repro `/opt/data/tmp/mm_multisource_repro_run052.py` **25/25** against the
+  unmodified module, incl. the `preflight` control proving the detector works
+- proof `/opt/data/tmp/mm_multisource_proof_run052.py` **37/37**: pre-fix backup
+  still reproduces (false positives remain even with the whitelist passed, and
+  each residual is genuinely present in another source); post-fix 001 and 002
+  exit 0; single-`--source` residual **set** and exit code unchanged (stdout
+  differs on sort order only); 003 byte-identical; nothing granted - invented
+  sentences, a word dropped inside quotes, a swapped word, a transposed digit
+  and an added clause are each still rejected, the whitelist still waives only
+  its own span, and the cross-source boundary span is refused; only `main()`
+  changed with **8** functions byte-identical and `robust_pipeline.py` untouched
+- suite **38 -> 45** (7 `CliMultiSourceTests`), proven **load-bearing against
+  both pre-fix states**: the original store shape fails 2, the concatenation cut
+  fails 2 (incl. the boundary test); module restored md5-identical, 45 OK
+- `preflight 001/002/003` all ok with `issues: []`; `coverage` ok 3/3; `verify`
+  ok, `issues: []`, `legacy_exempt_episodes: []`; `reconcile` 0 issues
+- `py_compile` clean on all `pipeline/*.py`
+- `feed-site/feed.xml` md5 `9fc23235fcb49ca809059092da619b54`, **unchanged**
+  across the whole slice; `grep -c '<item>'` = 3
+- both appends additive: 0 removals in a unified diff (tests, ROBUST_PIPELINE.md)
+
+Backups `pipeline/quoted_span_gate.py.bak-run052` (original pre-fix),
+`.bak-run052b` (the concatenation cut),
+`tests/test_quoted_span_gate.py.bak-run052`,
+`pipeline/ROBUST_PIPELINE.md.bak-run052`, `production-log.md.bak-run052`.
+
+**Outcome:** no episode or reading created, rendered or published. One durable
+false-positive class closed in the one check that compares a deliverable against
+the paper's actual words, and a weaker ported invariant rejected before it
+landed. Feed byte-identical, live site unchanged. Standing blocker unchanged:
+18 items unfiled in `YF84AUZK` awaiting David's lane decision (Summerize =
+interview, Read = verbatim reading).
+
 ## 2026-11-13 — run 051: the read lane's extraction artifacts were one `git add -A` from a public repo
 
 **Queue.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items; the
