@@ -1631,7 +1631,9 @@
             }
           ],
           "deadline_at": "2026-11-14T16:54:35.466281Z",
-          "outcome": null,
+          "detail": "run055: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Fixed publish_local() gating ONLY its --episode selection while publish_feed.main() rebuilds the whole feed and re-copies every enclosure into feed-site/ -- publish --episode 001 re-shipped every other episode ungated in BOTH lanes (interview with no review panel; reading with audio swapped after its verdict, run-042 r",
+          "finished_at": "2026-11-14T16:46:20.195907Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T16:29:35.466281Z"
         }
@@ -1642,5 +1644,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T16:45:51Z"
+  "updated_at": "2026-11-14T16:46:20Z"
 }
