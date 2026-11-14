@@ -1260,10 +1260,61 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             remote_feed = remote.rstrip("/") + "/feed.xml"
             try:
                 with urllib.request.urlopen(remote_feed, timeout=timeout) as response:
+                    status = response.status
                     remote_root = ET.fromstring(response.read())
-                    if response.status != 200 or not remote_root.findall(".//item"):
-                        raise IOError(f"HTTP {response.status} or no RSS items")
-                result["checks"].append({"name": "remote_feed", "url": remote_feed, "http": 200})
+                    if status != 200 or not remote_root.findall(".//item"):
+                        raise IOError(f"HTTP {status} or no RSS items")
+                # Compare the DEPLOYED item set against the local one.
+                #
+                # This check used to assert only "HTTP 200 and at least one
+                # item", and every other remote probe below iterates the items
+                # the LOCAL feed contains, resolving each asset by filename. So
+                # a deploy in which the enclosures and notes landed but
+                # feed.xml did not -- a partial push, or the documented
+                # stale-repo-root trap where feed-site/ is updated and the root
+                # copy is not -- returned ok: true with an empty issue list
+                # while subscribers could not see the episode at all. The
+                # assets verified green precisely because they were probed from
+                # the local feed rather than from the one actually serving.
+                #
+                # That verdict is push_to_remote()'s success criterion: its
+                # wait loop breaks on result["ok"] and reports the deploy from
+                # it, so the one check standing between a half-finished push
+                # and "live" could not see the half that was missing. The
+                # live-vs-local md5 comparison the docs ask every slice to run
+                # by hand detects this, which is exactly why it belongs on the
+                # path rather than in operator discipline (run 041's lesson).
+                #
+                # Both directions are reported, because both are real deploy
+                # drift: an item the local feed carries and the live one does
+                # not is an episode that never reached listeners, and an item
+                # live that local no longer carries means the deployed feed is
+                # ahead of this tree. It grants nothing -- an intact deploy
+                # yields two empty sets and the previous verdict stands, and
+                # every addition is a refusal.
+                local_guids = {(i.findtext("guid") or "").strip()
+                               for i in root.findall(".//item")}
+                remote_guids = {(i.findtext("guid") or "").strip()
+                                for i in remote_root.findall(".//item")}
+                local_guids.discard("")
+                remote_guids.discard("")
+                missing_live = sorted(local_guids - remote_guids)
+                only_live = sorted(remote_guids - local_guids)
+                result["checks"].append({
+                    "name": "remote_feed", "url": remote_feed, "http": 200,
+                    "local_items": len(local_guids),
+                    "remote_items": len(remote_guids),
+                    "missing_from_remote": missing_live,
+                    "only_on_remote": only_live,
+                })
+                for guid in missing_live:
+                    result["issues"].append(
+                        f"deployed feed is stale: {guid} is in the local feed but "
+                        f"not in {remote_feed}")
+                for guid in only_live:
+                    result["issues"].append(
+                        f"deployed feed carries {guid}, which the local feed does "
+                        f"not; the live site is ahead of this tree")
             except Exception as exc:
                 result["issues"].append(f"remote feed check failed for {remote_feed}: {exc}")
         items = root.findall(".//item")

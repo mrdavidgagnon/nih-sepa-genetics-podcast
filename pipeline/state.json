@@ -1636,13 +1636,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T16:29:35.466281Z"
+        },
+        {
+          "attempt_id": "501-1794689260",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-14T20:47:40.277785Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-14T20:56:37.229853Z",
+              "detail": "run056: verify_feed remote branch now compares deployed item set vs local by GUID both directions; repro 27/27, proof 51/51, suite 72->81 load-bearing",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-14T21:12:40.277785Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-14T20:47:40.277785Z"
         }
       ],
-      "attempts": 50,
+      "attempts": 51,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T16:46:20Z"
+  "updated_at": "2026-11-14T20:56:37Z"
 }

@@ -620,6 +620,40 @@ rule): this tree carries **two** `036` overrides where HITL has three, and
 notes" assertion had to be narrowed to what that code actually does with it
 rather than claiming the string is absent.
 
+## The remote check never noticed a STALE DEPLOYED feed (fixed run 056)
+
+`verify_feed()`'s remote branch asserted only **"HTTP 200 and at least one RSS
+item"** on the deployed `feed.xml`. Every other remote probe — enclosure
+byte-range, notes — iterates the items the **local** feed contains and resolves
+each asset by filename, so a deploy in which the mp3s and notes landed while
+`feed.xml` did not (a partial push, or the documented stale-repo-root trap where
+`feed-site/` is updated and the root copy is not) returned **`ok: true` with an
+empty issue list**. The assets verified green precisely because they were probed
+from the local feed rather than from the one actually serving subscribers.
+
+That verdict is `push_to_remote()`'s success criterion: its wait loop breaks on
+`result["ok"]` and the deploy is reported from it, so the one check standing
+between a half-finished push and "live" could not see the half that was missing.
+
+Now the deployed item set is compared against the local one by GUID, in **both**
+directions: `missing_from_remote` (an episode listeners cannot see) and
+`only_on_remote` (the live site is ahead of this tree). Both are issues, both
+name the GUID, and the `remote_feed` check records `local_items` /
+`remote_items` alongside them. An intact deploy yields two empty sets and the
+previous verdict stands unchanged, so this grants nothing and only adds
+refusals.
+
+The detector already existed as **operator discipline** — the live-vs-local
+`feed.xml` md5 comparison every slice logs. That is run 041's lesson again: when
+a read-only audit catches a class the gates do not, wire it into the gate rather
+than leaving it to a habit. Generalizable form: **a remote check that resolves
+what to probe from the LOCAL artifact cannot detect that the remote artifact is
+stale** — it is verifying this tree's intentions against the remote's assets,
+not the remote's own index.
+
+Healthy state here: `verify --remote` reports `local_items: 3, remote_items: 3`
+with both drift lists empty.
+
 ## `verify_feed()`'s legacy exemption fired on episode 001 (fixed run 036)
 
 The notes-file checks in `verify_feed()` -- local **and** live -- demoted a

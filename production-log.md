@@ -2,6 +2,74 @@
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
 
+## 2026-11-14T20:5xZ — run 056 (a stale deployed feed verified green)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; the same 18
+items still unfiled in the parent YF84AUZK, David's lane call, not re-raised).
+`coverage` ok 3/3, `registry` ok (4 ledger / 3 manifest, the 501 stub),
+`verify --remote` ok with no issues, three `reconcile --write` passes at 0/0/0,
+preflight 001-003 ok, feed md5 `9fc23235…` equal to live. No production unit,
+so the slice closed a latent defect on the deploy path.
+
+**Defect.** `verify_feed()`'s remote branch asserted only "HTTP 200 and at least
+one RSS item" about the DEPLOYED feed.xml. Every other remote probe iterates the
+items the LOCAL feed carries and resolves each asset by filename, so a deploy
+whose enclosures and notes landed while feed.xml did not returned `ok: true`
+with an EMPTY issue list — the assets verified green exactly because they were
+probed from the local feed, not from the one serving subscribers. And that
+verdict is `push_to_remote()`'s success criterion: its wait loop breaks on it
+and `result["ok"]` is set from it, so the only check between a half-finished
+push and "live" was blind to the half that was missing. The class is the
+stale-repo-root trap the docs warn about by hand (`push` is mandated precisely
+because a manual `git push` leaves the root feed stale) with nothing on the path
+enforcing it.
+
+**Fix.** The deployed item set is now compared against the local one by GUID in
+both directions: `missing_from_remote` (an episode listeners cannot see) and
+`only_on_remote` (the live site is ahead of this tree), each an issue naming the
+GUID, with `local_items`/`remote_items` recorded on the `remote_feed` check. An
+intact deploy yields two empty sets and the previous verdict stands, so nothing
+is granted. Backup `robust_pipeline.py.bak-run056`; exactly ONE function changed
+with 47 byte-identical, including `preflight`, `review_gate`, `fidelity_gate`,
+`feed_coverage`, `publish_local`, `registry_audit`, `reconcile` and
+`push_to_remote` itself.
+
+The detector already existed as operator discipline — the live-vs-local md5
+comparison every slice logs. Run 041's lesson: when a read-only audit catches a
+class the gates do not, wire it into the gate instead of relying on a habit.
+Generalizable form: **a remote check that resolves what to probe from the LOCAL
+artifact cannot detect that the remote artifact is stale.**
+
+Latent in the now-familiar way: the live feed is byte-identical to local, so
+`coverage` 3/3, `registry ok` and the old `verify --remote ok: true` were all
+accurate and all blind. It would have fired on the first partial push.
+
+Proof: repro `/opt/data/tmp/mm_stale_remote_feed_repro_run056.py` 27/27 against
+the UNMODIFIED module — the stale deploy passes with an empty issue list, the
+`remote_feed` check is shown recording only HTTP 200 with no item comparison,
+all three asset probes run off the local feed, and an intact deploy is proven
+INDISTINGUISHABLE from the stale one. Fix proof
+`mm_stale_remote_feed_proof_run056.py` 51/51: pre-fix still reproduces; both
+drift directions refused and named; nothing granted — an intact deploy still
+passes with an identical verdict, a 404 / unparseable / zero-item live feed each
+still refused as a check failure, local-only verify unaffected, and the run-038
+empty-`<description>`, missing-enclosure and run-036 001-notes gates all still
+bite. Real tree post-fix: `verify --remote` ok with `local_items: 3,
+remote_items: 3` and both drift lists empty.
+
+Tests `tests/test_remote_feed_drift.py` (9 cases; suite **72 -> 81**), shown
+load-bearing by reverting to the backup — 6 failures/errors against the pre-fix
+module — then restored with the suite green.
+
+Harness note: a local `SimpleHTTPRequestHandler` spews `ConnectionResetError`
+tracebacks when `urlopen` closes a byte-range response early; override
+`handle_one_request` to swallow it, or real PASS lines get buried in noise that
+looks like a failure. Scratch trees must symlink `feed-site/*.mp3` (another
+filesystem, so `os.link` fails with `Invalid cross-device link`), and the
+scratch `pipeline/` must go first on `sys.path` with `publish_feed` popped from
+`sys.modules` — a stale sibling-show `publish_feed.py` in `/opt/data/tmp` will
+otherwise hijack the bare-name import (run 055's trap).
+
 ## 2026-11-14T16:5xZ — run 055 (publish gates every episode it ships)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
