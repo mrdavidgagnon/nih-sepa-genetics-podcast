@@ -1555,7 +1555,9 @@
             }
           ],
           "deadline_at": "2026-11-14T04:12:13.178995Z",
-          "outcome": null,
+          "detail": "run052: quoted_span_gate CLI --source was an argparse store, silently keeping only the last path; eps 001 (5 sources)/002 (4) scored against one paper and reported real quotations as SOURCE 0. Fixed to append + per-source intersection matching preflight (NOT concatenation, which verifies cross-source boundary spans). repro 25/25, proof 37/37, suite 38->45 load-bearing vs both pre-fix states, 8 fun",
+          "finished_at": "2026-11-14T03:56:56.957335Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T03:47:13.178995Z"
         }
@@ -1566,5 +1568,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T03:56:26Z"
+  "updated_at": "2026-11-14T03:56:56Z"
 }
