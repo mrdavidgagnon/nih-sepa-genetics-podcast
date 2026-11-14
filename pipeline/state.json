@@ -1653,7 +1653,9 @@
             }
           ],
           "deadline_at": "2026-11-14T21:12:40.277785Z",
-          "outcome": null,
+          "detail": "run056: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Fixed verify_feed()'s remote branch asserting only 'HTTP 200 and >=1 item' about the DEPLOYED feed while every other remote probe iterates the LOCAL feed's items and resolves assets by filename -- a deploy whose mp3s/notes landed but feed.xml did not returned ok: true with an empty issue list, and that verdict is push_",
+          "finished_at": "2026-11-14T20:57:07.166505Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T20:47:40.277785Z"
         }
@@ -1664,5 +1666,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T20:56:37Z"
+  "updated_at": "2026-11-14T20:57:07Z"
 }
