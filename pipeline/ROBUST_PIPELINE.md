@@ -478,7 +478,7 @@ python3 pipeline/robust_pipeline.py coverage
 python3 pipeline/robust_pipeline.py registry
 ```
 
-This tree **does** have a `tests/` directory -- **168 tests** across nine
+This tree **does** have a `tests/` directory -- **187 tests** across ten
 modules, run with `unittest` (there is no `pytest` in either venv). The older
 note claiming no suite exists, and that `unittest discover` failing with
 *Start directory is not importable* is expected here, is **obsolete**: a real
@@ -1578,5 +1578,81 @@ its `ok` flag is `push_to_remote()`'s success criterion.
 
 This is the run-042/045/057 axis once more: an advertised per-item field with
 zero readers. The cover art (057) and the deployed item set (056) were the
-previous two; the duration was the last field the feed emits that no gate read.
+previous two; the `<pubDate>` was the last one, gated in run 062 below.
 **Enumerate every field the artifact advertises and confirm each is probed.**
+
+
+## The advertised `<pubDate>` is gated (run 062)
+
+`verify_feed()` checks the publication date every item advertises against the
+**production event the durable registries record**. Reported under `checks` as
+`name: "pubdate"` with the advertised string, the evidence source it was
+compared against, and the drift in seconds.
+
+Until run 062 **nothing read it**: `pubDate` appeared zero times in
+`robust_pipeline.py` and in no test. `publish_feed.py` derives an interview's
+value from `production_dates()`, which mines `state.json` for the `rendered`
+transition (falling back to `published`), and falls back to the
+`LEGACY_PUB_DATE` constant `'Wed, 26 Aug 2026 03:45:00 +0000'` whenever no such
+event is found; a reading falls back to the same constant on an unparseable
+`built_at`. **That constant is a failure sentinel** in exactly the sense
+`duration()`'s `00:00:00` is -- it means "no production date was available" --
+and a fully-produced episode shipping it advertises itself as ~2.5 months
+older than it is.
+
+The consequence is not cosmetic. **A feed is ordered by this field**, so a
+sentinel date buries a new episode below the whole back catalogue in every
+date-sorted client, and a future date pins an item to the top forever. Neither
+is visible anywhere else: the enclosure, duration, cover, landing-page and
+deployed-item-set checks all pass on an item whose date is wrong.
+
+Four refusals:
+
+- `feed item for episode <N> has no <pubDate>`
+- `... has a malformed <pubDate> <value>; expected an RFC 2822 date`
+- `... advertises a <pubDate> <X> that is <N> days in the future, which pins it
+  to the top of every date-sorted client` (allowance
+  `PUBDATE_FUTURE_ALLOWANCE_SECONDS = 86400`, for clock skew, not scheduling)
+- `pubDate mismatch for episode <N>: the feed advertises <X> but the <source>
+  records <Y> (<N> days apart); re-publish so the date reflects production`
+  (tolerance `PUBDATE_TOLERANCE_SECONDS = 120`, absorbing formatting and
+  timezone rounding only)
+
+Like the duration check, **the advertised value is never its own evidence**.
+`_expected_pubdate_epoch()` re-derives the expected moment from the same data
+`publish_feed.py` mines -- the ledger's `rendered`/`published` transition for an
+interview, `read-episodes.json`'s `built_at` for a reading -- so the comparison
+rests on the registries rather than on the feed.
+
+**No waiver for a legacy import** (run 036 -- a waiver is a gate with the sign
+flipped). A genuine import is accommodated by **evidence** instead: the
+registries hold no dated production event for it, which is precisely why
+`publish_feed.py` emits the sentinel for it, so there is nothing to compare and
+the check says so (`expected_source: "none: no production event in the
+registries"`). An import with an **absent or malformed** date is still refused.
+
+Two things worth keeping:
+
+- **Three existing test fixtures were incomplete, not findings.** Making
+  `pubDate` a gated field exposed `test_cover_art_gate`, `test_duration_gate`
+  and `test_index_page_gate` as carrying item fixtures with no `pubDate` --
+  run 058's own lesson about its 67 bytes of ID3 padding, recurring. They were
+  completed (and given their own scratch ledger, since they had been reading
+  the real `pipeline/state.json`), never the new gate relaxed.
+- **A fixture must advertise what `publish_feed.py` would actually emit.** The
+  proof harness's first "genuine import" fixture carried a *dated* `published`
+  transition, which `production_dates()` mines -- so publish_feed would emit
+  that real date and the sentinel genuinely was wrong. The gate was right and
+  the fixture was dishonest (run 029's rule).
+
+Harnesses `/opt/data/tmp/mm_pubdate_repro_run062.py` (17/17 against the
+**unmodified** module, with the duration and cover detectors shown still firing
+as controls) and `mm_pubdate_proof_run062.py` (47/47: pre-fix still reproduces;
+nothing granted -- intact feed passes with a verdict identical pre/post,
+`pubdate` the only added check name, timezone-equivalent and sub-tolerance dates
+tolerated, and the run-038/057/058/060 plus enclosure-length and
+missing-enclosure gates all still bite; exactly one pre-existing function
+changed, 56 byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/
+`feed_coverage`/`publish_local`/`reconcile`/`registry_audit`/`push_to_remote`/
+`status`/`deploy_drift`). Tests `tests/test_pubdate_gate.py` (suite 168 ->
+**187**), load-bearing: 15 of 19 fail against the pre-fix module.

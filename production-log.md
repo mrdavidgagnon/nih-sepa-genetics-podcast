@@ -1,3 +1,87 @@
+## 2026-11-15T22:5xZ — run 062 (the advertised `<pubDate>` is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; the 18 items
+still unfiled in the parent YF84AUZK are David's standing lane call, already
+raised and not re-raised). Opening audits all green: `coverage` ok 3/3,
+`registry` ok (ledger 4 / manifest 3), `drift` ok with 10 files identical,
+`verify --remote` ok, `status.healthy` true. Stale lock held a dead owner pid
+(2971232) with the advisory lock free — the documented steady state — cleared
+with `unlock --force`. No production unit, so the slice closed a latent defect.
+
+**Defect.** Every feed item carries a `<pubDate>` and **nothing read it**: the
+field appeared zero times in `robust_pipeline.py` and in no test.
+`publish_feed.py` derives an interview's value from `production_dates()`, which
+mines `state.json` for the `rendered` transition (fallback `published`), and
+falls back to the `LEGACY_PUB_DATE` constant `'Wed, 26 Aug 2026 03:45:00 +0000'`
+whenever no such event is found; a reading falls back to the same constant on an
+unparseable `built_at`. That constant is a **failure sentinel** in exactly the
+sense `duration()`'s `00:00:00` is, so a fully-produced episode shipping it
+advertises itself ~2.5 months older than it is.
+
+Not cosmetic: **a feed is ordered by this field**, so a sentinel date buries a
+new episode below the whole back catalogue in every date-sorted client and a
+future date pins an item to the top forever. Invisible everywhere else — the
+enclosure, duration, cover, landing-page and deployed-item-set checks all pass
+on an item whose date is wrong. `verify_feed()` is `publish_local()`'s gate and
+`push_to_remote()`'s success criterion, and it returned `ok: true` with an empty
+issue list for the sentinel, a far-future date, a malformed date, an empty
+element and no element at all.
+
+This is the **run-042/045/057/058 axis once more** — an advertised per-item
+field with zero readers — and the `<pubDate>` was the last field the feed emits
+that no gate read. Run 058's own closing claim (that the duration *was* the
+last) was therefore stale and is corrected.
+
+**Fix.** `verify_feed()` gains a `pubdate` check block; `_parse_rfc2822()`,
+`_parse_rfc2822_or_iso()` and `_expected_pubdate_epoch()` re-derive the expected
+moment from the **same registries publish_feed.py mines**, so the advertised
+value is never its own evidence. Four refusals (absent, malformed, far-future,
+and drift beyond `PUBDATE_TOLERANCE_SECONDS = 120`). **No waiver for a legacy
+import** (run 036); a genuine import is accommodated by *evidence* — the
+registries hold no dated production event, which is exactly why publish_feed
+emits the sentinel for it, so nothing is compared and the check says so. An
+import with an absent or malformed date is still refused.
+
+Backup `robust_pipeline.py.bak-run062`; exactly one pre-existing function
+changed, 56 byte-identical including `preflight`, `review_gate`,
+`fidelity_gate`, `feed_coverage`, `publish_local`, `reconcile`,
+`registry_audit`, `push_to_remote`, `status` and `deploy_drift`.
+
+**All three live episodes verify at 0.0s drift**, so the gate confirms 001-003's
+dates match their recorded `rendered` transitions exactly; `feed.xml` md5
+unchanged at `9fc23235` throughout (no republish needed).
+
+**Three test fixtures were incomplete, not findings.** Making `pubDate` gated
+exposed `test_cover_art_gate`, `test_duration_gate` and `test_index_page_gate`
+as carrying item fixtures with no `pubDate` — run 058's ID3-padding lesson
+recurring. Completed, and each given its own scratch ledger, since they had been
+silently reading the real `pipeline/state.json`. The new gate was not relaxed.
+
+Proof: repro 17/17 against unmodified code (with the duration and cover
+detectors shown still firing as controls), fix proof 47/47 including
+pre-fix-still-reproduces and fourteen nothing-granted cases. Tests
+`tests/test_pubdate_gate.py`, 19 tests, suite **168 -> 187**, load-bearing: 15
+of 19 fail against the pre-fix module and the restore is md5-identical.
+
+**Four harness bugs, no code defect** (run 029's rule, four times in one slice).
+The sharpest: the proof's "genuine import" fixture carried a *dated* `published`
+transition, which `production_dates()` mines — so publish_feed would emit that
+real date and the sentinel genuinely *was* wrong. The gate was right and the
+fixture was dishonest; a fixture must advertise what `publish_feed.py` would
+actually emit. Also `<enclosure[^/]*/>` cannot cross the slashes in the
+enclosure URL (so the regex removed nothing and the fixture was never
+defective); the advertised length was measured *after* truncating the mp3, so
+the feed honestly described the short file and no length gate could fire; and
+the fixture write guard fired correctly on a mid-line anchor — the whitelist was
+fixed, never the guard.
+
+Docs: new *The advertised `<pubDate>` is gated (run 062)* section, the stale
+run-058 "last field" claim corrected, and the Tests section's 168/nine updated
+to 187/ten.
+
+Final: `coverage` 3/3, `registry` ok, `verify --remote` ok, 3x
+`reconcile --write` at 0/0/0, `preflight` 001-003 ok, `status.healthy` true.
+
 ## 2026-11-15T18:3xZ — run 061 (deploy drift: live bytes vs local bytes)
 
 Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18

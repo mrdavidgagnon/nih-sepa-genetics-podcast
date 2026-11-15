@@ -1773,16 +1773,43 @@
             }
           ],
           "deadline_at": "2026-11-15T18:27:40.492219Z",
-          "outcome": null,
+          "detail": "run061: both lanes empty (Summerize 0, Read 0, 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Re-ran the run-053 census the right way (sibling SUBCOMMAND list, not line counts): drift was absent here with all 4 helpers; register is HITL-only by design. Defect: every remote probe in verify_feed is an EXISTENCE probe -- notes/cover/index by HTTP 200 + a few bytes, enclosures by",
+          "finished_at": "2026-11-15T18:17:23.609348Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T18:02:40.492219Z"
+        },
+        {
+          "attempt_id": "501-1794781162",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-15T22:19:22.793980Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-15T22:31:08.891819Z",
+              "detail": "run062: verify_feed now gates <pubDate>; repro 17/17, proof 47/47",
+              "stage": "pubdate_gate_fixed"
+            },
+            {
+              "at": "2026-11-15T22:33:53.562751Z",
+              "detail": "run062: tests/test_pubdate_gate.py 19 tests (suite 187), 3 fixtures completed, ROBUST_PIPELINE.md section + 2 stale claims corrected",
+              "stage": "tests_and_docs"
+            }
+          ],
+          "deadline_at": "2026-11-15T22:44:22.793980Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-15T22:19:22.793980Z"
         }
       ],
-      "attempts": 56,
+      "attempts": 57,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T18:15:50Z"
+  "updated_at": "2026-11-15T22:34:17Z"
 }

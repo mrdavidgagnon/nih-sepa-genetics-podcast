@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import email.utils
 import fnmatch
 import hashlib
 import json
@@ -1528,6 +1529,94 @@ def _legacy_episode_numbers() -> set[str]:
     return legacy
 
 
+# Tolerance for the advertised <pubDate> against the production event the
+# durable ledger records. publish_feed.py formats that timestamp to whole
+# seconds, so the two should agree exactly; the allowance only absorbs
+# formatting and timezone rounding, and is far below the 2.5-month drift the
+# LEGACY_PUB_DATE sentinel produces.
+PUBDATE_TOLERANCE_SECONDS = 120.0
+# How far ahead of now a pubDate may sit before it is a defect. A feed is
+# sorted by this field, so a future date pins an item to the top of every
+# client forever; the allowance is for clock skew between this container and
+# the deploy, not for scheduling.
+PUBDATE_FUTURE_ALLOWANCE_SECONDS = 86400.0
+
+
+def _parse_rfc2822(value: str) -> datetime | None:
+    """Seconds-resolution datetime for an RFC 2822 date, or None if malformed.
+
+    <pubDate> is the one feed field whose syntax is fixed by the RSS spec
+    rather than by this pipeline, so an unparseable value is not merely
+    surprising -- a client that cannot read it either drops the item or dates
+    it now.
+    """
+    text = (value or "").strip()
+    if not text:
+        return None
+    try:
+        parsed = email.utils.parsedate_to_datetime(text)
+    except (TypeError, ValueError, IndexError):
+        return None
+    if parsed is None:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _expected_pubdate_epoch(number: str) -> tuple[float | None, str]:
+    """When this episode was actually produced, per the durable registries.
+
+    Re-derived from the same data publish_feed.py mines, so the gate compares
+    the advertised date against evidence rather than against itself: an
+    interview's pubDate comes from the ledger's `rendered` transition (falling
+    back to `published` exactly as production_dates() does), and a reading's
+    from its read-episodes.json `built_at`.
+
+    Returns (epoch_seconds, source_label). A None epoch means the registries
+    hold no production event -- a genuine pre-pipeline import -- for which the
+    LEGACY_PUB_DATE sentinel is the correct value and nothing is compared.
+    """
+    if is_reading(str(number)):
+        record = (load_read_manifest().get("episodes") or {}).get(str(number))
+        if isinstance(record, dict):
+            built = _parse_rfc2822_or_iso(record.get("built_at"))
+            if built is not None:
+                return built.timestamp(), "read-episodes.json built_at"
+        return None, ""
+    try:
+        ledger = json.loads(LEDGER_PATH.read_text())
+    except (OSError, json.JSONDecodeError):
+        return None, ""
+    record = (ledger.get("episodes") or {}).get(str(number))
+    if not isinstance(record, dict):
+        return None, ""
+    transitions = [t for t in (record.get("transitions") or [])
+                   if isinstance(t, dict)]
+    for wanted in ("rendered", "published"):
+        event = next((t for t in transitions
+                      if str(t.get("to", "")) == wanted and t.get("at")), None)
+        if event is None:
+            continue
+        moment = _parse_rfc2822_or_iso(event.get("at"))
+        if moment is not None:
+            return moment.timestamp(), f"ledger {wanted} transition"
+    return None, ""
+
+
+def _parse_rfc2822_or_iso(value: Any) -> datetime | None:
+    """A ledger/registry timestamp, which is ISO 8601 with a Z suffix."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.strip().replace("Z", "+00:00"))
+    except ValueError:
+        return _parse_rfc2822(value)
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
 def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
     """Verify local RSS/files and optionally the deployed feed over HTTP."""
     feed_path = Path(feed) if not str(feed).startswith(("http://", "https://")) else None
@@ -1718,6 +1807,81 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                 if not (item.findtext(field) or "").strip():
                     result["issues"].append(
                         f"feed item for episode {number} has an empty <{field}>")
+            # ----------------------------------------------------------
+            # The advertised publication date.
+            #
+            # Every item carries a <pubDate> and until run 062 NOTHING read
+            # it: the field appeared zero times in this module and in no
+            # test. publish_feed.py derives an interview's value from
+            # production_dates(), which mines state.json for the `rendered`
+            # (fallback `published`) transition, and falls back to the
+            # LEGACY_PUB_DATE constant 'Wed, 26 Aug 2026 03:45:00 +0000'
+            # whenever no such event is found; a reading falls back to the
+            # same constant on an unparseable `built_at`. That constant is a
+            # FAILURE SENTINEL in exactly the sense duration()'s "00:00:00"
+            # is -- it means "no production date was available" -- and a
+            # fully-produced episode shipping it advertises itself as ~2.5
+            # months older than it is.
+            #
+            # A feed is ordered by this field, so the consequence is not
+            # cosmetic: a sentinel date buries a new episode below the whole
+            # back catalogue in every date-sorted client, and a future date
+            # pins an item to the top forever. Neither is visible anywhere
+            # else -- the enclosure, duration, cover and deployed-item-set
+            # checks all pass on an item whose date is wrong.
+            #
+            # This is the run-042/045/057/058 axis once more: an advertised
+            # per-item field with zero readers. Like the duration check, the
+            # advertised value is never its own evidence -- it is compared
+            # against the production event the durable registries record,
+            # re-derived here from the same data publish_feed.py mines.
+            #
+            # No waiver for a legacy item (run 036 -- a waiver is a gate with
+            # the sign flipped): an absent, empty or malformed date is a
+            # defect for an import too. A genuine import is accommodated
+            # instead by EVIDENCE: the registries hold no production event
+            # for it, so there is nothing to compare and the sentinel stands.
+            advertised_pub = item.find("pubDate")
+            pub_text = ((advertised_pub.text or "").strip()
+                        if advertised_pub is not None else "")
+            pub_check: dict[str, Any] = {
+                "name": "pubdate", "episode": number,
+                "advertised": pub_text or None,
+            }
+            if advertised_pub is None or not pub_text:
+                result["issues"].append(
+                    f"feed item for episode {number} has no <pubDate>")
+            else:
+                stamped = _parse_rfc2822(pub_text)
+                if stamped is None:
+                    result["issues"].append(
+                        f"feed item for episode {number} has a malformed "
+                        f"<pubDate> {pub_text!r}; expected an RFC 2822 date")
+                else:
+                    expected, origin = _expected_pubdate_epoch(number)
+                    skew = stamped.timestamp() - time.time()
+                    if skew > PUBDATE_FUTURE_ALLOWANCE_SECONDS:
+                        result["issues"].append(
+                            f"feed item for episode {number} advertises a "
+                            f"<pubDate> {pub_text} that is "
+                            f"{skew / 86400.0:.1f} days in the future, which "
+                            f"pins it to the top of every date-sorted client")
+                    if expected is not None:
+                        pub_check["expected_source"] = origin
+                        drift = abs(stamped.timestamp() - expected)
+                        pub_check["drift_seconds"] = round(drift, 1)
+                        if drift > PUBDATE_TOLERANCE_SECONDS:
+                            result["issues"].append(
+                                f"pubDate mismatch for episode {number}: the "
+                                f"feed advertises {pub_text} but the {origin} "
+                                f"records "
+                                f"{datetime.fromtimestamp(expected, timezone.utc).strftime('%a, %d %b %Y %H:%M:%S +0000')}"
+                                f" ({drift / 86400.0:.1f} days apart); "
+                                f"re-publish so the date reflects production")
+                    else:
+                        pub_check["expected_source"] = (
+                            "none: no production event in the registries")
+            result["checks"].append(pub_check)
             enclosure = item.find("enclosure")
             if enclosure is None or not enclosure.get("url"):
                 result["issues"].append("RSS item missing enclosure")

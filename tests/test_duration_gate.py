@@ -25,7 +25,7 @@ import robust_pipeline as rp  # noqa: E402
 
 FIXTURE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><description>Show</description><itunes:image href="https://example.invalid/cover.png"/><image><url>https://example.invalid/cover.png</url><title>Moral Machines</title></image>
-      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://example.invalid/episode-001.mp3" length="{length}" type="audio/mpeg"/><itunes:episode>1</itunes:episode>{duration}<itunes:image href="https://example.invalid/cover.png"/></item>
+      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://example.invalid/episode-001.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate><itunes:episode>1</itunes:episode>{duration}<itunes:image href="https://example.invalid/cover.png"/></item>
 </channel></rss>
 """
 
@@ -82,6 +82,19 @@ class DurationGateTests(unittest.TestCase):
         self.addCleanup(lambda: setattr(rp, "ROOT", self._root))
         self.feed = self.site / "feed.xml"
         self.write_feed("00:00:02")
+        # <pubDate> is gated since run 062 against the production event the
+        # durable ledger records, so the fixture carries its own scratch
+        # ledger: without it the check would read this tree's real
+        # pipeline/state.json for episode 001 and compare a scratch feed
+        # against live production history.
+        self.ledger = self.dir / "state.json"
+        self.ledger.write_text(json.dumps({"schema_version": 1, "episodes": {
+            "001": {"status": "published_and_moved", "transitions": [
+                {"from": "rendering", "to": "rendered",
+                 "at": "2026-11-03T23:39:45Z", "reason": "fixture"}]}}}))
+        self._ledger = rp.LEDGER_PATH
+        rp.LEDGER_PATH = self.ledger
+        self.addCleanup(lambda: setattr(rp, "LEDGER_PATH", self._ledger))
 
     def write_feed(self, duration_value):
         element = "" if duration_value is None else DURATION_EL.format(
