@@ -1393,3 +1393,30 @@ presents as a `FileNotFoundError` deep inside `atomic_copy` pointing at
 `sys.path` after importing a helper from it, put each scratch tree's `pipeline/`
 at the front, and `sys.modules.pop("publish_feed")` between trees or every later
 tree silently reuses the first one's builder.
+
+## The cover art the feed advertises is gated (run 057)
+
+`verify_feed()` checks the artwork, not just the enclosures and notes. The feed
+names `cover.png` in **five** slots -- the channel `<itunes:image href>`, the
+channel `<image><url>`, and one `<itunes:image href>` per item -- and until run
+057 **nothing read any of them**. Reported under `checks.cover_art` with the
+advertised hrefs, the deployed byte count, and the root/deployed sha256 pair.
+
+Four refusals, no waiver (an advertised file that 404s is a defect for an import
+too -- run 036's "a waiver is a gate with the sign flipped"):
+
+- `missing local cover art <name>` -- the file the feed points at is absent
+- `local cover art <name> is empty`
+- `cover art <name> differs between the tree root and feed-site/` -- naming both
+  digests, because `publish_feed.py` has **no copy site for the cover**: unlike
+  every episode mp3 and notes file, the two copies are hand-kept in sync, so
+  editing one and forgetting the other deploys artwork nobody approved
+- `remote cover art check failed for <url>` -- the deployed cover must answer 200
+
+An **absent tree-root copy** is deliberately *not* an issue: the feed never
+references it, so only a present-and-different root copy is drift.
+
+Why it mattered: `verify_feed()` is what `publish_local()` consults before
+shipping and its `ok` flag is `push_to_remote()`'s success criterion, so a
+deploy whose artwork never landed reported itself live while every podcast
+client showed a broken image.

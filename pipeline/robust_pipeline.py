@@ -1324,6 +1324,91 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
         if len(guids) != len(set(guids)):
             result["issues"].append("duplicate RSS GUID")
         result["checks"].append({"name": "feed_parse", "ok": True, "items": len(items)})
+        # ------------------------------------------------------------------
+        # Cover art. The feed advertises it in five slots -- the channel's
+        # <itunes:image href>, the channel's <image><url>, and one
+        # <itunes:image href> per item -- and until run 057 NOTHING read any
+        # of them. Every other asset in this function is probed (enclosures
+        # by byte length, notes by name, the deployed item set by GUID), so
+        # the artwork was the one advertised file no gate looked at.
+        #
+        # It is reachable by an ordinary operator sequence, not a contrived
+        # one: publish_feed.py copies each episode's mp3 and notes into
+        # feed-site/ on every run but has NO copy site for the cover, so the
+        # two copies (tree root + feed-site/) are hand-kept in sync. Edit one
+        # and forget the other, or lose the feed-site copy, and `publish`
+        # returned ok: true with an empty issue list while every podcast
+        # client showed broken artwork. That verdict is also
+        # push_to_remote()'s success criterion, so a deploy whose cover never
+        # landed reported itself live.
+        #
+        # No waiver, including for a legacy item: an advertised file that
+        # 404s is a defect for an import too, and a waiver is a gate with the
+        # sign flipped (run 036). Drift between the root and feed-site copies
+        # is reported only when both exist and differ -- an absent root copy
+        # is not a deploy defect, since the feed never references it.
+        cover_refs: set[str] = set()
+        _itunes_ns = "http://www.itunes.com/dtds/podcast-1.0.dtd"
+        for node in root.iter():
+            if node.tag.endswith("image"):
+                href = (node.get("href") or "").strip()
+                if href:
+                    cover_refs.add(href)
+                url_node = node.find("url")
+                if url_node is not None and (url_node.text or "").strip():
+                    cover_refs.add((url_node.text or "").strip())
+        cover_names = sorted({Path(urllib.parse.urlparse(h).path).name
+                              for h in cover_refs if h})
+        cover_check: dict[str, Any] = {
+            "name": "cover_art",
+            "advertised": sorted(cover_refs),
+            "files": cover_names,
+        }
+        if not cover_refs:
+            result["issues"].append("feed advertises no cover art")
+        for name in cover_names:
+            if feed_path:
+                local_cover = feed_path.parent / name
+                if not local_cover.exists():
+                    result["issues"].append(
+                        f"missing local cover art {name}")
+                elif local_cover.stat().st_size == 0:
+                    result["issues"].append(
+                        f"local cover art {name} is empty")
+                else:
+                    cover_check["local_bytes"] = local_cover.stat().st_size
+                    # The root copy is the editing source; publish_feed.py
+                    # never derives feed-site/ from it, so a silent drift
+                    # deploys artwork nobody approved.
+                    root_cover = ROOT / name
+                    if root_cover.exists() and root_cover.is_file():
+                        site_digest = hashlib.sha256(
+                            local_cover.read_bytes()).hexdigest()
+                        root_digest = hashlib.sha256(
+                            root_cover.read_bytes()).hexdigest()
+                        cover_check["site_sha256"] = site_digest
+                        cover_check["root_sha256"] = root_digest
+                        if site_digest != root_digest:
+                            result["issues"].append(
+                                f"cover art {name} differs between the tree "
+                                f"root and feed-site/ (root "
+                                f"{root_digest[:12]} vs deployed "
+                                f"{site_digest[:12]}); they are hand-kept in "
+                                f"sync, so edit both")
+            if remote:
+                cover_url = remote.rstrip("/") + "/" + name
+                try:
+                    with urllib.request.urlopen(cover_url, timeout=timeout) as response:
+                        status = response.status
+                        body = response.read(8)
+                    if status != 200 or not body:
+                        raise IOError(f"HTTP {status}")
+                    cover_check.setdefault("remote", []).append(
+                        {"url": cover_url, "http": status})
+                except Exception as exc:
+                    result["issues"].append(
+                        f"remote cover art check failed for {cover_url}: {exc}")
+        result["checks"].append(cover_check)
         for item in items:
             # Legacy = what the ledger says, NOT what the feed numbers say.
             # This was keyed on `<itunes:episode> == "1"`, which publish_feed.py

@@ -3389,3 +3389,104 @@ verification gap closed, one real misquote corrected in a published episode, and
 a copyright exposure caught before any commit. Feed byte-identical, live site
 unchanged. Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting
 David's lane decision (Summerize = interview, Read = verbatim reading).
+
+## Run 057 -- 2026-11-15
+
+**Intake.** Summerize `V4WXTY8M` **0** items, Read `DV6F4ILX` **0** items,
+Produced `6P2KVFKQ` 10 items. The 18 on-topic items still sit unfiled directly
+in `YF84AUZK` awaiting David's lane decision -- the standing blocker, unchanged
+since run 005 and already raised, so not re-reported. No production unit
+available; slice spent on a durable defect per the skill's both-lanes-idle rule.
+
+**Opening audits (all green before any edit):** `coverage` ok 3/3, `registry`
+ok (`ledger_episodes: 4, manifest_episodes: 3` -- the 501 no-work stub),
+`verify` ok with `issues: []` and `legacy_exempt_episodes: []`, `reconcile ok`,
+suite 81/81, `feed.xml` md5 `9fc23235fcb49ca809059092da619b54`. Lock present
+with `active: false` and a dead owner pid -- the documented steady state.
+
+**Defect.** The feed advertises `cover.png` in **five** slots (channel
+`<itunes:image>`, channel `<image><url>`, one `<itunes:image>` per item) and
+**no gate read any of them**. `verify_feed()` probes enclosures by byte length,
+notes by filename and (since run 056) the deployed item set by GUID -- the
+artwork was the one advertised asset nothing looked at. Confirmed by grep:
+`robust_pipeline.py` had **zero** cover-art references, and `preflight`,
+`feed_coverage`, `publish_local`, `reconcile` and `registry_audit` never
+mention it either.
+
+Reachable by an ordinary operator sequence, not a contrived one.
+`publish_feed.py` copies each episode's mp3 and notes into `feed-site/` on
+every run but has **no copy site for the cover** (3 `atomic_copy` sites, none
+mentions it), so the tree-root and `feed-site/` copies are hand-kept in sync --
+exactly what the skill records as "hand-kept in sync, not machine-derived --
+edit both", a rule with no enforcement behind it. Three cases all returned
+`ok: true` with an **empty issue list** against the unmodified module:
+`feed-site/cover.png` deleted, the deployed copy drifted from the root copy,
+and the live cover 404ing while `feed.xml` and every mp3 served fine.
+
+That verdict is not advisory: `publish_local()` refuses on it and
+`push_to_remote()`'s wait loop **breaks on it** to declare the deploy live. So
+a push whose artwork never landed reported success while every podcast client
+showed a broken image.
+
+**Fix.** A cover-art block in `verify_feed()`, scored once per feed after
+`feed_parse`, reported under `checks.cover_art` with the advertised hrefs, the
+deployed byte count and the root/deployed sha256 pair. Four refusals: missing,
+empty, root-vs-deployed drift (naming both digests and saying "edit both"), and
+a remote probe that must answer 200. **No waiver for a legacy item** -- run
+036's lesson applied up front. An **absent root copy is not** an issue, since
+the feed never references it; only present-and-different is drift.
+
+**This is the run-042/045 axis rotated once more.** Run 042 found a field with
+zero readers; run 045 found a field whose reader was not on the publish path.
+Here the gate *iterates the feed* and still never looked at an asset the feed
+*names five times* -- so the question "which artifact did this gate never look
+at?" has to cover every URL the artifact emits, not just the ones that are
+per-episode. Generalizable: **enumerate what a feed advertises and check each
+class is probed.** Enclosures were, notes were, the cover was not.
+
+**Proof.** repro `/opt/data/tmp/mm_cover_art_repro_run057.py` 35/36 against the
+**unmodified** module (all three cases blind with empty issue lists, the
+enclosure and run-056 drift checks shown still running so the detector is proven
+present and the cover merely unprobed). The single failure was a **harness bug**
+-- my "no cover reference anywhere" filter excluded `coverage`/`covers` but not
+`covered`, matching two innocent prose lines. Run 029's rule held: the code was
+right, the probe was wrong.
+
+proof `mm_cover_art_proof_run057.py` **51/51** -- pre-fix backup still
+reproduces all three; post-fix each refused and named; **nothing granted**: the
+intact tree and intact deploy both still pass with a verdict identical pre/post
+(`cover_art` the only added check), and the run-038 empty-`<description>`,
+run-036 001-notes, missing-enclosure, enclosure-length-mismatch, run-056 stale
+deploy, 404 and unparseable-live-feed gates all still bite. Blast radius:
+**exactly one function changed**, none added or removed, **47 byte-identical**
+including `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local`/`push_to_remote`/`reconcile`/`registry_audit`/`lane_ownership`.
+
+A second harness bug, same class: asserting a status-only fixture would be
+notes-exempt. **Run 037 hardened `_legacy_episode_numbers()` to a three-part
+test** (literal status `published` + no production transition + no script on
+disk), so flipping 001's status alone correctly does not confer the exemption.
+Replaced with a genuine-import fixture, which **is** notes-exempt and named --
+and whose missing cover is **still refused**, which is the no-waiver claim
+proved on the one record that could have earned one.
+
+**Tests.** `tests/test_cover_art_gate.py`, 10 tests, suite **81 -> 91**. Proven
+load-bearing by reverting to the pre-fix backup: **7 failures/errors**;
+restored md5-identical with 91/91 green.
+
+**Validation (deterministic, final window):** `py_compile` clean on all
+`pipeline/*.py`; `coverage` ok 3/3; `registry` ok `issues: []`; `verify` local
+ok `issues: []`, `legacy_exempt_episodes: []`; `verify --remote` **ok** with
+`remote_feed` 3/3 both drift lists empty **and the live cover probed HTTP 200**;
+`preflight 001-003 --audio` each ok `issues: []`; three `reconcile --write`
+passes 0/0/0; suite 91/91; `feed.xml` md5 **unchanged** at
+`9fc23235fcb49ca809059092da619b54` and **byte-identical to the live feed**.
+
+Backups `pipeline/robust_pipeline.py.bak-run057`,
+`pipeline/ROBUST_PIPELINE.md.bak-run057`, `production-log.md.bak-run057`.
+
+**Outcome:** no episode or reading created, rendered or published -- both intake
+lanes empty. One durable gate gap closed on the publish path, with the live
+artwork now verified on every deploy. Feed byte-identical, live site unchanged.
+Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane
+decision (Summerize = interview, Read = verbatim reading).

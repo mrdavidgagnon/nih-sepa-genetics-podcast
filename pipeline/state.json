@@ -1658,13 +1658,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-14T20:47:40.277785Z"
+        },
+        {
+          "attempt_id": "501-1794704313",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-15T00:58:33.903100Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-15T01:07:17.855012Z",
+              "detail": "run057: verify_feed() now checks the advertised cover art (missing/empty/root-vs-deployed drift/remote 404). repro 35/36 (1 harness bug), proof 51/51, suite 81->91 load-bearing (7 fails pre-fix)",
+              "stage": "cover_art_gate"
+            }
+          ],
+          "deadline_at": "2026-11-15T01:23:33.903100Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-15T00:58:33.903100Z"
         }
       ],
-      "attempts": 51,
+      "attempts": 52,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-14T20:57:07Z"
+  "updated_at": "2026-11-15T01:07:24Z"
 }
