@@ -1675,7 +1675,9 @@
             }
           ],
           "deadline_at": "2026-11-15T01:23:33.903100Z",
-          "outcome": null,
+          "detail": "run057: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Gated the cover art the feed advertises in 5 slots and no gate read: verify_feed() now refuses a missing/empty cover, root-vs-feed-site drift (publish_feed.py has no copy site for it, so the two copies are hand-kept in sync) and a remote cover that does not answer 200, reported under checks.cover_art with both digests;",
+          "finished_at": "2026-11-15T01:08:49.477728Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T00:58:33.903100Z"
         }
@@ -1686,5 +1688,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T01:07:24Z"
+  "updated_at": "2026-11-15T01:08:49Z"
 }
