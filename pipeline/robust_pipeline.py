@@ -1076,6 +1076,46 @@ def _tts_imports():
     return edge_tts, imageio_ffmpeg
 
 
+# Tolerance for the advertised <itunes:duration> against the real decoded
+# length. publish_feed.duration() ROUNDS to whole seconds, so a sub-second
+# rounding difference is expected and benign; anything beyond a couple of
+# seconds means the advertised figure does not describe the file.
+DURATION_TOLERANCE_SECONDS = 2.0
+
+
+def _parse_hhmmss(value: str) -> int | None:
+    """Seconds for an HH:MM:SS (or H:MM:SS / MM:SS) duration string."""
+    parts = (value or "").strip().split(":")
+    if not parts or not all(p.isdigit() for p in parts) or len(parts) > 3:
+        return None
+    total = 0
+    for part in parts:
+        total = total * 60 + int(part)
+    return total
+
+
+def _audio_duration_seconds(path: Path) -> float | None:
+    """Real decoded duration, or None when the file cannot be decoded.
+
+    publish_feed.duration() parses the same ffmpeg stderr but SWALLOWS a miss,
+    returning the literal string "00:00:00" for an undecodable file -- which is
+    exactly why the advertised value cannot be trusted as its own evidence.
+    """
+    try:
+        _, imageio_ffmpeg = _tts_imports()
+        stderr = subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-i", str(path)],
+            capture_output=True, text=True, timeout=120,
+        ).stderr
+    except Exception:
+        return None
+    match = re.search(r"Duration: (\d+):(\d+):(\d+\.\d+)", stderr)
+    if not match:
+        return None
+    return (int(match.group(1)) * 3600 + int(match.group(2)) * 60
+            + float(match.group(3)))
+
+
 def spoken_text(text: str) -> str:
     """Remove Markdown-only emphasis delimiters before sending text to TTS."""
     return text.replace("*", "").replace("`", "")
@@ -1450,6 +1490,80 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     result["issues"].append(f"missing local enclosure {local.name}")
                 elif length != local.stat().st_size:
                     result["issues"].append(f"enclosure length mismatch for {local.name}")
+                else:
+                    # ----------------------------------------------------
+                    # Advertised duration vs the real decoded audio.
+                    #
+                    # Every item carries an <itunes:duration> and until run
+                    # 058 NOTHING read it. publish_feed.py derives it from
+                    # duration(), which parses ffmpeg stderr and returns the
+                    # literal "00:00:00" whenever no Duration: line is found
+                    # -- so an undecodable or truncated mp3 advertises a
+                    # zero-length episode and every gate stayed green:
+                    # enclosures are checked by BYTE LENGTH, which a file of
+                    # garbage at the right size satisfies, and preflight()
+                    # sizes and hashes the audio without ever decoding it.
+                    #
+                    # This is the run-042/045/057 axis again -- an advertised
+                    # per-item field with zero readers. The cover art (057)
+                    # and the deployed item set (056) were the previous two;
+                    # the duration is the last one the feed emits. It is also
+                    # the only check here that proves the enclosure is real
+                    # AUDIO rather than bytes of the right length.
+                    #
+                    # No waiver, legacy included: a client that reads
+                    # 00:00:00 renders an unplayable episode for an import
+                    # too, and a waiver is a gate with the sign flipped
+                    # (run 036). A missing local enclosure is already its own
+                    # issue above, so this block only runs when the file is
+                    # present and its length agrees.
+                    duration_node = next(
+                        (x for x in item if x.tag.endswith("duration")), None)
+                    advertised = (
+                        (duration_node.text or "").strip()
+                        if duration_node is not None else "")
+                    duration_check: dict[str, Any] = {
+                        "name": "duration", "episode": number,
+                        "advertised": advertised or None,
+                    }
+                    if duration_node is None or not advertised:
+                        result["issues"].append(
+                            f"feed item for episode {number} has no "
+                            f"<itunes:duration>")
+                    else:
+                        claimed = _parse_hhmmss(advertised)
+                        duration_check["advertised_seconds"] = claimed
+                        if claimed is None:
+                            result["issues"].append(
+                                f"feed item for episode {number} has a "
+                                f"malformed <itunes:duration> "
+                                f"{advertised!r}; expected HH:MM:SS")
+                        elif claimed == 0:
+                            result["issues"].append(
+                                f"feed item for episode {number} advertises "
+                                f"<itunes:duration> 00:00:00, which is "
+                                f"publish_feed.duration()'s failure sentinel "
+                                f"for an mp3 it could not decode; re-render "
+                                f"or re-publish {local.name}")
+                        else:
+                            actual = _audio_duration_seconds(local)
+                            duration_check["actual_seconds"] = (
+                                round(actual, 1) if actual is not None else None)
+                            if actual is None:
+                                result["issues"].append(
+                                    f"enclosure {local.name} for episode "
+                                    f"{number} could not be decoded, so its "
+                                    f"advertised duration {advertised} "
+                                    f"describes nothing; the file is the "
+                                    f"right byte length but is not playable "
+                                    f"audio")
+                            elif abs(actual - claimed) > DURATION_TOLERANCE_SECONDS:
+                                result["issues"].append(
+                                    f"duration mismatch for {local.name}: the "
+                                    f"feed advertises {advertised} "
+                                    f"({claimed}s) but the audio decodes to "
+                                    f"{actual:.0f}s")
+                    result["checks"].append(duration_check)
             if remote:
                 remote_url = remote.rstrip("/") + "/" + Path(urllib.parse.urlparse(url).path).name
                 req = urllib.request.Request(remote_url, headers={"Range": "bytes=0-1023"})

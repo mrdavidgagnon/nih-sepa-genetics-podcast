@@ -21,9 +21,28 @@ import robust_pipeline as rp  # noqa: E402
 
 FIXTURE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><description>Show</description><itunes:image href="https://example.invalid/cover.png"/><image><url>https://example.invalid/cover.png</url><title>Moral Machines</title></image>
-      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://example.invalid/episode-001.mp3" length="{length}" type="audio/mpeg"/><itunes:episode>1</itunes:episode><itunes:image href="https://example.invalid/cover.png"/></item>
+      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://example.invalid/episode-001.mp3" length="{length}" type="audio/mpeg"/><itunes:episode>1</itunes:episode><itunes:duration>00:00:02</itunes:duration><itunes:image href="https://example.invalid/cover.png"/></item>
 </channel></rss>
 """
+
+
+def _make_fixture_mp3() -> bytes:
+    """Tiny real mp3 (2s silence) so the run-058 duration gate can decode it."""
+    import subprocess
+    import sys as _sys
+    _sys.path.insert(0, "/data/.openclaw/workspace/vendor/two-voice-tts")
+    import imageio_ffmpeg
+    with tempfile.TemporaryDirectory() as box:
+        out = Path(box) / "f.mp3"
+        subprocess.run(
+            [imageio_ffmpeg.get_ffmpeg_exe(), "-y", "-f", "lavfi",
+             "-i", "anullsrc=r=22050:cl=mono", "-t", "2",
+             "-c:a", "libmp3lame", "-b:a", "32k", str(out)],
+            capture_output=True, check=True)
+        return out.read_bytes()
+
+
+_FIXTURE_MP3 = _make_fixture_mp3()
 
 
 class CoverArtGateTests(unittest.TestCase):
@@ -33,7 +52,10 @@ class CoverArtGateTests(unittest.TestCase):
         self.site = self.dir / "feed-site"
         self.site.mkdir()
         self.audio = self.site / "episode-001.mp3"
-        self.audio.write_bytes(b"ID3" + b"\x00" * 64)
+        # A REAL decodable 2-second mp3: run 058 gates <itunes:duration>
+        # against the decoded audio, so a fixture of ID3 padding is an
+        # incomplete fixture rather than a cover-art finding.
+        self.audio.write_bytes(_FIXTURE_MP3)
         self.cover_bytes = b"\x89PNG\r\n\x1a\n" + b"art" * 32
         (self.site / "cover.png").write_bytes(self.cover_bytes)
         self.feed = self.site / "feed.xml"

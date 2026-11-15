@@ -1420,3 +1420,40 @@ Why it mattered: `verify_feed()` is what `publish_local()` consults before
 shipping and its `ok` flag is `push_to_remote()`'s success criterion, so a
 deploy whose artwork never landed reported itself live while every podcast
 client showed a broken image.
+
+## The advertised `<itunes:duration>` is gated (run 058)
+
+`verify_feed()` checks the duration every item advertises against the **decoded**
+audio. Each item carries an `<itunes:duration>` that `publish_feed.py` derives
+from `duration()`, which parses ffmpeg stderr and returns the literal string
+`00:00:00` whenever no `Duration:` line is found -- and until run 058 **nothing
+read the emitted value**. Reported under `checks` as `name: "duration"` with the
+advertised string, its parsed seconds and the real decoded seconds.
+
+Four refusals, no waiver (run 036 -- a client that reads `00:00:00` renders an
+unplayable episode for an import too):
+
+- `feed item for episode <N> has no <itunes:duration>`
+- `... has a malformed <itunes:duration> <value>; expected HH:MM:SS`
+- `... advertises <itunes:duration> 00:00:00, which is publish_feed.duration()'s
+  failure sentinel for an mp3 it could not decode`
+- `enclosure <name> ... could not be decoded, so its advertised duration
+  describes nothing; the file is the right byte length but is not playable audio`
+- `duration mismatch for <name>: the feed advertises <X> but the audio decodes
+  to <Y>s` (tolerance `DURATION_TOLERANCE_SECONDS = 2.0`, since
+  `publish_feed.duration()` rounds to whole seconds)
+
+A **missing local enclosure** is already its own issue, so the duration block
+stays silent there rather than double-reporting.
+
+Why it mattered: enclosures are checked by **byte length**, which a file of
+garbage at the right size satisfies, and `preflight()` sizes and hashes the audio
+**without ever decoding it**. So this is the only check in the pipeline that
+proves an enclosure is real, playable audio rather than bytes of the right
+length. `verify_feed()` is what `publish_local()` consults before shipping and
+its `ok` flag is `push_to_remote()`'s success criterion.
+
+This is the run-042/045/057 axis once more: an advertised per-item field with
+zero readers. The cover art (057) and the deployed item set (056) were the
+previous two; the duration was the last field the feed emits that no gate read.
+**Enumerate every field the artifact advertises and confirm each is probed.**

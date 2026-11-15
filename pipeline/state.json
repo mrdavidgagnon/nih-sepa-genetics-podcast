@@ -1680,13 +1680,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T00:58:33.903100Z"
+        },
+        {
+          "attempt_id": "501-1794719560",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-15T05:12:40.970780Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-15T05:22:53.263327Z",
+              "detail": "run058: gated the advertised <itunes:duration>, the last per-item feed field with zero readers; repro 36/36, proof 53/53, suite 91->108",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-15T05:37:40.970780Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-15T05:12:40.970780Z"
         }
       ],
-      "attempts": 52,
+      "attempts": 53,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T01:08:49Z"
+  "updated_at": "2026-11-15T05:22:53Z"
 }

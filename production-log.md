@@ -1,3 +1,65 @@
+## 2026-11-15T05:1xZ — run 058 (the advertised duration is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's lane call, not re-raised). `coverage`
+ok 3/3, `registry` ok (ledger 4 / manifest 3, the 501 stub), `verify --remote`
+ok, preflight 001-003 ok, three `reconcile --write` passes at 0/0/0. Stale lock
+from run 057 had a dead owner pid and a free advisory lock; unlocked. No
+production unit, so the slice closed a latent defect.
+
+**Defect.** Every feed item advertises an `<itunes:duration>` and NO gate read
+it. `publish_feed.py` derives it from `duration()`, which parses ffmpeg stderr
+and returns the literal `00:00:00` whenever no `Duration:` line is found -- so
+an undecodable or truncated mp3 advertises a zero-length episode. Nothing
+caught it: enclosures are checked by **byte length**, which a file of garbage at
+the right size satisfies, and `preflight()` sizes and hashes the audio without
+ever decoding it. A 00:00:00 duration, a 10-hour duration on a 12-minute file, a
+malformed value, a missing element, and an undecodable enclosure at the exact
+advertised byte length ALL returned `ok: true` with an empty issue list -- which
+is `publish_local()`'s gate and `push_to_remote()`'s success criterion.
+
+This is the run-042/045/057 axis rotated once more: an advertised per-item field
+with zero readers. The cover art (057) and the deployed item set (056) were the
+previous two; the duration was the last field the feed emits that nothing probed.
+It is also now the only check that proves an enclosure is real, playable audio
+rather than bytes of the right length.
+
+**Fix.** `_parse_hhmmss()` + `_audio_duration_seconds()` (None when undecodable)
+and a `duration` block in `verify_feed()`'s per-item loop, reported under
+`checks` with advertised/parsed/decoded figures. Five refusals, no legacy waiver
+(run 036); tolerance `DURATION_TOLERANCE_SECONDS = 2.0` because
+`publish_feed.duration()` rounds to whole seconds. A missing local enclosure is
+already its own issue, so the block stays silent there rather than
+double-reporting. Backup `robust_pipeline.py.bak-run058`; exactly one
+pre-existing function changed, 47 byte-identical including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile` and `registry_audit`.
+
+Real tree: all three published episodes verify against their decoded audio
+(001 advertises 00:12:07 / decodes 727.4s, 002 00:21:04 / 1263.5s, 003 00:17:18
+/ 1038.3s), feed.xml md5 unchanged throughout.
+
+Proof: repro 36/36 against the **unmodified** module (all three cases pass with
+an empty issue list, with the run-057 cover check shown still running as a
+control), fix proof 53/53 (pre-fix still reproduces; nothing granted -- intact
+tree and intact deploy pass with a verdict identical pre/post, `duration` the
+only added check name, and run-038/057/056/enclosure-length/missing-enclosure
+gates all still bite). Tests `tests/test_duration_gate.py`, suite 91 -> **108**,
+load-bearing: 12 of 17 fail against the pre-fix module.
+
+Two harness bugs, neither a code defect (run 029's rule): the no-weakening case
+blanked the **channel** `<description>` when run 038 correctly gates only ITEM
+descriptions, and the function slicer attributed the new module-level constant to
+the preceding `_tts_imports()`, reporting a second function changed whose own
+statements are byte-identical. Also completed `tests/test_cover_art_gate.py`'s
+fixture, whose synthetic item had no duration and 67 bytes of ID3 padding for
+audio -- that is an incomplete fixture, not a finding, so it now carries a real
+decodable 2-second mp3. The mid-line anchor tripped the line-loss guard exactly
+as run 491 describes; fixed the whitelist, never the guard.
+
+Harnesses `/opt/data/tmp/mm_duration_repro_run058.py` and
+`mm_duration_proof_run058.py`.
+
 # Moral Machines - production log
 
 Cloned from the Human in the Loop pipeline 2026-11-03. Episodes numbered from 001; readings from 501.
