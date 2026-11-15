@@ -234,6 +234,6 @@ def main():
     for num, rec in read_episodes():
         base = f"episode-{num}-reading"
         index_items.append(f'<li><a href="{base}.mp3">Reading {num} — {escape(rec.get("title","Untitled"))}</a> (verbatim) · <a href="{base}-notes.md">notes</a></li>')
-    atomic_text(SITE/'index.html', '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moral Machines</title></head><body><h1>Moral Machines</h1><p>Private, unlisted research-review podcast feed.</p><p><a href="feed.xml">RSS feed</a> · <a href="needs-full-text.html">Full-text queue</a></p><h2>Episodes</h2><ul>'+''.join(index_items)+'</ul></body></html>')
+    atomic_text(SITE/'index.html', '<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="robots" content="noindex,nofollow"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Moral Machines</title></head><body><h1>Moral Machines</h1><p>Private, unlisted research-review podcast feed.</p><p><a href="feed.xml">RSS feed</a></p><h2>Episodes</h2><ul>'+''.join(index_items)+'</ul></body></html>')
     print('published local feed',len(items),'items')
 if __name__=='__main__': main()

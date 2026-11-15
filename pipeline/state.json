@@ -1729,13 +1729,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T09:33:53.849305Z"
+        },
+        {
+          "attempt_id": "501-1794750529",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-15T13:48:49.255316Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-15T13:48:49.802831Z",
+              "detail": "run060: Summerize V4WXTY8M 0, Read DV6F4ILX 0, Produced 10; 18 unfiled in YF84AUZK (standing, not re-raised). No production unit. coverage ok 3/3, registry ok, verify local ok, suite 134 OK, stale lock pid 2701691 dead -> unlock --force.",
+              "stage": "lanes_reconciled"
+            },
+            {
+              "at": "2026-11-15T13:56:53.892913Z",
+              "detail": "run060: wired verify_feed index_page check (landing page had ZERO readers; repro 30/30, proof 46/46) + retired inherited dead needs-full-text.html link from publish_feed index template (404 live). Fixtures completed, suite 134->146 load-bearing (9 fail pre-fix).",
+              "stage": "index_page_gate_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-15T14:13:49.255316Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-15T13:48:49.255316Z"
         }
       ],
-      "attempts": 54,
+      "attempts": 55,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T09:44:22Z"
+  "updated_at": "2026-11-15T13:57:03Z"
 }

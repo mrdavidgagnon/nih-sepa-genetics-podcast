@@ -45,6 +45,15 @@ def _make_fixture_mp3() -> bytes:
 _FIXTURE_MP3 = _make_fixture_mp3()
 
 
+INDEX_HTML = (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<title>Moral Machines</title></head><body>'
+    '<h1>Moral Machines</h1>'
+    '<p><a href="feed.xml">RSS feed</a></p><h2>Episodes</h2><ul>'
+    '<li><a href="episode-001.mp3">Episode 001</a></li>'
+    '</ul></body></html>'
+)
+
 class CoverArtGateTests(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="cover_gate_"))
@@ -58,6 +67,10 @@ class CoverArtGateTests(unittest.TestCase):
         self.audio.write_bytes(_FIXTURE_MP3)
         self.cover_bytes = b"\x89PNG\r\n\x1a\n" + b"art" * 32
         (self.site / "cover.png").write_bytes(self.cover_bytes)
+        # A real feed-site/ always carries the landing page
+        # publish_feed.py writes; run 060 gates it, so a fixture
+        # without one is incomplete rather than a cover finding.
+        (self.site / "index.html").write_text(INDEX_HTML)
         self.feed = self.site / "feed.xml"
         self.feed.write_text(FIXTURE_FEED.format(length=self.audio.stat().st_size))
         # ROOT is module-level; point it at our scratch tree for the

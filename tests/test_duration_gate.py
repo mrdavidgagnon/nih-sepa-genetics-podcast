@@ -53,6 +53,15 @@ _MP3_2S = _make_mp3(2)
 _MP3_30S = _make_mp3(30)
 
 
+INDEX_HTML = (
+    '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+    '<title>Moral Machines</title></head><body>'
+    '<h1>Moral Machines</h1>'
+    '<p><a href="feed.xml">RSS feed</a></p><h2>Episodes</h2><ul>'
+    '<li><a href="episode-001.mp3">Episode 001</a></li>'
+    '</ul></body></html>'
+)
+
 class DurationGateTests(unittest.TestCase):
     def setUp(self):
         self.dir = Path(tempfile.mkdtemp(prefix="duration_gate_"))
@@ -63,6 +72,10 @@ class DurationGateTests(unittest.TestCase):
         self.audio.write_bytes(_MP3_2S)
         self.cover_bytes = b"\x89PNG\r\n\x1a\n" + b"art" * 32
         (self.site / "cover.png").write_bytes(self.cover_bytes)
+        # A real feed-site/ always carries the landing page
+        # publish_feed.py writes; run 060 gates it, so a fixture
+        # without one is incomplete rather than a duration finding.
+        (self.site / "index.html").write_text(INDEX_HTML)
         (self.dir / "cover.png").write_bytes(self.cover_bytes)
         self._root = rp.ROOT
         rp.ROOT = self.dir

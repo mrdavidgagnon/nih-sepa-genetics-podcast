@@ -3552,3 +3552,124 @@ lanes empty. One durable gate gap closed on the publish path, with the live
 artwork now verified on every deploy. Feed byte-identical, live site unchanged.
 Standing blocker unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane
 decision (Summerize = interview, Read = verbatim reading).
+
+
+## Run 060 — 2026-11-15 — the landing page the pipeline deploys had no reader
+
+**Intake.** Summerize `V4WXTY8M` **0**, Read `DV6F4ILX` **0**, Produced
+`6P2KVFKQ` 10. The 18 on-topic items still sit directly in `YF84AUZK` with
+`collections: ['YF84AUZK']`, awaiting David's lane decision. Standing blocker,
+unchanged since run 005, not re-raised. No production unit available.
+
+**Opening audits.** `coverage` ok 3/3, `registry` ok (`ledger_episodes: 4`,
+`manifest_episodes: 3` — the 501 stub, correctly not demanded), `verify` local
+ok, `status` healthy: true (run 059's fix holding), suite 134 OK. Stale lock
+from run 059 with pid 2701691 **dead** -> `unlock --force`. Normal steady state.
+
+**Finding.** `feed-site/index.html` — the human-facing landing page
+`publish_feed.py` writes on **every** publish and `push_to_remote()` syncs to
+the repo root — had **zero readers in any gate**. `robust_pipeline.py` contained
+literally no reference to it. So deleting it, emptying it to 0 bytes, corrupting
+it to binary junk, or drifting it until it advertised episodes the feed does not
+carry each returned **`ok: true` with an empty issue list**, a verdict
+*indistinguishable* from the intact tree. That verdict is what `publish_local()`
+refuses on and what `push_to_remote()`'s wait loop **breaks on** to declare a
+deploy live, so a push whose landing page never landed reported success.
+`feed_coverage()` is blind to it too.
+
+**It was not hypothetical: the live page was shipping a dead link.** The
+template linked `needs-full-text.html`, which has **never existed** in this tree
+(absent from `feed-site/` and the root, **404 live**) — inherited verbatim from
+the sibling show, whose `feed-site/` really does carry that file. A human
+visiting the private review URL hit a broken link while every gate stayed green.
+
+**Fix, two parts.** `verify_feed()` gains an `index_page` check reporting the
+page's byte size, its local links, and the feed-vs-page episode sets, with
+**five refusals**: missing, empty, not HTML, a linked local asset that is not
+deployed, and episode-set drift in **both** directions (the page advertising an
+episode the feed lacks, or omitting one it carries). Remote probe must answer
+200. **No waiver, legacy included** (run 036). The page linking itself is not a
+dead link. Second part: the `needs-full-text.html` link is retired from
+`publish_feed.py`'s template — keeping it would make the new gate refuse every
+publish on pure sibling residue.
+
+**The drift half matters more than the existence half.** The page is generated
+from the same derivation as the feed, so agreement is normally automatic — which
+is exactly why disagreement means a partial write or a hand-edit, and why it
+should not be discovered by a listener.
+
+**Axis.** Run 042 found a field with zero readers; 045 a reader not on the
+publish path; 056 the deployed item set; 057 the cover art; 058 the advertised
+duration. The index page is the **last file this pipeline deploys that no gate
+inspected**. The generalizable move stands and is now exhausted for deployed
+*files*: enumerate every artifact the deploy emits and confirm each is probed —
+not just the ones the feed references, since this one the feed never mentions at
+all and `push` ships it regardless.
+
+**Also noted for a future slice:** the run-053 subcommand census is due again —
+the sibling has gained a `drift` subcommand (`deploy_drift()`, a read-only
+local-vs-live byte comparison over the whole `feed-site/`) that this tree lacks.
+Logged, not ported this slice; the index gate took the budget.
+
+**Proof.** repro `/opt/data/tmp/mm_index_page_repro_run060.py` **30/30** against
+the **unmodified** module — all six blindness cases returning empty issue lists,
+the verdict proven identical to the intact tree, plus controls showing the
+run-057 cover and run-038 description detectors **do** fire on the same scratch
+tree (so the machinery is present and the page was merely unprobed), and the
+live dead link confirmed against the sibling's copy of the file.
+
+proof `mm_index_page_proof_run060.py` **46/46** — pre-fix backup still
+reproduces all six; post-fix each refused and **named**; **nothing granted**:
+the intact site's verdict is identical pre/post with `index_page` the **only**
+added check name and none removed, and the run-057 cover, run-038 description,
+run-058 duration sentinel, missing-enclosure and run-036 notes gates all still
+bite. The no-waiver claim is proved on a **genuine** legacy fixture (all three
+parts of run 037's test satisfied, `legacy_exempt_episodes: ['001','002','003']`)
+which **does** still waive the feed-side notes check and is **still refused** for
+the missing page. Blast radius: **exactly one** pre-existing function changed,
+none added or removed, **51 byte-identical** including `preflight`/`review_gate`/
+`fidelity_gate`/`feed_coverage`/`publish_local`/`push_to_remote`/`reconcile`/
+`registry_audit`/`status`/`_legacy_episode_numbers`; `publish_feed.py` differs by
+**one line**, the index template, with no cross-show substring in either file.
+
+**Three harness bugs, none a code defect** (run 029's rule, three times):
+
+- `STATE_PATH` does not exist in this module; the ledger constant is
+  `LEDGER_PATH`. A relocated/renamed constant reads as a missing feature.
+- A legacy fixture needs **all three** parts of run 037's test — status literal
+  plus no production transition plus **no `script.md` on disk** — so `ROOT` must
+  also be pointed at a scriptless tree, not just the ledger swapped. Same trap
+  run 057 hit; it recurs because flipping the status alone *looks* sufficient.
+- Deleting the notes files to test the legacy notes waiver **also** trips the new
+  dead-link refusal, because the real page links each notes file. That is the new
+  gate working correctly; scope the assertion to the specific finding the waiver
+  governs (`missing local notes file`) rather than any issue containing "notes".
+
+**Fixtures completed, not gate relaxed.** Three pre-existing tests failed after
+wiring the check (`test_cover_art_gate.test_absent_root_copy_is_not_an_issue`,
+`test_duration_gate` x2) — all three built a scratch `feed-site/` with **no
+landing page**, which every real one carries. This is run 058's trap exactly:
+making a deliverable gated exposes an **incomplete fixture, not a finding**. Each
+fixture now writes a real page, as run 058 gave them a real decodable mp3.
+
+**Tests.** `tests/test_index_page_gate.py`, 12 tests, suite **134 -> 146**.
+Proven load-bearing by reverting **both** edited files to their `.bak-run060`
+backups: **9 failures**; restored and the full 146 green.
+
+**Validation (deterministic, final window):** `py_compile` clean on all
+`pipeline/*.py`; `coverage` ok 3/3; `registry` ok `issues: []`; `verify` local ok
+`issues: []`; `verify --remote` **ok** with `remote_feed` 3/3 both drift lists
+empty, the live cover 200 **and the live landing page 200**; `preflight 001-003
+--audio` each ok `issues: []`; three `reconcile --write` passes 0/0/0; suite
+146/146; `feed.xml` md5 **unchanged** at `9fc23235fcb49ca809059092da619b54` and
+**byte-identical to the live feed** (only `index.html` moved).
+
+Backups `pipeline/robust_pipeline.py.bak-run060`,
+`pipeline/publish_feed.py.bak-run060`, `tests/*.bak-run060`,
+`production-log.md.bak-run060`.
+
+**Outcome:** no episode or reading created, rendered or published — both intake
+lanes empty. One durable gate gap closed on the publish path, and a live broken
+link on the deployed site repaired. Feed byte-identical. Standing blocker
+unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision
+(Summerize = interview, Read = verbatim reading).

@@ -1634,6 +1634,96 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                         except Exception as exc:
                             target = result["warnings"] if legacy_item else result["issues"]
                             target.append(f"remote notes check failed for {notes_url}: {exc}")
+        # ------------------------------------------------------------------
+        # The human-facing landing page.
+        #
+        # publish_feed.py writes feed-site/index.html on EVERY publish and
+        # push_to_remote() syncs the whole feed-site/ directory to the repo
+        # root, so the page is a deployed deliverable exactly like feed.xml,
+        # the enclosures, the show notes and the cover art. Until run 060
+        # NOTHING read it: robust_pipeline.py contained zero references to
+        # it, so deleting it, emptying it to zero bytes, corrupting it to
+        # binary junk, or drifting it until it advertised episodes the feed
+        # does not carry all returned ok: true with an EMPTY issue list --
+        # a verdict indistinguishable from the intact tree.
+        #
+        # That verdict is what publish_local() refuses on and what
+        # push_to_remote()'s wait loop breaks on to declare a deploy live, so
+        # a push whose landing page never landed reported success. It is the
+        # run-042/045/056/057/058 axis once more: 056 was the deployed item
+        # set, 057 the cover art, 058 the advertised duration, and the index
+        # page is the last file this pipeline deploys that no gate inspects.
+        #
+        # The drift half matters more than the existence half. The page is
+        # generated from the same EP/read_episodes() derivation as the feed,
+        # so the two agreeing is normally automatic -- which is precisely why
+        # a disagreement means a partial write or a hand-edit, and why it
+        # should never be discovered by a listener. An asset the page links
+        # that is not on disk is a dead link for a human reader even when
+        # every feed enclosure is perfect.
+        #
+        # No waiver, legacy included: a 404 or a dead link is wrong for an
+        # import too, and a waiver is a gate with the sign flipped (run 036).
+        if feed_path:
+            index_path = feed_path.parent / "index.html"
+            index_check: dict[str, Any] = {"name": "index_page",
+                                          "file": str(index_path.name)}
+            if not index_path.exists():
+                result["issues"].append(
+                    "missing local landing page index.html, which "
+                    "publish_feed.py writes and push deploys")
+            elif index_path.stat().st_size == 0:
+                result["issues"].append("local landing page index.html is empty")
+            else:
+                index_text = index_path.read_text(errors="replace")
+                index_check["bytes"] = index_path.stat().st_size
+                if "<html" not in index_text.lower():
+                    result["issues"].append(
+                        "local landing page index.html is not HTML; it "
+                        "contains no <html> element")
+                else:
+                    # Every local asset the page links must exist on disk.
+                    linked = sorted(set(re.findall(
+                        r'href="([^":/?#]+\.(?:mp3|md|xml|html|png|svg))"',
+                        index_text)))
+                    index_check["links"] = linked
+                    for name in linked:
+                        if name == index_path.name:
+                            continue
+                        if not (feed_path.parent / name).exists():
+                            result["issues"].append(
+                                f"landing page index.html links {name}, "
+                                f"which is not deployed in "
+                                f"{feed_path.parent.name}/")
+                    # Every episode the feed carries must be listed, or the
+                    # page and the feed disagree about the catalogue.
+                    feed_numbers = {n for n in
+                                    (_feed_item_number(i) for i in items) if n}
+                    page_numbers = set(re.findall(r"episode-(\d+)", index_text))
+                    index_check["feed_episodes"] = sorted(feed_numbers)
+                    index_check["page_episodes"] = sorted(page_numbers)
+                    for number in sorted(feed_numbers - page_numbers):
+                        result["issues"].append(
+                            f"landing page index.html omits episode "
+                            f"{number}, which the feed carries")
+                    for number in sorted(page_numbers - feed_numbers):
+                        result["issues"].append(
+                            f"landing page index.html advertises episode "
+                            f"{number}, which the feed does not carry")
+            if remote:
+                index_url = remote.rstrip("/") + "/index.html"
+                try:
+                    with urllib.request.urlopen(index_url, timeout=timeout) as response:
+                        status = response.status
+                        body = response.read(64)
+                    if status != 200 or not body:
+                        raise IOError(f"HTTP {status}")
+                    index_check["remote"] = {"url": index_url, "http": status}
+                except Exception as exc:
+                    result["issues"].append(
+                        f"remote landing page check failed for {index_url}: {exc}")
+            result["checks"].append(index_check)
+
     except Exception as exc:
         result["issues"].append(f"feed parse/check failed: {exc}")
     result["ok"] = not result["issues"]
