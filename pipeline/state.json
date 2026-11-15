@@ -1751,7 +1751,9 @@
             }
           ],
           "deadline_at": "2026-11-15T14:13:49.255316Z",
-          "outcome": null,
+          "detail": "run060: both lanes empty (Summerize 0, Read 0, 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Closed the last unprobed deployed artifact: feed-site/index.html, the landing page publish_feed.py writes every publish and push_to_remote syncs to the repo root, had ZERO readers in robust_pipeline.py -- deleting/emptying/corrupting/drifting it all returned ok:true with an empty iss",
+          "finished_at": "2026-11-15T14:01:26.367012Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T13:48:49.255316Z"
         }
@@ -1762,5 +1764,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T13:57:03Z"
+  "updated_at": "2026-11-15T14:01:26Z"
 }
