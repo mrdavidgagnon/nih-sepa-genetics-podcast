@@ -1724,7 +1724,9 @@
             }
           ],
           "deadline_at": "2026-11-15T09:58:53.849305Z",
-          "outcome": null,
+          "detail": "run059: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Fixed status.healthy being pinned False by construction: status() ran a deliverables preflight against every ledger record, so planned stub 501 was failed for having no script.md -- what planned MEANS -- for 53 attempts, and it was the sole reason this tree could never report healthy, making the signal worthless to the",
+          "finished_at": "2026-11-15T09:44:22.287788Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T09:33:53.849305Z"
         }
@@ -1735,5 +1737,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T09:43:52Z"
+  "updated_at": "2026-11-15T09:44:22Z"
 }
