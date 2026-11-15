@@ -407,6 +407,68 @@ Two ordering constraints worth preserving:
 
 Covered by 26 tests in `tests/test_status_health.py`.
 
+## Deploy drift (`drift`) -- the live-vs-local byte audit
+
+```sh
+python3 pipeline/robust_pipeline.py drift
+python3 pipeline/robust_pipeline.py drift --text-only     # doc/manifest-only change
+```
+
+Read-only, grants nothing, writes nothing, and is **not** a publication gate:
+it does not replace `preflight`, `review_gate`, `verify_feed`, `feed_coverage`
+or the read lane's fidelity gate. `verify --remote` asks whether the live feed
+parses and its enclosures are fetchable; `drift` asks the strictly different
+question of whether the **live bytes equal the local bytes**.
+
+Ported from the sibling show in run 061, after the run-053 census rule (a census
+closes as of a date, not forever -- re-check the sibling's *subcommand list*,
+not its file line counts).
+
+### Why the existing remote probes could not catch this
+
+Every remote probe in `verify_feed()` is an **existence** probe:
+
+- show notes, cover art and the landing page: HTTP 200 plus a few bytes;
+- enclosures: `Content-Range` total only, i.e. deployed byte **length**;
+- the deployed feed (run 056): compared to local by **GUID set**, both
+  directions.
+
+So a deploy whose notes, cover art, landing page or feed **text** was rewritten
+-- or whose enclosure bytes were swapped at the same byte length -- returned
+`ok: true` with an **empty issue list**. That verdict is what `publish_local()`
+refuses on and what `push_to_remote()`'s wait loop **breaks on** to declare a
+deploy live. Proved on real code in run 061: five independent drift classes
+passed, with the run-038 and run-056 detectors shown still firing as controls.
+
+`drift` compares text files (`.xml`, `.md`, `.svg`, `.txt`, `.html`, `.json`)
+by **md5 over a full GET**, and binaries by deployed byte length from a one-byte
+range probe -- so the audit costs kilobytes, not tens of megabytes. A
+same-length binary byte swap is therefore still outside its reach; that is a
+documented limit of the range probe, not an oversight, and `preflight`'s
+`checks.audio.sha256` comparison (run 045) is what covers audio provenance.
+
+### The one retarget this tree needed
+
+`feed-site/` here holds two **gitignored** files the sibling's does not:
+`cover.png.bak-run004` and `cover.svg.bak-run004`. `push_to_remote()` copies
+every file in `feed-site/` into the clone and then runs `git add -A`, which
+**respects `.gitignore`** -- so those two are copied but never committed, and
+they correctly 404 live. A verbatim port iterating every file would report two
+**permanent false issues** against a perfectly clean deploy.
+
+`_deployable_site_files()` therefore asks `git check-ignore` which files the
+deploy would actually publish, deriving the answer from the same mechanism the
+deploy obeys rather than duplicating `.gitignore` in a pattern list that could
+drift from it. Excluded files are reported under `not_deployed_by_design`, so
+the exclusion is visible rather than silent. It is an exclusion for **ignored**
+files only: a non-ignored file missing from the live site is still an issue.
+
+This is run 053's rule again -- read the sibling's **assumptions** against this
+tree's behaviour, not just its code.
+
+Covered by 22 tests in `tests/test_deploy_drift.py`, including that neither
+`publish_local()` nor `verify_feed()` calls it (it must stay a non-gate).
+
 ## Tests
 
 ```sh
@@ -416,7 +478,7 @@ python3 pipeline/robust_pipeline.py coverage
 python3 pipeline/robust_pipeline.py registry
 ```
 
-This tree **does** have a `tests/` directory -- **134 tests** across eight
+This tree **does** have a `tests/` directory -- **168 tests** across nine
 modules, run with `unittest` (there is no `pytest` in either venv). The older
 note claiming no suite exists, and that `unittest discover` failing with
 *Start directory is not importable* is expected here, is **obsolete**: a real
@@ -427,6 +489,11 @@ read-only and grant nothing; healthy state is `coverage` `ok: true` at 3 items /
 3 published, and `registry` `ok: true` with `ledger_episodes: 4,
 manifest_episodes: 3` -- the asymmetry is the 501 no-work ledger stub, correctly
 not demanded in the manifest because its status is outside the published family.
+
+Run `drift` alongside them whenever the last slice deployed. It is the
+read-only live-vs-local byte audit described under *Deploy drift* below;
+healthy state is `ok: true` with 10 files `identical` and the two gitignored
+cover backups listed under `not_deployed_by_design`.
 
 ## Production attempts
 
@@ -698,7 +765,9 @@ previous verdict stands unchanged, so this grants nothing and only adds
 refusals.
 
 The detector already existed as **operator discipline** — the live-vs-local
-`feed.xml` md5 comparison every slice logs. That is run 041's lesson again: when
+`feed.xml` md5 comparison every slice logs. Run 061 wired the byte
+comparison itself into the `drift` subcommand, so it is no longer a habit —
+see *Deploy drift* below. That is run 041's lesson again: when
 a read-only audit catches a class the gates do not, wire it into the gate rather
 than leaving it to a habit. Generalizable form: **a remote check that resolves
 what to probe from the LOCAL artifact cannot detect that the remote artifact is

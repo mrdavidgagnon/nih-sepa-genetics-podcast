@@ -10,6 +10,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import fnmatch
 import hashlib
 import json
 import os
@@ -636,6 +637,214 @@ READ_MANIFEST_PATH = PIPELINE / "read-episodes.json"
 READ_COVERAGE_FLOOR = 0.995
 
 FIRST_READ_NUMBER = 500
+
+
+def file_md5(path: Path) -> str:
+    """md5 of a file, read in blocks so a 20 MB enclosure is not loaded whole."""
+    digest = hashlib.md5()
+    with Path(path).open("rb") as handle:
+        for block in iter(lambda: handle.read(1 << 20), b""):
+            digest.update(block)
+    return digest.hexdigest()
+
+
+def fetch_bytes(url: str, timeout: float = 15.0,
+                headers: dict[str, str] | None = None) -> tuple[int, bytes, dict[str, str]]:
+    """One HTTP GET, returned as (status, body, headers).
+
+    Factored out as a module-level function on purpose: it is the single
+    network seam of :func:`deploy_drift`, so a test can replace it with
+    ``mock.patch.object(rp, "fetch_bytes", ...)`` and exercise every drift
+    class offline. 404 and friends are returned, not raised.
+    """
+    request = urllib.request.Request(url, headers=headers or {})
+    try:
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return response.status, response.read(), dict(response.headers)
+    except urllib.error.HTTPError as exc:
+        return exc.code, b"", dict(exc.headers or {})
+
+
+def remote_total_size(headers: dict[str, str], status: int,
+                      body_length: int) -> int | None:
+    """Total deployed size of a file from a byte-range probe's headers.
+
+    A 206 answers with ``Content-Range: bytes 0-0/<total>``, which is the whole
+    point of probing one byte instead of downloading an enclosure. A server
+    that ignores the Range header answers 200 with the entire body, in which
+    case ``Content-Length`` -- or the body itself -- is the total. Returns None
+    when neither is available, so an unverifiable size is reported as such
+    rather than silently passing.
+    """
+    content_range = headers.get("Content-Range") or headers.get("content-range") or ""
+    match = re.search(r"/([0-9]+)\s*$", content_range)
+    if match:
+        return int(match.group(1))
+    if status == 200:
+        length = headers.get("Content-Length") or headers.get("content-length")
+        if length and str(length).strip().isdigit():
+            return int(str(length).strip())
+        if body_length:
+            return body_length
+    return None
+
+
+# Files small enough to compare by md5 over a full GET. Everything else
+# (enclosures, cover art) is compared by deployed byte length via a one-byte
+# range probe, so a drift check costs kilobytes rather than tens of megabytes.
+DRIFT_TEXT_SUFFIXES = (".xml", ".md", ".svg", ".txt", ".html", ".json")
+
+# Fallback for _deployable_site_files() when git cannot answer. Mirrors the
+# .gitignore rules that actually matter inside feed-site/; kept deliberately
+# narrow, since a pattern list that drifts from .gitignore is the very thing
+# the git query exists to avoid.
+DRIFT_SKIP_PATTERNS = ("*.bak-*", "*.tmp")
+
+
+def _deployable_site_files(site_dir: Path) -> tuple[list[Path], list[str]]:
+    """The feed-site files a deploy would actually publish, plus those skipped.
+
+    push_to_remote() copies every file in feed-site/ into the clone and then
+    runs ``git add -A``, which **respects .gitignore** -- so a gitignored file
+    is copied but never committed, and correctly 404s on the live site. This
+    tree's feed-site/ holds two such files (``cover.png.bak-run004``,
+    ``cover.svg.bak-run004``), which the sibling show's does not. Iterating
+    every file the way the sibling's deploy_drift() does would therefore report
+    two permanent false "not deployed" issues against a perfectly clean deploy.
+
+    The deployable set is derived from git rather than from a hardcoded pattern
+    list, so it cannot drift from the rules the deploy itself obeys;
+    DRIFT_SKIP_PATTERNS is only a fallback for when git is unavailable.
+    """
+    candidates = sorted(p for p in site_dir.iterdir() if p.is_file())
+    if not candidates:
+        return [], []
+    skipped: list[str] = []
+    try:
+        proc = subprocess.run(["git", "-C", str(ROOT), "check-ignore", "--stdin"],
+                      input="\n".join(str(p) for p in candidates),
+                      capture_output=True, text=True, timeout=30)
+        # exit 0 = some paths ignored, 1 = none ignored; both are success here.
+        if proc.returncode in (0, 1):
+            ignored = {line.strip() for line in proc.stdout.splitlines() if line.strip()}
+            if ignored:
+                skipped = sorted(Path(p).name for p in ignored)
+            return [p for p in candidates if str(p) not in ignored], skipped
+    except Exception:
+        pass
+    keep = []
+    for p in candidates:
+        if any(fnmatch.fnmatch(p.name, pat) for pat in DRIFT_SKIP_PATTERNS):
+            skipped.append(p.name)
+        else:
+            keep.append(p)
+    return keep, sorted(skipped)
+
+
+def deploy_drift(remote: str | None = None, site: Path | None = None,
+                 text_only: bool = False, timeout: float = 15.0) -> dict[str, Any]:
+    """Audit that the deployed site is byte-identical to the local feed-site.
+
+    READ-ONLY, and the cheapest full-stack proof that a deploy is complete.
+    Until now this tree's docs asked each slice to hand-roll it as a
+    ``curl | md5sum`` pair, which checks ``feed.xml`` alone and is re-typed
+    (and re-mistyped) every run.
+
+    The gap it closes is specific and was proved on real code: every remote
+    probe in :func:`verify_feed` is an **existence** probe. Show notes, cover
+    art and the landing page are checked for HTTP 200 and a few bytes;
+    enclosures are checked by ``Content-Range`` total only; and run 056
+    compares the deployed feed to the local one by **GUID set**. So a deploy
+    whose notes, cover, landing page or feed **text** was rewritten -- or whose
+    enclosure bytes were swapped at the same byte length -- returns ok: true
+    with an empty issue list, which is the verdict ``publish_local()`` refuses
+    on and ``push_to_remote()``'s wait loop breaks on to call a deploy live.
+
+    It is **not** a publication gate: it grants nothing, writes nothing, and
+    does not replace ``preflight``/``review_gate``/``verify_feed`` or the read
+    lane's fidelity gate. ``verify --remote`` asks whether the live feed parses
+    and its enclosures are fetchable; this asks the strictly different question
+    of whether the live bytes equal the local bytes.
+
+    Text files (feed.xml, show notes, cover.svg, index.html) are compared by
+    md5 over a full GET. Binaries are compared by deployed byte length from a
+    one-byte range probe. ``text_only`` skips the binaries entirely, which is
+    the right mode for a doc-only or manifest-only change.
+    """
+    base = (remote or FEED_BASE).rstrip("/")
+    site_dir = Path(site) if site is not None else (ROOT / "feed-site")
+    report: dict[str, Any] = {
+        "ok": True,
+        "remote": base,
+        "site": str(site_dir),
+        "checked": 0,
+        "text_only": bool(text_only),
+        "identical": [],
+        "md5_mismatch": [],
+        "size_mismatch": [],
+        "missing_remote": [],
+        "unverifiable": [],
+        "not_deployed_by_design": [],
+        "issues": [],
+    }
+    if not site_dir.is_dir():
+        report["ok"] = False
+        report["issues"].append(f"site directory not found: {site_dir}")
+        return report
+
+    deployable, skipped = _deployable_site_files(site_dir)
+    report["not_deployed_by_design"] = skipped
+
+    for local in deployable:
+        is_text = local.suffix.lower() in DRIFT_TEXT_SUFFIXES
+        if text_only and not is_text:
+            continue
+        url = f"{base}/{local.name}"
+        report["checked"] += 1
+        if is_text:
+            status, body, _ = fetch_bytes(url, timeout=timeout)
+            if status != 200:
+                report["missing_remote"].append({"file": local.name, "http": status})
+                report["issues"].append(f"{local.name} is not deployed (HTTP {status})")
+                continue
+            local_md5 = file_md5(local)
+            remote_md5 = hashlib.md5(body).hexdigest()
+            if local_md5 == remote_md5:
+                report["identical"].append(local.name)
+            else:
+                report["md5_mismatch"].append({
+                    "file": local.name, "local_md5": local_md5,
+                    "remote_md5": remote_md5,
+                    "local_bytes": local.stat().st_size,
+                    "remote_bytes": len(body)})
+                report["issues"].append(
+                    f"{local.name} differs: local md5 {local_md5} vs live {remote_md5}")
+            continue
+        status, body, headers = fetch_bytes(
+            url, timeout=timeout, headers={"Range": "bytes=0-0"})
+        if status not in (200, 206):
+            report["missing_remote"].append({"file": local.name, "http": status})
+            report["issues"].append(f"{local.name} is not deployed (HTTP {status})")
+            continue
+        total = remote_total_size(headers, status, len(body))
+        local_bytes = local.stat().st_size
+        if total is None:
+            report["unverifiable"].append({
+                "file": local.name,
+                "problem": "no Content-Range or Content-Length on the range probe"})
+            report["issues"].append(
+                f"{local.name} deployed size could not be determined")
+        elif total == local_bytes:
+            report["identical"].append(local.name)
+        else:
+            report["size_mismatch"].append({
+                "file": local.name, "local_bytes": local_bytes,
+                "remote_bytes": total})
+            report["issues"].append(
+                f"{local.name} differs: local {local_bytes} bytes vs live {total}")
+
+    report["ok"] = not report["issues"]
+    return report
 
 
 def load_read_manifest() -> dict[str, Any]:
@@ -2278,6 +2487,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     p = sub.add_parser("coverage"); p.add_argument("feed", nargs="?", default=None)
     sub.add_parser("registry")
+    p = sub.add_parser("drift", help="audit the live site against local feed-site bytes")
+    p.add_argument("--remote", default=None)
+    p.add_argument("--text-only", action="store_true", dest="text_only")
     p = sub.add_parser("watchdog"); p.add_argument("--max-render-minutes", type=int, default=120)
     p.add_argument("--stall-seconds", type=int, default=DEFAULT_STALL_SECONDS)
     p = sub.add_parser("unlock"); p.add_argument("--force", action="store_true")
@@ -2319,6 +2531,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "status": result = status()
         elif args.command == "coverage": result = feed_coverage(args.feed)
         elif args.command == "registry": result = registry_audit()
+        elif args.command == "drift": result = deploy_drift(args.remote, text_only=args.text_only)
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)
         elif args.command == "unlock": unlock(args.force); result = {"unlocked": True}
         elif args.command == "attempt":
@@ -2334,7 +2547,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = {"ok": True, "attempts": attempts_report(load_ledger())}
         print_result(result)
-        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry"}:
+        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry", "drift"}:
             return 0 if result.get("ok", result.get("healthy", True)) else 1
         return 0
     except Exception as exc:

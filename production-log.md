@@ -1,3 +1,101 @@
+## 2026-11-15T18:3xZ — run 061 (deploy drift: live bytes vs local bytes)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items in `YF84AUZK` remain David's lane call and are not re-raised).
+Opening audits all green: `coverage` ok 3/3, `registry` ok (ledger 4 / manifest
+3), `verify --remote` ok, `status` healthy, preflight 001-003 ok, three
+`reconcile --write` passes at 0/0/0. Stale lock from run 060's own `attempt
+finish`, owner pid 2820962 dead and the advisory lock free — the documented
+steady state, cleared with `unlock --force`. No production unit, so the slice
+closed the defect run 060 logged for a future slice.
+
+**The run-053 census, re-run the right way.** Run 010 declared the port census
+exhausted; run 053 established that a census closes **as of a date**, and that
+the cheap re-check is the sibling's *subcommand list*, not file line counts.
+`--help` diff: the sibling has gained `drift` and `register`. `register` is
+HITL-only by design (its feed needs the hardcoded `EP` append, which this
+tree's derived `interview_episodes()` makes unnecessary — run 010). `drift` was
+absent here, along with all four of its helpers.
+
+**Defect.** Every remote probe in `verify_feed()` is an **existence** probe:
+show notes, cover art and the landing page are checked for HTTP 200 plus a few
+bytes; enclosures by `Content-Range` **total** only; and run 056 compares the
+deployed feed to local by **GUID set**. Nothing compared deployed *bytes*. So a
+deploy whose notes, cover art, landing page or feed **text** was rewritten —
+or whose enclosure bytes were swapped at the same byte length — returned
+`ok: true` with an **empty issue list**. That verdict is what `publish_local()`
+refuses on and what `push_to_remote()`'s wait loop **breaks on** to declare a
+deploy live.
+
+The detector existed only as **operator discipline**: the live-vs-local
+`feed.xml` md5 the docs ask every slice to hand-roll as a `curl | md5sum` pair,
+which covers one file and is re-typed (and re-mistyped) every run. Run 041's
+lesson again — when a read-only habit catches a class the gates do not, wire it
+into the code rather than leaving it to a habit.
+
+**The one retarget this tree needed.** `feed-site/` here holds two
+**gitignored** files the sibling's does not (`cover.png.bak-run004`,
+`cover.svg.bak-run004`). `push_to_remote()` copies every file then runs
+`git add -A`, which **respects `.gitignore`**, so those two are never deployed
+and correctly 404 live — confirmed against a fresh clone of the deployed repo,
+whose root holds no `.bak` files. A verbatim port iterating every file would
+report two **permanent false issues** against a clean deploy.
+`_deployable_site_files()` therefore asks `git check-ignore` which files the
+deploy would publish, deriving the answer from the same mechanism the deploy
+obeys instead of duplicating `.gitignore` in a list that could drift from it;
+exclusions are reported under `not_deployed_by_design` so they are visible, and
+it is an exclusion for **ignored** files only — a non-ignored file missing live
+is still an issue. Run 053's rule: read the sibling's **assumptions** against
+this tree's behaviour, not just its code.
+
+**Nothing granted.** `drift` is read-only, writes nothing, and is **not** a
+publication gate — pinned by test that neither `publish_local()` nor
+`verify_feed()` calls it. A byte-perfect deploy still passes with an empty
+issue list; a missing site dir is refused rather than raised; and the
+run-038 empty-`<description>`, run-057 cover-art and run-056 GUID-drift gates
+were each shown still firing. The same-length *binary* byte swap remains
+outside a range probe's reach by design — that is `preflight`'s
+`checks.audio.sha256` comparison (run 045), and it is documented as a limit
+rather than left implicit.
+
+Live result: `drift` **ok: true**, 10 files identical, the two backups under
+`not_deployed_by_design`. Backup `robust_pipeline.py.bak-run061`; 5 functions
+added, **only `main()`** changed among pre-existing ones (5 wiring lines), **51
+byte-identical** including `preflight`, `review_gate`, `fidelity_gate`,
+`feed_coverage`, `publish_local`, `verify_feed`, `reconcile`, `registry_audit`,
+`push_to_remote`, `status` and `_legacy_episode_numbers`. `feed.xml` and
+`manifest.json` md5-unchanged throughout.
+
+Proof: repro **22/22** against the unmodified module (five drift classes
+invisible, with the run-038/056 detectors shown firing as controls, so the gap
+is real and not a broken fixture), fix proof **57/57** (pre-fix backup still
+reproduces; seven refusal classes named and bucketed; six nothing-granted
+checks; blast radius). Tests `tests/test_deploy_drift.py`, suite **134 -> 168**,
+load-bearing: **20 of 22 fail** against the pre-fix module, and the restore is
+md5-identical with 168 green.
+
+Three harness bugs, none a code defect (run 029's rule, three times):
+`import subprocess as sp` is **local to `push_to_remote`**, not module-level, so
+a ported `sp.run` would NameError — the module-level name is plain
+`subprocess`. The port script's own self-assertion searched for
+`add_parser("drift")` while the inserted line carries `help=`. And the
+wiring-line count expectation was 4 when 5 lines were added, only 3 of which
+contain the literal word `drift` (the two `add_argument` lines do not) — count
+added lines, not keyword hits. In all three cases the file was left untouched
+until the harness was right.
+
+Docs: `ROBUST_PIPELINE.md` gains a **Deploy drift** section (why the existing
+remote probes could not catch it, the documented range-probe limit, the
+gitignore retarget), the opening-audit list now names `drift`, the run-056
+"operator discipline" sentence records that the comparison is wired in, and the
+stale **134 tests / eight modules** figure is corrected to 168 / nine. The
+write guard fired once and was **correct** — the anchor ended mid-line, so that
+line's tail was retired too; fixed by enumerating the full original line in the
+whitelist (run 491's lesson), never by relaxing the guard.
+
+Logged for a future slice: the sibling's `register` subcommand is deliberately
+not ported; re-run the subcommand census (not line counts) in a few slices.
+
 ## 2026-11-15T05:1xZ — run 058 (the advertised duration is gated)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
