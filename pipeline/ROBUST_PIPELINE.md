@@ -360,19 +360,73 @@ episode is failed/blocked, preflight is broken, a lock is active, or a render
 has exceeded the configured age (`--max-render-minutes`). The command exits
 with JSON output; callers should treat `healthy: false` as an alert.
 
+Both are **monitoring, not gates**. They grant nothing: `preflight()`,
+`review_gate()`, `verify_feed()` and the read lane's `fidelity_gate()` are the
+publication gates and none of them consults `status()`.
+
+### `healthy` was pinned False by construction (fixed run 059)
+
+`status()` ran a **deliverables** preflight against every ledger record, so a
+`planned` stub was failed for having no `script.md` -- which is what `planned`
+*means*. Episode 501 had done exactly that for 53 attempts and was the sole
+reason this tree could never report healthy, which made the signal worthless to
+the scheduler and to `watchdog()`, which inherits the verdict.
+
+Each episode is now judged by the rules that apply to it, and the inapplicable
+findings are **preserved, not discarded** -- under `planned_audit_issues` /
+`read_audit_issues`, mirroring the long-standing `legacy_audit_issues`
+treatment. Healthy state here is `healthy: true` with 501 reporting
+`kind: read`, `preflight_ok: true` and its six findings under
+`read_audit_issues`.
+
+Detection is preserved and **extended**:
+
+- `failed`/`blocked`/`rendering` still pin unhealthy regardless of preflight.
+- an interview in any production or published state still has to pass
+  `preflight()`.
+- the run-037 three-part legacy waiver is untouched -- the status literal
+  `published` alone still does not confer it.
+- **new:** a reading recorded as published whose fidelity gate is not
+  `verified: true` in `pipeline/read-episodes.json` is now unhealthy, naming the
+  registry. That is the sibling tree's run-422 live-but-unrecorded class, which
+  the old classifier was structurally blind to because `status()` calls
+  preflight with `enforce_review=False` and so never reached either gate. A
+  missing or corrupt registry entry is a **refusal, not a waiver**.
+
+Two ordering constraints worth preserving:
+
+- the reading test comes **first**. The legacy arm keys on the exact status
+  `published`, so a reading carrying that status instead of
+  `published_and_moved` would be classified as a legacy *interview* and skip
+  its fidelity gate. A reading can never be legacy -- the lane postdates every
+  episode in this tree.
+- this tree's `preflight()` has been lane-aware since run 029, so unlike the
+  sibling show a correctly-registered reading already passes the
+  interview-rule half. Do **not** port the sibling's reading-waiver branch; it
+  fixes a defect this tree does not have.
+
+Covered by 26 tests in `tests/test_status_health.py`.
+
 ## Tests
 
 ```sh
 python3 -m py_compile pipeline/*.py
+python3 -m unittest discover -s tests
 python3 pipeline/robust_pipeline.py coverage
 python3 pipeline/robust_pipeline.py registry
 ```
 
-This tree has **no `tests/` directory** (the sibling show's suite is
-HITL-only); `python3 -m unittest discover -s tests` dies with
-*Start directory is not importable*, which is expected here, not breakage.
-`py_compile` plus the read-only `coverage` and `registry` audits are the
-standing sanity checks.
+This tree **does** have a `tests/` directory -- **134 tests** across eight
+modules, run with `unittest` (there is no `pytest` in either venv). The older
+note claiming no suite exists, and that `unittest discover` failing with
+*Start directory is not importable* is expected here, is **obsolete**: a real
+failure must be read as a real failure.
+
+Run `coverage` and `registry` as the opening audit of every slice. They are
+read-only and grant nothing; healthy state is `coverage` `ok: true` at 3 items /
+3 published, and `registry` `ok: true` with `ledger_episodes: 4,
+manifest_episodes: 3` -- the asymmetry is the 501 no-work ledger stub, correctly
+not demanded in the manifest because its status is outside the published family.
 
 ## Production attempts
 

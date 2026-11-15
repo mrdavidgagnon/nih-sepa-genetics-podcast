@@ -1697,16 +1697,43 @@
             }
           ],
           "deadline_at": "2026-11-15T05:37:40.970780Z",
-          "outcome": null,
+          "detail": "run058: both lanes empty (18 unfiled in YF84AUZK, David's call, not re-raised). Gated the <itunes:duration> every feed item advertises and no gate read: verify_feed() now parses the advertised value and compares it to the DECODED audio, refusing a missing element, a malformed value, publish_feed.duration()'s 00:00:00 failure sentinel, an undecodable enclosure at the exact advertised byte length, a",
+          "finished_at": "2026-11-15T05:23:31.932232Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T05:12:40.970780Z"
+        },
+        {
+          "attempt_id": "501-1794735233",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-15T09:33:53.849305Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-15T09:41:54.729478Z",
+              "detail": "run059: ported+narrowed HITL run-503 status classifier; healthy now True; suite 108->134",
+              "stage": "status_health_fixed"
+            },
+            {
+              "at": "2026-11-15T09:43:52.133333Z",
+              "detail": "run059: ROBUST_PIPELINE.md watchdog+tests sections corrected; tests/test_status_health.py 26 tests; suite 134",
+              "stage": "docs_and_tests"
+            }
+          ],
+          "deadline_at": "2026-11-15T09:58:53.849305Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-15T09:33:53.849305Z"
         }
       ],
-      "attempts": 53,
+      "attempts": 54,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T05:22:53Z"
+  "updated_at": "2026-11-15T09:43:52Z"
 }

@@ -635,6 +635,36 @@ def source_keys(text: str) -> list[str]:
 READ_MANIFEST_PATH = PIPELINE / "read-episodes.json"
 READ_COVERAGE_FLOOR = 0.995
 
+FIRST_READ_NUMBER = 500
+
+
+def load_read_manifest() -> dict[str, Any]:
+    """The read lane's registry of record; ``read_lane.py`` owns this file.
+
+    Returned empty (never raised) when absent or corrupt, because every caller
+    here is a read-only audit that must still report on the interview lane.
+    """
+    try:
+        return json.loads(READ_MANIFEST_PATH.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def is_reading(number: str, read_episodes: dict[str, Any] | None = None) -> bool:
+    """Is this episode number a verbatim reading rather than an interview?
+
+    Readings are numbered from 501 and registered in ``read-episodes.json``.
+    Either signal is sufficient: the number range alone identifies a reading
+    that has not been registered yet (the run-422 class), and the registry
+    alone would identify one renumbered outside the range.
+    """
+    episodes = read_episodes if read_episodes is not None else (load_read_manifest().get("episodes") or {})
+    if str(number) in episodes:
+        return True
+    return bool(re.fullmatch(r"\d+", str(number))) and int(number) >= FIRST_READ_NUMBER
+
+
+
 
 def parse_reading_turns(script: Path) -> list[str]:
     """Spoken turns of a verbatim reading: a single ``**Reader:**`` voice.
@@ -2004,18 +2034,82 @@ def feed_coverage(feed: Path | str | None = None) -> dict[str, Any]:
 
 
 def status() -> dict[str, Any]:
+    """Machine-readable health report for the scheduler and the watchdog.
+
+    This is **monitoring, not a gate**. It grants nothing: ``preflight()``,
+    ``review_gate()``, ``verify_feed()`` and the read lane's ``fidelity_gate()``
+    are the publication gates and none of them consults this function.
+
+    ``healthy`` used to be pinned ``False`` by construction, which made the
+    signal worthless -- it could not come back true however clean the pipeline
+    was. A ``planned`` stub has no ``script.md`` *by definition* -- that is what
+    ``planned`` means -- yet it was failed by a deliverables preflight. 501 had
+    been doing this for 53 attempts and was the sole reason this tree reported
+    unhealthy.
+
+    Each episode is therefore judged by the rules that apply to it, and the
+    inapplicable findings are PRESERVED rather than discarded -- under
+    ``planned_audit_issues`` / ``read_audit_issues``, mirroring the
+    long-standing ``legacy_audit_issues`` treatment.
+
+    Unlike the sibling Human in the Loop tree, ``preflight()`` here has been
+    lane-aware since run 029 (it branches on manifest ``kind``), so a
+    correctly-registered reading already passes the interview-rule half and
+    needs no waiver. What it does NOT do is reach the read lane's gate:
+    ``status()`` calls preflight with ``enforce_review=False``, so a reading
+    recorded as published whose fidelity gate is not ``verified`` was reported
+    healthy. That is the run-422 live-but-unrecorded class, and it is now
+    detection this classifier GAINS.
+    """
     ledger = load_ledger()
+    read_episodes = (load_read_manifest().get("episodes") or {})
     report = {"generated_at": utc_now(), "ledger_updated_at": ledger.get("updated_at"), "episodes": {}, "healthy": True}
     for number, rec in sorted(ledger.get("episodes", {}).items()):
-        # Legacy published episodes predate checked-in scripts/review panels;
-        # retain their audit issues without treating them as an active failure.
         pre = preflight(number, require_audio=False, enforce_review=False)
-        is_legacy = number in _legacy_episode_numbers()
-        entry = {"state": rec.get("status"), "attempts": rec.get("attempts", 0), "errors": rec.get("errors", [])[-3:], "preflight_ok": True if is_legacy else pre["ok"], "issues": [] if is_legacy else pre["issues"]}
-        if is_legacy and pre["issues"]:
-            entry["legacy_audit_issues"] = pre["issues"]
+        state = str(rec.get("status") or "")
+        entry = {"state": rec.get("status"), "attempts": rec.get("attempts", 0), "errors": rec.get("errors", [])[-3:]}
+        # The reading test comes FIRST and deliberately so. The legacy arm
+        # below keys on the exact status "published", so a reading carrying
+        # that status instead of "published_and_moved" would be classified as
+        # a legacy INTERVIEW and skip its fidelity gate altogether. A reading
+        # can never be legacy: the lane postdates every episode in this tree.
+        if is_reading(number, read_episodes):
+            # A reading's gate is the automated word-fidelity verdict in
+            # read-episodes.json, not the interview reviewer panel. Read it the
+            # way fidelity_gate() and publish_feed.read_episodes() do.
+            gate = read_episodes.get(str(number), {})
+            verified = bool(gate.get("verified")) if isinstance(gate, dict) else False
+            entry["kind"] = "read"
+            entry["read_gate_verified"] = verified
+            if state.startswith("published"):
+                entry["preflight_ok"] = verified
+                entry["issues"] = [] if verified else [
+                    f"reading {number} is recorded as {state} but its fidelity gate "
+                    "is not verified in pipeline/read-episodes.json"
+                ]
+            elif state == "planned":
+                entry["preflight_ok"], entry["issues"] = True, []
+            else:
+                entry["preflight_ok"], entry["issues"] = pre["ok"], pre["issues"]
+            if pre["issues"] and not entry["issues"]:
+                entry["read_audit_issues"] = pre["issues"]
+        elif number in _legacy_episode_numbers():
+            # Legacy published episodes predate checked-in scripts/review
+            # panels; retain their audit issues without treating them as an
+            # active failure.
+            entry["preflight_ok"], entry["issues"] = True, []
+            if pre["issues"]:
+                entry["legacy_audit_issues"] = pre["issues"]
+        elif state == "planned":
+            # A planned episode has not claimed to have deliverables yet, so
+            # their absence is the expected state and not a defect.
+            entry["preflight_ok"], entry["issues"] = True, []
+            if pre["issues"]:
+                entry["planned_audit_issues"] = pre["issues"]
+        else:
+            entry["preflight_ok"], entry["issues"] = pre["ok"], pre["issues"]
         report["episodes"][number] = entry
-        if rec.get("status") in {"failed", "blocked", "rendering"} or (not is_legacy and not pre["ok"]):
+        if state in {"failed", "blocked", "rendering"} or not entry["preflight_ok"]:
             report["healthy"] = False
     report["lock"] = dict(lock_status(), path=str(LOCK_PATH))
     if report["lock"]["active"]:

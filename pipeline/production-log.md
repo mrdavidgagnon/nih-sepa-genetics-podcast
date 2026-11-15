@@ -1,3 +1,91 @@
+## 2026-11-15T09:50Z — run 059 (status/watchdog: healthy was unreachable)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items in `YF84AUZK` remain David's lane call and are not re-raised).
+Opening audits all green: `coverage` ok 3/3, `registry` ok (ledger 4 / manifest
+3), `verify --remote` ok, `preflight` 001-003 ok, three `reconcile --write`
+passes at 0/0/0. Stale lock from run 058's own `attempt finish`, owner pid
+2574734 dead and the advisory lock free — the documented steady state, cleared
+with `unlock --force`. No production unit, so the slice closed a latent defect.
+
+**Defect.** `status.healthy` was pinned **False by construction** — it could not
+come back true however clean the pipeline was, which makes the signal worthless
+to the scheduler and to `watchdog()`, which inherits the verdict. `status()` ran
+a *deliverables* `preflight()` against every ledger record, so the `planned`
+stub 501 was failed for having no `script.md` — which is what `planned` *means*.
+It had been doing that for 53 attempts and was the **sole** reason the tree
+reported unhealthy (001-003 all pass preflight with zero issues).
+
+Second finding, the inverse: a reading recorded as **published** whose fidelity
+gate is **not** `verified` was reported **healthy**. `status()` calls preflight
+with `enforce_review=False`, so neither the reviewer panel nor the fidelity gate
+is ever reached, and nothing else consulted `read-episodes.json`. That is the
+sibling tree's run-422 live-but-unrecorded class, undetectable here.
+
+**Port, deliberately narrowed.** This is HITL's run 503, but two of its branches
+must NOT be copied (run 053's rule — read the sibling's assumptions against this
+tree's behaviour, not its code):
+
+- HITL needed a reading waiver because its `preflight()` is interview-only.
+  **This tree's `preflight()` has been lane-aware since run 029**, so a
+  correctly-registered reading already passes the interview-rule half. Proved
+  with a scratch reading: `checks.lane == "read"`, `ok: true`. Porting that
+  branch would have "fixed" a defect this tree does not have.
+- HITL's legacy arm keys on the status literal `published`. This tree has the
+  run-037 **hardened three-part** `_legacy_episode_numbers()`. Kept ours.
+
+The reading test must come **first** in the branch chain: the legacy arm keys on
+the exact status `published`, so a reading carrying that instead of
+`published_and_moved` would be classified as a legacy *interview* and skip its
+fidelity gate. Pinned by test.
+
+**Fix.** New `load_read_manifest()` + `is_reading()` (number range >= 500 **or**
+registry presence, so an unregistered reading still classifies) and a per-class
+`status()`. Inapplicable findings are **preserved**, not dropped, under
+`planned_audit_issues` / `read_audit_issues`, mirroring `legacy_audit_issues`.
+Helpers inserted **below** `READ_MANIFEST_PATH` so they cannot NameError at
+import (run 009's lesson). Backup `robust_pipeline.py.bak-run059`; exactly
+**one** pre-existing function changed, 49 byte-identical including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`, `verify_feed`,
+`reconcile`, `registry_audit`, `push_to_remote`, `_legacy_episode_numbers` and
+`watchdog`.
+
+`status` and `watchdog` now report **`healthy: true` / `stale: []`** for the
+first time, with 501 as `kind: read`, `preflight_ok: true` and its six findings
+retained under `read_audit_issues`.
+
+**Nothing granted.** `failed`/`blocked`/`rendering` still pin unhealthy; an
+interview in any production or published state still has to pass preflight; a
+planned stub waives nothing for a sibling episode; the status literal
+`published` alone still does not confer the legacy waiver while a genuine import
+still is exempt *and named*; a published reading with a refused, missing or
+corrupt gate is a **refusal, not a waiver**; wrong-case status does not unlock
+the published arm.
+
+Proof: repro **38/38** against the unmodified module (including the control that
+the live tree's unhealthy verdict rests on 501 alone, and that `watchdog` returns
+`healthy: false` with `stale: []` — nothing actually stuck), fix proof **65/65**
+(pre-fix backup still reproduces; 10 nothing-granted classes; blast radius).
+Tests `tests/test_status_health.py`, suite **108 -> 134**, load-bearing: 19 of 26
+fail against the pre-fix module.
+
+Two harness bugs, neither a code defect (run 029's rule): the scratch tree needed
+**every** `pipeline/*.py` copied, since `preflight()` imports `quoted_span_gate`
+by bare name; and the legacy fixture was numbered **900**, which falls in the
+read range (>= 500) and so classified as a reading — a legacy interview here is
+numbered 001-003. Also re-learned run 042's lesson: build read-lane fixtures by
+importing `REQUIRED_DISCLOSURE`, never by retyping it.
+
+Docs: `ROBUST_PIPELINE.md`'s Watchdog section now records the classifier and the
+two ordering constraints, and its **Tests** section was badly stale — it claimed
+this tree has *no `tests/` directory* and that `unittest discover` failing is
+"expected here, not breakage", which would have made a future slice skip the
+suite or misread a real failure. It now documents the 134-test suite.
+
+Real tree after the slice: `coverage` ok 3/3, `registry` ok, `verify --remote`
+ok, `preflight` 001-003 ok, three `reconcile --write` at 0/0/0, `feed.xml` md5
+**unchanged** and byte-identical to live, 3 items.
+
 ## 2026-11-14T08:1xZ — run 053 (registry divergence had no detector here)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; the same 18
