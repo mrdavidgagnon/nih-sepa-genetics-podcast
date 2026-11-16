@@ -29,13 +29,13 @@ FEED = """<?xml version="1.0" encoding="utf-8"?>
       <title>Episode 001</title>
       <description>First</description>
       <guid>moral-machines-episode-001</guid>
-      <enclosure url="https://example.invalid/episode-001.mp3" length="3" type="audio/mpeg"/>
+      <enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-001.mp3" length="3" type="audio/mpeg"/>
     </item>
     <item>
       <title>Episode 002</title>
       <description>Second</description>
       <guid>moral-machines-episode-002</guid>
-      <enclosure url="https://example.invalid/episode-002.mp3" length="3" type="audio/mpeg"/>
+      <enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-002.mp3" length="3" type="audio/mpeg"/>
     </item>
   </channel>
 </rss>

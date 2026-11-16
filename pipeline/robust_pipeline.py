@@ -1541,6 +1541,32 @@ PUBDATE_TOLERANCE_SECONDS = 120.0
 # the deploy, not for scheduling.
 PUBDATE_FUTURE_ALLOWANCE_SECONDS = 86400.0
 
+# Every absolute URL the feed advertises -- the per-item <enclosure url>, the
+# channel and per-item <itunes:image href>, the channel <image><url> and
+# <link> -- is the only thing a subscriber ever resolves. Until run 063 NOTHING
+# read the scheme, host or directory of any of them: every check in
+# verify_feed() reduces an advertised URL to `Path(urlparse(u).path).name` and
+# then rebuilds the URL it actually probes from FEED_BASE/`remote`. So the
+# checks verify this tree's intentions against this tree's own base and are
+# structurally unable to notice that the feed points somewhere else.
+#
+# publish_feed.py carries its own hardcoded BASE_URL and robust_pipeline.py
+# carries FEED_BASE; the two were never related by any reader, so a drift
+# between them -- or a wrong repo slug, a foreign host, or a relative URL that
+# is invalid in RSS -- shipped green. Worst case is a cross-show prefix, which
+# would hand Moral Machines subscribers Human in the Loop's audio: the GUID
+# collision this show's docs call a hard bug, arriving through the URL instead.
+#
+# This is the run-042/045/057/058/062 axis on its last unread dimension. Those
+# runs enumerated every advertised FIELD; the field's VALUE was still only ever
+# read for its last path segment.
+EXPECTED_ADVERTISED_BASES = (FEED_BASE,)
+
+# A prefix that must never appear in this show's feed: the sibling show's repo.
+# The two shows share this pipeline's code, and a retargeting slip in either
+# BASE_URL constant is exactly how one would advertise the other's assets.
+FORBIDDEN_ADVERTISED_SUBSTRINGS = ("human-in-the-loop",)
+
 
 def _parse_rfc2822(value: str) -> datetime | None:
     """Seconds-resolution datetime for an RFC 2822 date, or None if malformed.
@@ -1615,6 +1641,21 @@ def _parse_rfc2822_or_iso(value: Any) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed
+
+
+def _under_advertised_base(url: str, base: str) -> bool:
+    """True when `url` is `base` itself or sits beneath it as a PATH.
+
+    A bare ``startswith`` is wrong here: the sibling-slug typo
+    ``nih-sepa-genetics-podcasts`` is a string prefix of nothing but shares one
+    with this show's base, so ``.../nih-sepa-genetics-podcast`` prefixes it and
+    a wrong repo passes. Require the next character to be a path separator (or
+    nothing at all), so only a real path boundary counts.
+    """
+    base = base.rstrip("/")
+    if url == base:
+        return True
+    return url.startswith(base + "/")
 
 
 def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15.0) -> dict[str, Any]:
@@ -1777,6 +1818,68 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     result["issues"].append(
                         f"remote cover art check failed for {cover_url}: {exc}")
         result["checks"].append(cover_check)
+
+        # Advertised URL prefix vs the base this show owns.
+        #
+        # Collected from every absolute URL the feed emits, then compared to
+        # EXPECTED_ADVERTISED_BASES. Four refusals: a URL under no expected
+        # base, a URL carrying a forbidden (cross-show) substring, a
+        # non-absolute enclosure/image URL (invalid in RSS, and silently
+        # unresolvable for a subscriber), and a feed that advertises no
+        # absolute URL at all.
+        #
+        # Deliberately NOT keyed on `remote`: the question is where the feed
+        # sends subscribers, which is a property of the published bytes and is
+        # the same whether or not this run is probing a deployment. And no
+        # legacy waiver (run 036) -- an imported episode's enclosure must still
+        # resolve, so a wrong prefix is a defect for an import too.
+        advertised: set[str] = set()
+        relative: set[str] = set()
+        for node in root.iter():
+            for attr in ("url", "href"):
+                raw = (node.get(attr) or "").strip()
+                if raw:
+                    if raw.startswith(("http://", "https://")):
+                        advertised.add(raw)
+                    elif node.tag.endswith(("enclosure", "image")):
+                        relative.add(raw)
+            if node.tag.endswith(("url", "link")) and not len(node):
+                raw = (node.text or "").strip()
+                if raw.startswith(("http://", "https://")):
+                    advertised.add(raw)
+        base_check: dict[str, Any] = {
+            "name": "advertised_base",
+            "expected_bases": list(EXPECTED_ADVERTISED_BASES),
+            "advertised": sorted(advertised),
+            "distinct_bases": sorted({
+                base.rstrip("/") for url in advertised
+                for base in EXPECTED_ADVERTISED_BASES
+                if _under_advertised_base(url, base)}),
+        }
+        if not advertised:
+            result["issues"].append(
+                "feed advertises no absolute URL, so no enclosure or cover "
+                "art can be resolved by a subscriber")
+        for url in sorted(advertised):
+            if not any(_under_advertised_base(url, base)
+                       for base in EXPECTED_ADVERTISED_BASES):
+                result["issues"].append(
+                    f"feed advertises {url}, which is not under this show's "
+                    f"base {EXPECTED_ADVERTISED_BASES[0]}; every subscriber "
+                    f"resolves the advertised URL, not the local filename")
+            for bad in FORBIDDEN_ADVERTISED_SUBSTRINGS:
+                if bad in url.lower():
+                    result["issues"].append(
+                        f"feed advertises {url}, which carries the "
+                        f"cross-show substring {bad!r}; the two shows must "
+                        f"never share a URL or a GUID")
+        for raw in sorted(relative):
+            result["issues"].append(
+                f"feed advertises the non-absolute URL {raw!r}; RSS "
+                f"enclosure and artwork URLs must be absolute or no client "
+                f"can resolve them")
+        base_check["relative"] = sorted(relative)
+        result["checks"].append(base_check)
         for item in items:
             # Legacy = what the ledger says, NOT what the feed numbers say.
             # This was keyed on `<itunes:episode> == "1"`, which publish_feed.py

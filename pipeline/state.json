@@ -1800,16 +1800,43 @@
             }
           ],
           "deadline_at": "2026-11-15T22:44:22.793980Z",
-          "outcome": null,
+          "detail": "run062: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: every feed item advertises a <pubDate> and NOTHING read it -- zero occurrences in robust_pipeline.py and in no test. publish_feed.py falls back to the LEGACY_PUB_DATE sentinel 'Wed, 26 Aug 2026 03:45:00 +0000' whenever no rendered/published transition (or parseable built_at) ",
+          "finished_at": "2026-11-15T22:35:37.378312Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-15T22:19:22.793980Z"
+        },
+        {
+          "attempt_id": "501-1794796599",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-16T02:36:39.464925Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-16T02:40:37.692050Z",
+              "detail": "run063: advertised enclosure/cover/link URL PREFIX has zero readers; publish_feed BASE_URL and robust_pipeline FEED_BASE are independent hardcoded copies, every check strips to basename",
+              "stage": "defect_identified"
+            },
+            {
+              "at": "2026-11-16T02:46:00.833646Z",
+              "detail": "run063: advertised_base gate + _under_advertised_base boundary helper in verify_feed; repro 30/31 (1 harness bug), proof 48/48; tests/test_advertised_base_gate.py 15 tests, suite 187->202, load-bearing 13/15 fail pre-fix; 5 fixture files completed from example.invalid to the real base (run 058 incomplete-fixture class, gate not relaxed)",
+              "stage": "gate_landed"
+            }
+          ],
+          "deadline_at": "2026-11-16T03:01:39.464925Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-16T02:36:39.464925Z"
         }
       ],
-      "attempts": 57,
+      "attempts": 58,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-15T22:34:17Z"
+  "updated_at": "2026-11-16T02:47:01Z"
 }

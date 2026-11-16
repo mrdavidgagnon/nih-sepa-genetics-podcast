@@ -1578,8 +1578,11 @@ its `ok` flag is `push_to_remote()`'s success criterion.
 
 This is the run-042/045/057 axis once more: an advertised per-item field with
 zero readers. The cover art (057) and the deployed item set (056) were the
-previous two; the `<pubDate>` was the last one, gated in run 062 below.
-**Enumerate every field the artifact advertises and confirm each is probed.**
+previous two; the `<pubDate>` followed in run 062 below. The last unread
+dimension was not a field but a field's **value**: every advertised URL was
+only ever read for its final path segment, gated in run 063 below.
+**Enumerate every field the artifact advertises and confirm each is probed --
+then ask whether the probe reads the whole value.**
 
 
 ## The advertised `<pubDate>` is gated (run 062)
@@ -1656,3 +1659,71 @@ changed, 56 byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/
 `feed_coverage`/`publish_local`/`reconcile`/`registry_audit`/`push_to_remote`/
 `status`/`deploy_drift`). Tests `tests/test_pubdate_gate.py` (suite 168 ->
 **187**), load-bearing: 15 of 19 fail against the pre-fix module.
+
+
+## The advertised URL PREFIX had no reader (fixed run 063)
+
+`verify_feed()` now gates the scheme, host and directory every absolute URL in
+the feed points at, reported under `checks` as `name: "advertised_base"` with
+the advertised URLs, the distinct bases they resolve under, and any
+non-absolute URL found.
+
+Until run 063 **nothing read it.** Every check reduced an advertised URL to
+`Path(urlparse(url).path).name` and then rebuilt the URL it actually probed
+from `FEED_BASE`/`remote` -- enclosures, cover art and show notes alike. So the
+checks verified this tree's *intentions* against this tree's *own* base and
+were structurally unable to notice that the published feed points somewhere
+else. `publish_feed.py` carries its own hardcoded `BASE_URL` and
+`robust_pipeline.py` carries `FEED_BASE`; the two constants were never related
+by any reader, and `netloc` appeared nowhere in the pipeline.
+
+Proved on real code, each returning `ok: true` with an **empty issue list** from
+`verify_feed` local *and* `--remote`, from `deploy_drift` and from `coverage` --
+the verdict `publish_local()` refuses on and `push_to_remote()`'s wait loop
+breaks on to call a deploy live:
+
+- every asset repointed at the **sibling show**, which would hand Moral Machines
+  subscribers Human in the Loop's audio -- the GUID collision this show's docs
+  call a hard bug, arriving through the URL instead;
+- a **one-character** wrong repo slug (`...-podcasts`);
+- an entirely **foreign host**;
+- a **relative** enclosure URL, which is invalid in RSS and unresolvable for
+  every client.
+
+Four refusals now: a URL under no expected base, a URL carrying a forbidden
+cross-show substring, a non-absolute enclosure/artwork URL, and a feed
+advertising no absolute URL at all. Deliberately **not** keyed on `remote` --
+where the feed sends subscribers is a property of the published bytes, the same
+whether or not this run probes a deployment -- and with **no legacy waiver**
+(run 036): an imported episode's enclosure must still resolve.
+
+**A prefix test needs a path boundary.** My first implementation used a bare
+`startswith`, which accepts `.../nih-sepa-genetics-podcasts` because this
+show's base is a string prefix of it. `_under_advertised_base()` requires the
+next character to be `/` or nothing. The proof harness caught this in my own
+fix, which is the argument for writing the wrong-slug case before believing the
+gate.
+
+**Fixtures completed, not gate relaxed.** Twelve pre-existing tests failed once
+the prefix became gated: five fixture files advertised a placeholder
+`https://example.invalid` host. That is run 058's trap exactly -- making a
+deliverable gated exposes an **incomplete fixture, not a finding** -- so each
+fixture now advertises the real base, verified as a pure host swap with no other
+line touched.
+
+Blast radius: exactly **one** pre-existing function changed (`verify_feed`), one
+added (`_under_advertised_base`), **59 byte-identical** including
+`preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/`publish_local`/
+`push_to_remote`/`reconcile`/`registry_audit`/`status`/`deploy_drift`.
+`publish_feed.py` untouched. Harnesses
+`/opt/data/tmp/mm_advertised_base_repro_run063.py` (30/31 against the
+**unmodified** module, with the run-057 cover and run-058 duration detectors as
+controls still firing; the one failure was a harness bug -- `publish_local`
+raises on `result["issues"]` rather than reading an `ok` key) and
+`mm_advertised_base_proof_run063.py` (48/48). Tests
+`tests/test_advertised_base_gate.py`, 15 tests, suite **187 -> 202**, proven
+load-bearing: **13 of 15 fail** against the pre-fix backup.
+
+One of its tests closes the original hole directly:
+`test_the_expected_base_matches_publish_feeds_own_constant` asserts the two
+hardcoded base constants agree, which nothing had ever checked.

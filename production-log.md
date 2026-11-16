@@ -3855,3 +3855,108 @@ lanes empty. One durable gate gap closed on the publish path, and a live broken
 link on the deployed site repaired. Feed byte-identical. Standing blocker
 unchanged: 18 items unfiled in `YF84AUZK` awaiting David's lane decision
 (Summerize = interview, Read = verbatim reading).
+
+
+## run063 — 2026-11-16 — advertised URL prefix gated; no production unit
+
+**Intake.** Live Zotero read: Summerize `V4WXTY8M` **0** items, Read
+`DV6F4ILX` **0** items, Produced `6P2KVFKQ` 10 (all 10 published parents, as
+expected). **18 items remain unfiled directly in the parent `YF84AUZK`**
+awaiting David's lane decision — the standing blocker, unchanged, not re-raised.
+No production unit available, so the slice went to a durable defect per the
+HITL skill's idle-lane rule.
+
+**Opening audits.** `coverage` ok 3/3, `registry` ok (`ledger_episodes: 4`,
+`manifest_episodes: 3` — the 501 no-work stub, correctly not demanded),
+`status.healthy: true`, `verify` local ok. Stale lock from run 062 confirmed
+dead (pid 3101869 absent from `/proc`, `flock` acquired non-blocking) and
+cleared with `unlock --force`. Subcommand census vs the sibling tree: no new
+HITL subcommand (`register` remains HITL-only by design).
+
+**Defect: the advertised URL PREFIX had zero readers.** Every absolute URL the
+feed emits — the per-item `<enclosure url>`, the channel and per-item
+`<itunes:image href>`, the channel `<image><url>` and `<link>` — is the only
+thing a subscriber ever resolves, and **nothing read any of it**. All four
+`urlparse` sites in `robust_pipeline.py` reduce an advertised URL to
+`Path(...).name` and rebuild the probed URL from `FEED_BASE`/`remote`;
+`netloc` appeared nowhere in the pipeline. `publish_feed.py` carries its own
+hardcoded `BASE_URL` and `robust_pipeline.py` carries `FEED_BASE`, never
+related by any reader.
+
+So the checks verify this tree's intentions against this tree's own base and
+cannot notice the published feed pointing elsewhere. Proved on real code, each
+`ok: true` with an **empty issue list** from `verify_feed` local *and*
+`--remote`, from `deploy_drift` and from `coverage` — the verdict
+`publish_local()` refuses on and `push_to_remote()`'s wait loop breaks on to
+call a deploy live: every asset repointed at the **sibling show** (which would
+serve Moral Machines subscribers Human in the Loop's audio — the GUID collision
+the docs call a hard bug, arriving via the URL), a **one-character** wrong repo
+slug, a foreign host, and a **relative** enclosure URL that is invalid in RSS.
+
+**Fix.** `advertised_base` check block in `verify_feed()` plus
+`_under_advertised_base()`, `EXPECTED_ADVERTISED_BASES` and
+`FORBIDDEN_ADVERTISED_SUBSTRINGS`. Four refusals: no expected base, a
+cross-show substring, a non-absolute enclosure/artwork URL, and no absolute URL
+at all. Not keyed on `remote` (where the feed sends subscribers is a property of
+the published bytes) and **no legacy waiver** (run 036).
+
+**A prefix test needs a path boundary.** My first implementation used a bare
+`startswith`, which accepts `...-podcastS` because this show's base is a string
+prefix of it. The proof harness caught that in my **own fix** — the argument for
+writing the wrong-slug case before believing the gate.
+
+**Fixtures completed, not gate relaxed.** Twelve pre-existing tests failed once
+the prefix became gated: five fixture files advertised a placeholder
+`https://example.invalid` host. Run 058's trap exactly — making a deliverable
+gated exposes an **incomplete fixture, not a finding**. Each now advertises the
+real base, verified as a pure host swap with no other line touched.
+
+**Blast radius.** Exactly **one** pre-existing function changed
+(`verify_feed`), one added (`_under_advertised_base`), **59 byte-identical**
+including `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local`/`push_to_remote`/`reconcile`/`registry_audit`/`status`/
+`deploy_drift`. `publish_feed.py` untouched.
+
+**Harnesses.** `/opt/data/tmp/mm_advertised_base_repro_run063.py` 30/31 against
+the **unmodified** module (run-057 cover and run-058 duration detectors shown
+still firing as controls). The single failure was a **harness bug**, not a code
+defect: `publish_local` raises on `result["issues"]` rather than reading an
+`ok` key. `mm_advertised_base_proof_run063.py` **48/48**.
+
+**Tests.** `tests/test_advertised_base_gate.py`, 15 tests, suite
+**187 -> 202**. Proven load-bearing: **13 of 15 fail** against the
+`.bak-run063` module; restored and confirmed md5-identical
+(`e458d80c30a4cdacb36edb5248a05e82`) with all 202 green. One test closes the
+original hole directly — `test_the_expected_base_matches_publish_feeds_own_constant`
+asserts the two hardcoded base constants agree, which nothing had ever checked.
+
+**Two harness bugs, neither a code defect** (run 029's rule):
+
+- The repro's `publish_local` assertion looked for an `ok` key; the function
+  raises on the issue list instead.
+- `test_the_gate_writes_nothing` snapshotted the site dir *before* its own
+  `_write()` created `feed.xml`, comparing two different file sets rather than
+  two states.
+
+Also corrected run 058's own closing claim in `ROBUST_PIPELINE.md`, which said
+`<pubDate>` was the last unread advertised field. The last unread dimension was
+not a field but a field's **value**: a URL only ever read for its final path
+segment.
+
+**Validation (deterministic, final window):** `py_compile` clean on all
+`pipeline/*.py`; suite **202/202**; `coverage` ok 3/3; `registry` ok
+`issues: []`; `verify` local ok `issues: []`; `verify --remote` **ok** with
+`remote_feed` 3/3 both drift lists empty and `advertised_base` reporting one
+distinct base and zero relative URLs; `drift` ok 10 checked / 10 identical;
+`preflight 001-003 --audio` each ok `issues: []`; three `reconcile --write`
+passes 0/0/0; `status.healthy: true`; `feed.xml` md5 **unchanged** at
+`9fc23235fcb49ca809059092da619b54`.
+
+Backups `pipeline/robust_pipeline.py.bak-run063`,
+`pipeline/ROBUST_PIPELINE.md.bak-run063`, `tests/*.bak-run063`,
+`production-log.md.bak-run063`.
+
+**Outcome:** no episode or reading created, rendered or published — both intake
+lanes empty. One durable gate gap closed on the publish path. Feed
+byte-identical. Standing blocker unchanged: 18 items unfiled in `YF84AUZK`
+awaiting David's lane decision (Summerize = interview, Read = verbatim reading).
