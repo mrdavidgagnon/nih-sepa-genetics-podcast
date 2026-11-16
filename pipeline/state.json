@@ -1859,13 +1859,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T06:51:22.091218Z"
+        },
+        {
+          "attempt_id": "501-1794827387",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-16T11:09:47.433043Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-16T11:16:23.163627Z",
+              "detail": "run065: guid VALUE has zero readers; repro 39/39 vs unmodified (cross-show prefix, prefixless, number disagreement, cross-lane suffix all ok:true empty issues; run-063 URL guard + run-064 disclosure gate as live controls)",
+              "stage": "defect_repro"
+            },
+            {
+              "at": "2026-11-16T11:23:07.431575Z",
+              "detail": "run065: guid conformance check wired into verify_feed; repro 39/39, proof 54/54, suite 220->232 load-bearing; docs+log updated",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-16T11:34:47.433043Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-16T11:09:47.433043Z"
         }
       ],
-      "attempts": 59,
+      "attempts": 60,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T07:07:47Z"
+  "updated_at": "2026-11-16T11:23:28Z"
 }

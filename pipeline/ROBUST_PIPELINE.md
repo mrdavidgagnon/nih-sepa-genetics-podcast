@@ -1709,7 +1709,8 @@ false-fail.
 
 This is the **run-042/045/056/057/058/062/063 axis** once more — an advertised
 field with zero readers. 056 was the deployed item set, 057 the cover art, 058
-the duration, 062 the `pubDate`, 063 the URL prefix; this is the one field whose
+the duration, 062 the `pubDate`, 063 the URL prefix, 065 the GUID; this is the
+one field whose
 **content is a compliance statement**, so the failure mode is not a broken asset
 but a false or missing legal disclosure shipped under a green gate. The
 generalizable move stands: enumerate every field and URL class the artifact
@@ -1811,3 +1812,88 @@ load-bearing: **13 of 15 fail** against the pre-fix backup.
 One of its tests closes the original hole directly:
 `test_the_expected_base_matches_publish_feeds_own_constant` asserts the two
 hardcoded base constants agree, which nothing had ever checked.
+
+## The advertised `<guid>` value had no reader (fixed run 065)
+
+A GUID is the subscriber's **permanent identity** for an episode: a podcast
+client keys its played / downloaded / queued state on it, so a changed GUID
+re-delivers an old episode as new and a **colliding** GUID makes one episode
+shadow another. This show's docs call a cross-show GUID collision *a hard bug*.
+
+Until run 065 **nothing read the value**. Every consumer reduced it to
+something else:
+
+- `_feed_item_number()` — `re.findall(r"episode-(\d+)", guid) or ... url`
+- `verify_feed()` — local vs remote GUID **sets** (run 056)
+- `verify_feed()` — `len(guids) != len(set(guids))`, duplicates only
+- `feed_coverage()` — the same `episode-(\d+)` derivation
+
+So the **prefix** was unread, the lane **suffix** was unread, and the GUID's
+episode number was never compared against the enclosure's — the `or`
+short-circuits, so once the GUID yields digits the URL is never consulted.
+`robust_pipeline.py` did not contain the string `moral-machines` at all.
+
+Four classes each returned **`ok: true` with an EMPTY issue list** from
+`verify_feed` (the verdict `publish_local()` refuses on and `push_to_remote()`'s
+wait loop breaks on): a **cross-show prefix** (`human-in-the-loop-episode-001`),
+a GUID with **no show prefix**, an interview carrying the read lane's
+`-reading` marker, and a GUID whose episode number **disagrees with its
+enclosure**.
+
+**The sharpest part: run 063 already had the guard.**
+`FORBIDDEN_ADVERTISED_SUBSTRINGS = ("human-in-the-loop",)` was added for exactly
+this cross-show hazard but scoped to advertised **URLs** — one field away from
+the field the docs name as the hard bug. The repro keeps that as a control: the
+identical substring in an enclosure URL **is** refused while the same substring
+in the GUID ships green.
+
+Fixed with a lane-aware `guid` check in `verify_feed()`'s per-item loop,
+reported under `checks` with the lane, the GUID, `prefix_ok` and both derived
+numbers. Lane comes from `is_reading()`, a property of the **record** and never
+of the episode number (run 036). **No legacy waiver** — an import's GUID is the
+subscriber's identity just the same.
+
+Two lessons:
+
+- **A guard installed for a hazard is not a guard on every field that hazard
+  reaches.** Run 063 correctly identified the cross-show risk and covered the
+  URL; the GUID is the *other* field a retargeting slip corrupts, and it is the
+  one the docs single out. When you add a guard against a named hazard,
+  enumerate every field that hazard can appear in.
+- **A fallback chain hides the thing it recovers.** `guid or url` makes the
+  number robust and makes the GUID's own conformance untestable — a tokenless
+  GUID still yields the right number, so `coverage` is right to stay green while
+  the published identity has silently stopped following the scheme. When a
+  derivation has a fallback, ask what the fallback is covering for.
+
+Latent as always: `coverage` 3/3, `registry` ok, `verify --remote` ok, `drift`
+ok and 3× `reconcile` 0/0/0 were all accurate and all blind.
+
+Harnesses `/opt/data/tmp/mm_guid_repro_run065.py` (39/39 against the
+**unmodified** module, with the run-063 URL guard and run-064 disclosure gate
+shown still firing as controls) and `mm_guid_proof_run065.py` (54/54: pre-fix
+still reproduces; all classes refused and named; nothing granted — intact tree
+passes with a verdict identical pre/post, `guid` the only added check name, a
+genuine reading GUID accepted, and
+run-038/057/063/064/058/enclosure/run-036/unparseable gates all still bite;
+exactly one pre-existing function changed, 60 byte-identical incl. `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status`, `deploy_drift`,
+`_feed_item_number`). Tests `tests/test_guid_gate.py` (suite 220 → **232**),
+load-bearing: 11 of 12 fail against the pre-fix module.
+
+**One pre-existing test failed — an incomplete fixture, not a finding** (the
+run-058 class again). `test_disclosure_gate.py` hardcoded one
+interview-shaped GUID in its `FEED_TEMPLATE` and reused it for the **501
+reading** cases, while `read_lane.register()` writes
+`episode-NNN-reading-<itemkey>`. Gave the fixture a lane-correct GUID rather
+than relaxing the new gate.
+
+Two harness bugs, neither a code defect (run 029's rule): a case asserting the
+GUID/enclosure disagreement "passes" was wrong — the class **is** refused, but
+only **incidentally**, by the landing-page cross-check noticing the
+episode-number set moved, with no issue naming the GUID; and a case expecting
+`coverage` to miss a tokenless GUID was wrong because the `or` URL fallback
+recovers the number. Both were corrected to claim only what is true, which is
+what makes the finding precise: the defect is that no issue ever **names** the
+GUID.

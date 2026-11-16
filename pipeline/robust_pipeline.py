@@ -1568,6 +1568,40 @@ EXPECTED_ADVERTISED_BASES = (FEED_BASE,)
 FORBIDDEN_ADVERTISED_SUBSTRINGS = ("human-in-the-loop",)
 
 
+# The <guid> VALUE. A GUID is the subscriber's PERMANENT IDENTITY for an
+# episode: a podcast client keys its played/downloaded/queued state on it, so a
+# changed GUID re-delivers an old episode as new, and a COLLIDING GUID makes one
+# episode shadow another. This show's docs call a cross-show GUID collision "a
+# hard bug".
+#
+# Until run 065 nothing read the value. Every consumer reduced it to something
+# else:
+#
+#   _feed_item_number()  re.findall(r"episode-(\d+)", guid) or ... url
+#   verify_feed()        local_guids vs remote_guids  (run 056, set equality)
+#   verify_feed()        len(guids) != len(set(guids)) (duplicates only)
+#   feed_coverage()      the same episode-(\d+) derivation
+#
+# So the PREFIX was unread, the lane SUFFIX was unread, and the GUID's episode
+# number was never compared against the enclosure's -- the `or` short-circuits,
+# so once the guid yields digits the URL is never consulted. robust_pipeline.py
+# did not contain the string "moral-machines" at all.
+#
+# Run 063 added FORBIDDEN_ADVERTISED_SUBSTRINGS for exactly this cross-show
+# hazard but scoped it to advertised URLs, one field away from the field the
+# docs name as the hard bug. This is the run-042/045/056/057/058/062/063/064
+# axis on the last advertised field with no reader -- and the only one that is
+# the episode's IDENTITY rather than one of its assets.
+#
+# publish_feed.py builds an interview GUID as f"moral-machines-{guid}" over
+# f"episode-{num}", and a reading's as f"moral-machines-{rec['guid']}" over
+# read_lane's f"episode-{number}-reading-{item_key}". Both are checked here
+# against the lane the RECORD declares, never against the episode number
+# (run 036), and with no legacy waiver: an import's GUID is its identity too.
+GUID_REQUIRED_PREFIX = "moral-machines-"
+GUID_READING_MARKER = "-reading"
+
+
 # The three mutually exclusive disclosure texts publish_feed.py can place in an
 # item's <content:encoded>, keyed by the lane each one is legitimate for.
 #
@@ -2043,6 +2077,84 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                             f"disclosure ({phrase!r})")
                 disclosure_check["missing"] = missing
             result["checks"].append(disclosure_check)
+            # ----------------------------------------------------------------
+            # The advertised GUID -- the episode's permanent identity.
+            #
+            # See GUID_REQUIRED_PREFIX above for why this had zero readers.
+            # Four refusals, all keyed on what the RECORD declares:
+            #   * a GUID not carrying this show's prefix (a cross-show prefix
+            #     is called out separately -- it is the documented hard bug)
+            #   * an interview GUID carrying the read lane's `-reading` marker,
+            #     or a reading's GUID lacking it
+            #   * a GUID whose episode number disagrees with its enclosure's
+            #   * a GUID that is absent or empty
+            # No legacy waiver (run 036): an imported episode's GUID is the
+            # subscriber's identity for it just the same.
+            guid_value = (item.findtext("guid") or "").strip()
+            guid_enclosure = item.find("enclosure")
+            guid_url = ((guid_enclosure.get("url") or "")
+                        if guid_enclosure is not None else "")
+            guid_from_guid = re.findall(r"episode-(\d+)", guid_value)
+            guid_from_url = re.findall(r"episode-(\d+)", guid_url)
+            guid_number = _feed_item_number(item)
+            guid_is_read = bool(guid_number) and is_reading(
+                guid_number, read_manifest_episodes)
+            guid_check = {
+                "name": "guid",
+                "episode": guid_number or None,
+                "guid": guid_value,
+                "lane": "read" if guid_is_read else "interview",
+                "prefix_ok": guid_value.startswith(GUID_REQUIRED_PREFIX),
+            }
+            if not guid_value:
+                result["issues"].append(
+                    f"feed item for episode {guid_number or '<unidentified>'} "
+                    f"has no <guid>; a subscriber has no stable identity for it "
+                    f"and a client cannot tell it from a new episode")
+            else:
+                for bad in FORBIDDEN_ADVERTISED_SUBSTRINGS:
+                    if bad in guid_value.lower():
+                        result["issues"].append(
+                            f"feed item for episode "
+                            f"{guid_number or '<unidentified>'} advertises the "
+                            f"GUID {guid_value!r}, which carries the cross-show "
+                            f"substring {bad!r}; the two shows must never share "
+                            f"a GUID")
+                if not guid_value.startswith(GUID_REQUIRED_PREFIX):
+                    result["issues"].append(
+                        f"feed item for episode "
+                        f"{guid_number or '<unidentified>'} advertises the GUID "
+                        f"{guid_value!r}, which does not carry this show's "
+                        f"required prefix {GUID_REQUIRED_PREFIX!r}; "
+                        f"publish_feed.py emits it on every item")
+                if guid_is_read and GUID_READING_MARKER not in guid_value:
+                    result["issues"].append(
+                        f"reading {guid_number} advertises the GUID "
+                        f"{guid_value!r}, which lacks the read lane's "
+                        f"{GUID_READING_MARKER!r} marker that distinguishes it "
+                        f"from the interview item at the same number")
+                if (not guid_is_read) and GUID_READING_MARKER in guid_value:
+                    result["issues"].append(
+                        f"episode {guid_number} is an interview but advertises "
+                        f"the GUID {guid_value!r}, which carries the read "
+                        f"lane's {GUID_READING_MARKER!r} marker")
+                if guid_from_guid and guid_from_url and \
+                        guid_from_guid[0] != guid_from_url[0]:
+                    result["issues"].append(
+                        f"feed item advertises the GUID {guid_value!r} naming "
+                        f"episode {guid_from_guid[0]} while its enclosure "
+                        f"{guid_url.rsplit('/', 1)[-1]!r} is episode "
+                        f"{guid_from_url[0]}; the identity and the audio "
+                        f"disagree")
+                if not guid_from_guid:
+                    result["issues"].append(
+                        f"feed item for episode "
+                        f"{guid_number or '<unidentified>'} advertises the GUID "
+                        f"{guid_value!r}, which carries no episode-NNN token; "
+                        f"the number is recoverable only from the enclosure URL")
+            guid_check["guid_number"] = guid_from_guid[0] if guid_from_guid else None
+            guid_check["enclosure_number"] = guid_from_url[0] if guid_from_url else None
+            result["checks"].append(guid_check)
             # Required human-readable fields. publish_feed.py reads an
             # interview item's title/description off pipeline/manifest.json and
             # defaults description to '' -- so an episode registered without a

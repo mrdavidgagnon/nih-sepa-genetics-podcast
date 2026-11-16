@@ -68,7 +68,7 @@ PREPRODUCED_BLOCK = (
 
 FEED_TEMPLATE = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><description>Show</description><link>{base}/index.html</link><itunes:image href="{base}/cover.png"/><image><url>{base}/cover.png</url><title>Moral Machines</title></image>
-      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-{num}</guid><enclosure url="{base}/episode-{num}.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate><itunes:episode>1</itunes:episode><itunes:duration>00:00:02</itunes:duration><itunes:image href="{base}/cover.png"/>{encoded}</item>
+      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">{guid}</guid><enclosure url="{base}/episode-{num}.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate><itunes:episode>1</itunes:episode><itunes:duration>00:00:02</itunes:duration><itunes:image href="{base}/cover.png"/>{encoded}</item>
 </channel></rss>
 """
 
@@ -132,8 +132,15 @@ class DisclosureGateTests(unittest.TestCase):
         encoded = ("<content:encoded><![CDATA[" + encoded_html + "]]></content:encoded>"
                    if encoded_html is not None else "")
         feed = self.site / "feed.xml"
+        # Lane-correct GUID. read_lane.register() writes a reading's guid as
+        # episode-NNN-reading-<itemkey>; an interview's is the plain form.
+        # Sharing one interview-shaped guid across both lanes made this
+        # fixture incomplete once run 065 gated the GUID value.
+        guid = (f"moral-machines-episode-{num}-reading-AAAA1111"
+                if int(num) >= 501 else f"moral-machines-episode-{num}")
         feed.write_text(FEED_TEMPLATE.format(
-            base=BASE, num=num, length=mp3.stat().st_size, encoded=encoded))
+            base=BASE, num=num, guid=guid,
+            length=mp3.stat().st_size, encoded=encoded))
         return feed
 
     def verify(self, feed):

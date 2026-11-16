@@ -1,3 +1,74 @@
+## 2026-11-16T11:3xZ — run 065 (the advertised GUID value is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's standing lane call, not re-raised).
+Opening audits all clean: `coverage` ok 3/3, `registry` ok (ledger 4 / manifest
+3, the 501 stub), `verify` local ok with no issues, `drift` ok 10/10,
+`reconcile` clean, suite 220/220. Stale lock from run 064 with a dead owner pid
+(3405084) and a free advisory lock — the normal steady state — cleared with
+`unlock --force`. Sibling subcommand census re-checked (run 053's rule):
+`register` remains HITL-only by design, nothing else to port. No production
+unit, so the slice closed a latent defect.
+
+**Defect.** A GUID is the subscriber's permanent identity for an episode — a
+client keys played/downloaded/queued state on it, so a changed GUID re-delivers
+an old episode and a colliding one makes an episode shadow another. This show's
+docs call a cross-show GUID collision *a hard bug*. Nothing read the value.
+`_feed_item_number()` took only `episode-(\d+)` (falling back to the enclosure
+URL with `or`, so the two numbers were never compared), run 056 compared GUID
+**sets**, the duplicate check compared GUIDs only to each other, and
+`feed_coverage()` reused the same digit derivation. `robust_pipeline.py` did not
+contain the string `moral-machines` at all.
+
+Four classes each returned **ok: true with an EMPTY issue list** from
+`verify_feed` — the verdict `publish_local()` refuses on and
+`push_to_remote()`'s wait loop breaks on to call a deploy live: a cross-show
+prefix (`human-in-the-loop-episode-001`), a GUID with no show prefix, an
+interview carrying the read lane's `-reading` marker, and a GUID whose episode
+number disagrees with its enclosure.
+
+Sharpest part: **run 063 already had the guard.**
+`FORBIDDEN_ADVERTISED_SUBSTRINGS = ("human-in-the-loop",)` was added for exactly
+this cross-show hazard but scoped to advertised URLs — one field away from the
+field the docs name as the hard bug. The repro keeps that as a control: the
+identical substring in an enclosure URL **is** refused while the same substring
+in the GUID ships green.
+
+**Fix.** Lane-aware `guid` check in `verify_feed()`'s per-item loop, reported
+under `checks` with lane, GUID, `prefix_ok` and both derived numbers. Lane from
+`is_reading()` — a property of the record, never of the episode number (run
+036). No legacy waiver. Backup `robust_pipeline.py.bak-run065`.
+
+**Proof.** repro 39/39 against the unmodified module (run-063 URL guard and
+run-064 disclosure gate shown still firing as controls); fix proof 54/54 —
+pre-fix still reproduces, every class refused and named, nothing granted
+(intact tree verdict identical pre/post, `guid` the only added check name, a
+genuine reading GUID accepted, and
+run-038/057/063/064/058/enclosure/run-036/unparseable gates all still bite).
+Exactly one pre-existing function changed, 60 byte-identical including
+`preflight`, `review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status`, `deploy_drift` and
+`_feed_item_number`; `publish_feed.py` untouched. Tests
+`tests/test_guid_gate.py`, suite 220 → **232**, load-bearing (11 of 12 fail
+pre-fix; module restored md5-identical afterwards).
+
+One pre-existing test failed — an **incomplete fixture, not a finding** (run
+058's class): `test_disclosure_gate.py` hardcoded one interview-shaped GUID and
+reused it for the 501 reading cases, while `read_lane.register()` writes
+`episode-NNN-reading-<itemkey>`. Gave the fixture a lane-correct GUID rather
+than relaxing the new gate. Two harness bugs, neither a code defect (run 029's
+rule): the GUID/enclosure disagreement **is** refused, but only incidentally by
+the landing-page cross-check, with no issue naming the GUID; and a tokenless
+GUID's number is recovered by the `or` URL fallback, so `coverage` is right to
+stay green. Both corrected to claim only what is true.
+
+Lessons: a guard installed for a named hazard is not a guard on every field that
+hazard reaches — enumerate the fields, not just the hazard. And a fallback chain
+hides what it recovers for: `guid or url` makes the number robust and the GUID's
+own conformance untestable.
+
+Latent as always: every opening audit was accurate and blind.
+
 ## 2026-11-16T07:0xZ — run 064 (the advertised written disclosure is gated)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
