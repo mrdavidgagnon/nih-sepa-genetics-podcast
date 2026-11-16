@@ -1854,7 +1854,9 @@
             }
           ],
           "deadline_at": "2026-11-16T07:16:22.091218Z",
-          "outcome": null,
+          "detail": "run064: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the advertised WRITTEN DISCLOSURE had zero readers. <content:encoded> is a published deliverable a client renders as the episode description, carrying the mandated written disclosures, built independently of script.md/episode-notes.md by publish_feed notes_html()/read_notes_h",
+          "finished_at": "2026-11-16T07:07:47.873872Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T06:51:22.091218Z"
         }
@@ -1865,5 +1867,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T07:06:29Z"
+  "updated_at": "2026-11-16T07:07:47Z"
 }
