@@ -838,10 +838,40 @@ def record_verdict(number: str, verification: dict) -> dict:
         )
 
     audio = EPISODES / number / f"episode-{number}.mp3"
+    # Persist ONLY what the gate owns.
+    #
+    # `source_words` means two different things on either side of the
+    # build/verify boundary, and this function used to let the second
+    # overwrite the first:
+    #
+    #   build/register -> extraction["words"], i.e. len(text.split()) over the
+    #                     pypdf body-text extraction. A BUILD-TIME FACT.
+    #   verify()       -> len(normalize_words(source)), i.e. the count of
+    #                     [a-z0-9]+ runs in source.txt. A GATE METRIC.
+    #
+    # They disagree by a few percent on any real paper (hyphenated compounds,
+    # parenthesised statistics and numerals all split differently) -- 13602 vs
+    # 13985 on the sibling tree's reading 501.
+    #
+    # The build-time figure is a PUBLISHED DELIVERABLE, not bookkeeping:
+    # publish_feed.read_notes_html() prints it verbatim into the feed's
+    # <content:encoded> ("... of the N extracted body words are present in the
+    # reading, in source order"), and write_notes() prints the same number into
+    # episodes/NNN/episode-notes.md at build time. So the documented operator
+    # flow -- render, then `verify --episode NNN` (run 040) -- silently rewrote
+    # a sentence in the published show notes, leaving the deployed notes file
+    # and the feed item disagreeing about the same paper. No gate can see it:
+    # the fidelity gate compares script.md against source.txt and merely
+    # REPORTS this field without comparing it to anything, and the notes file
+    # is checked for existence, never for agreement with the feed.
+    #
+    # So the gate's own counts go under their own names. Nothing is lost -- the
+    # gate metrics stay auditable beside the verdict, and the build-time fact
+    # the deliverables quote is left exactly as build() wrote it.
     record["verified"] = bool(verification.get("ok"))
     record["coverage"] = verification.get("coverage")
-    record["source_words"] = verification.get("source_words", record.get("source_words"))
-    record["spoken_words"] = verification.get("spoken_words")
+    record["gate_source_words"] = verification.get("source_words")
+    record["gate_spoken_words"] = verification.get("spoken_words")
     record["audio_words"] = verification.get("audio_words")
     record["audio_seconds"] = verification.get("audio_seconds")
     record["gate_issues"] = list(verification.get("issues") or [])

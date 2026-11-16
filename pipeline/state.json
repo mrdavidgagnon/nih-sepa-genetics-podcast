@@ -1908,13 +1908,43 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T15:25:44.589841Z"
+        },
+        {
+          "attempt_id": "501-1794858285",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-16T19:44:45.959777Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-16T19:45:19.713632Z",
+              "detail": "run067: lanes empty; coverage 3/3, registry ok, verify local ok, preflight 001-003 ok, suite 249/249",
+              "stage": "audits_green"
+            },
+            {
+              "at": "2026-11-16T19:52:56.647117Z",
+              "detail": "run067: record_verdict overwrites build-time source_words with verify()'s same-named gate metric; publish_feed prints it into published notes. repro 32/32 vs unmodified",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-16T19:58:00.503506Z",
+              "detail": "run067: record_verdict stores gate counts under gate_source_words/gate_spoken_words; repro 32/32, proof 67/67, tests 20 (suite 249->269), 7/20 fail pre-fix",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-16T20:09:45.959777Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-16T19:44:45.959777Z"
         }
       ],
-      "attempts": 61,
+      "attempts": 62,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T15:38:30Z"
+  "updated_at": "2026-11-16T20:00:36Z"
 }

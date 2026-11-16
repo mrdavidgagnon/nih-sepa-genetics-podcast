@@ -1979,3 +1979,77 @@ point every path constant back at the real tree. And run 058's function-slicer
 trap recurred in a new form: a pop-from-the-end loop is stopped by trailing
 **blank** lines, so a module constant block added after a function was still
 attributed to it; cut at the first unindented line after the `def` instead.
+
+### Two metrics shared the name `source_words` (fixed run 067)
+
+`read_lane.record_verdict()` did
+`record["source_words"] = verification.get("source_words", ...)`, letting the
+gate's count overwrite build's. They are **different measurements**:
+
+| written by | value | meaning |
+|---|---|---|
+| `build()`/`register()` | `extraction["words"]` = `len(text.split())` | build-time fact: words in the pypdf body-text extraction |
+| `verify()` | `len(normalize_words(source))` = count of `[a-z0-9]+` runs | gate metric: normalized tokens of `source.txt` |
+
+They disagree by a few percent on any real paper -- hyphenated compounds,
+parenthesised statistics and numerals tokenize differently. On the sibling
+tree's real reading 501 it is **13602 vs 13985**.
+
+The build-time figure is a **published deliverable**, not bookkeeping:
+`publish_feed.read_notes_html()` prints it verbatim into the feed's
+`<content:encoded>` ("... of the N extracted body words are present in the
+reading, in source order"), and `read_lane.write_notes()` prints the same
+number into `episodes/NNN/episode-notes.md`. So the documented operator flow --
+`render`, then `verify --episode NNN` (run 040) -- silently **rewrote a
+sentence in the published show notes**, leaving the deployed notes file and the
+feed item disagreeing about the same paper.
+
+No gate can see it. The fidelity gate compares `script.md` against
+`source.txt`, both written in the same breath, so coverage reads 1.0; it
+*reports* this field (`result["source_words"] = record.get("source_words")`)
+without comparing it to anything; and the notes file is checked for existence,
+never for agreement with the feed. `coverage` 3/3, `registry ok`, `verify ok`
+and `preflight` 001-003 ok were all accurate and all blind.
+
+`record_verdict()` now persists only what the gate owns -- `verified`,
+`coverage`, `audio_words`, `audio_seconds`, `gate_issues`, `verified_at`, the
+run-040/042 audio digest -- with its own counts under **`gate_source_words`**
+and **`gate_spoken_words`**. The ambiguous `spoken_words` key is no longer
+written. Nothing is lost: the gate metrics stay auditable beside the verdict,
+and the build-time fact the deliverables quote is left exactly as `build()`
+wrote it.
+
+**Nothing granted.** A failing gate still writes `verified: false` with its
+issue list and is still refused by `fidelity_gate()`; truncated audio, dropped
+source text and injected commentary are each still refused; `record_verdict`
+still raises rather than invent an entry `build()` never made; `verify()` the
+function is still side-effect free; and the run-009 durable-state mirror still
+writes `state.json`/`manifest.json` with this show's GUID prefix only.
+
+**Lessons.** *Never let two measurements share a name across a build/verify
+boundary* -- when a field is written by two stages, ask whether both stages mean
+the same thing by it, and give the later one its own name if not. And this is
+the write-side twin of runs 042/045: those found advertised fields with **zero
+readers**; this is a field with a reader that is a *published sentence*, which
+makes an overwrite a silent edit to a live deliverable rather than a stale
+record. When a registry field is quoted in output a subscriber sees, treat it
+as immutable after the write that owns it.
+
+Harnesses `/opt/data/tmp/mm_source_words_repro_run067.py` (32/32 against the
+**unmodified** module: the two counts proved unequal on a fixture *and* on the
+sibling's real reading 501, the gate passing, the overwrite, the published
+sentence moving, and the notes file left disagreeing) and
+`mm_source_words_proof_run067.py` (67/67: pre-fix backup still reproduces;
+post-fix the build count survives and the two deliverables agree across ten
+re-verifies; 17 nothing-granted assertions; exactly **one** function changed
+with 32 byte-identical incl. `verify`, `build`, `register`, `render_episode`,
+`sync_durable_state`, `occupied_numbers`, `next_number` and `write_notes`).
+Tests `tests/test_read_verdict_provenance.py` (suite 249 -> **269**),
+load-bearing: **7 of 20 fail** against the pre-fix module.
+
+Harness note: a one-sentence omission out of twelve identical paragraphs is
+only ~0.5% of the words, which the **0.995 coverage floor tolerates by
+design** -- the gate catches it with the *order* check instead. A proof that
+asserts "dropped text is a coverage refusal" therefore false-fails on its own
+fixture; drop a whole paragraph to exercise the floor, and keep both cases,
+since they are two distinct real refusals.

@@ -1,3 +1,93 @@
+## 2026-11-16T20:0xZ — run 067 (two metrics shared the name `source_words`)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items in `YF84AUZK` remain David's standing lane call and are not
+re-raised). Opening audits all green: `coverage` ok 3/3, `registry` ok (ledger
+4 / manifest 3), `verify` local ok with no issues, `preflight` 001-003 ok,
+suite 249/249. Stale lock from run 066's own `attempt finish`, owner pid
+3748808 dead and the advisory lock free — the documented steady state, cleared
+with `unlock --force`. No production unit, so the slice closed a latent defect.
+
+**Defect.** `read_lane.record_verdict()` did
+`record["source_words"] = verification.get("source_words", ...)`, letting the
+fidelity gate's count overwrite build's. The two are **different
+measurements** under one name: `build()`/`register()` store
+`extraction["words"]` = `len(text.split())` over the pypdf extraction (a
+build-time fact), while `verify()` exposes `len(normalize_words(source))`, the
+count of `[a-z0-9]+` runs in `source.txt` (a gate metric). They disagree by a
+few percent on any real paper — hyphenated compounds, parenthesised statistics
+and numerals tokenize differently. Measured **13602 vs 13985** on the sibling
+tree's real reading 501, and 1164 vs 1224 on the harness fixture.
+
+The build-time figure is a **published deliverable**, not bookkeeping:
+`publish_feed.read_notes_html()` prints it verbatim into the feed's
+`<content:encoded>` ("... of the N extracted body words are present in the
+reading, in source order") and `read_lane.write_notes()` prints the same number
+into `episodes/NNN/episode-notes.md`. So the documented operator flow — render,
+then `verify --episode NNN` (run 040) — **silently rewrote a sentence in the
+published show notes**, leaving the deployed notes file and the feed item
+disagreeing about the same paper.
+
+Structurally invisible: the fidelity gate compares `script.md` against
+`source.txt`, both written in the same breath, so coverage reads 1.0; it
+*reports* the field without comparing it to anything; and the notes file is
+checked for existence, never for agreement with the feed. This is the sibling's
+run-500 finding, never ported here — the run-053 rule again (a census closes as
+of a date, not forever), and run 032's lane/tree-asymmetry axis.
+
+**Fix.** `record_verdict()` persists only what the gate owns — `verified`,
+`coverage`, `audio_words`, `audio_seconds`, `gate_issues`, `verified_at`, the
+run-040/042 audio digest — with its own counts under `gate_source_words` /
+`gate_spoken_words`. The ambiguous `spoken_words` key is no longer written.
+Backup `read_lane.py.bak-run067`; exactly **one** function changed, **32
+byte-identical** including `verify`, `build`, `register`, `render_episode`,
+`sync_durable_state`, `occupied_numbers`, `next_number`, `write_notes`,
+`normalize_words` and `fetch_pdf_attachment`. `publish_feed.py` and
+`robust_pipeline.py` untouched.
+
+**Nothing granted.** A failing gate still writes `verified: false` with its
+issue list and is still refused by `fidelity_gate()`; truncated audio, a
+dropped source paragraph and 20 words of injected commentary are each still
+refused; no audio at all is refused **while coverage reads 1.0** (word fidelity
+passing is never the episode passing); `record_verdict` still raises rather
+than invent an entry `build()` never made; `verify()` the function is still
+side-effect free; the run-009 durable mirror still writes both registries with
+this show's GUID prefix only.
+
+Latent in the now-familiar way (runs 008/013/031/033/036/040/042/045): no
+reading has ever registered here, so every green check was accurate and blind.
+It fires on the first real Read item's first `verify`.
+
+Proof: repro **32/32** against the unmodified module (the two counts proved
+unequal on a fixture *and* on the sibling's real reading 501, the gate passing,
+the overwrite, the published sentence moving 1164 -> 1224, and the notes file
+left disagreeing), fix proof **67/67** (pre-fix backup still reproduces;
+post-fix the build count survives across ten re-verifies and the two
+deliverables agree; 17 nothing-granted assertions; blast radius). Tests
+`tests/test_read_verdict_provenance.py`, suite **249 -> 269**, load-bearing:
+**7 of 20** fail against the pre-fix module.
+
+Also added the section to `ROBUST_PIPELINE.md` (run 031's lesson — the cron
+reads it every run): 74 lines added, **0 removed**.
+
+Two harness bugs, neither a code defect (run 029's rule). The repro's
+"fidelity_gate never compares it" assertion counted `source_words` occurrences
+and expected 1, but the single line naming the field names it **twice** (once
+writing, once reading) — the sharper assertion is that the only line mentioning
+it is that copy. And a one-sentence omission out of twelve identical paragraphs
+is ~0.5% of the words, which the **0.995 coverage floor tolerates by design**,
+so the gate catches it with the *order* check; asserting "dropped text is a
+coverage refusal" false-failed on its own fixture. Both cases are kept — they
+are two distinct real refusals.
+
+**Lessons.** Never let two measurements share a name across a build/verify
+boundary: when a field is written by two stages, ask whether both mean the same
+thing by it. And this is the write-side twin of runs 042/045 — those found
+advertised fields with **zero readers**; this is a field whose reader is a
+*published sentence*, so an overwrite is a silent edit to a live deliverable
+rather than a stale record. When a registry field is quoted in output a
+subscriber sees, treat it as immutable after the write that owns it.
+
 ## 2026-11-15T09:50Z — run 059 (status/watchdog: healthy was unreachable)
 
 Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
