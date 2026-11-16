@@ -168,8 +168,11 @@ def preproduced_episodes():
     interview 033 would have taken the branch and shipped a FALSE provenance
     statement ("pre-recorded audio provided by David Gagnon ... not reviewed or
     transcribed") while LOSING the fictional-correspondent and AI-generated
-    disclosures the style guide mandates. No gate inspects
-    <content:encoded>, so preflight/verify/coverage all stay green on it.
+    disclosures the style guide mandates. Until run 064 no gate inspected
+    <content:encoded>, so preflight/verify/coverage all stayed green on it;
+    verify_feed()'s `disclosure` check now reads that prose and refuses this
+    provenance statement on any episode whose manifest record does not declare
+    preproduced: true.
 
     Provenance is now a property of the RECORD, declared as manifest
     ``preproduced: true``, so it travels with the episode instead of with its

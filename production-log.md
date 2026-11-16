@@ -1,3 +1,92 @@
+## 2026-11-16T07:0xZ — run 064 (the advertised written disclosure is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's standing lane call, not re-raised).
+Opening audits all clean: `coverage` ok 3/3, `registry` ok (ledger 4 / manifest
+3, the 501 stub), `verify` local and `--remote` ok with no issues, `drift` ok
+with 10/10 identical, `preflight` 001-003 ok, three `reconcile --write` passes
+at 0/0/0, `status.healthy` true, suite 202/202. Stale lock from run 063 with a
+dead owner pid (3250928) and a free advisory lock — the normal steady state —
+cleared with `unlock --force`. Sibling subcommand census re-checked (run 053's
+rule): `register` remains HITL-only by design, nothing else to port. No
+production unit, so the slice closed a latent defect.
+
+**Defect.** `<content:encoded>` is a published deliverable — a podcast client
+renders it as the episode description — and it carries the show's mandated
+**written** disclosures. `publish_feed.py` builds it independently of the
+episode's own files, via `notes_html()` / `read_notes_html()`, branching on
+`preproduced_episodes()` and the read manifest. So the disclosures `preflight()`
+approves in `script.md` / `episode-notes.md` are **not** the ones subscribers
+receive, and nothing read the prose: `robust_pipeline.py` mentioned
+`content:encoded` exactly twice, both inside the block that pulls `notes.md`
+hrefs out of it. The hrefs were probed; the prose around them was not.
+`preproduced_episodes()` admitted it in its own docstring — *"No gate inspects
+<content:encoded>, so preflight/verify/coverage all stay green on it"* — which
+documented the hole instead of closing it (run 042's lesson).
+
+Four reachable classes, each returning **ok: true with an EMPTY issue list**
+from `verify_feed` local AND `--remote`, plus `coverage` and `preflight` — the
+verdict `publish_local()` refuses on and `push_to_remote()`'s wait loop breaks
+on to call a deploy live: an interview advertising the **pre-produced
+provenance** (claims David supplied the audio and nobody reviewed it, while
+LOSING both the fictional-correspondent and AI-generated disclosures); an
+interview advertising the **reading** disclosure (tells listeners Rowan does not
+appear, in an episode built on Host/Rowan dialogue — proved against 002's real
+script, roles host+rowan); a **reading** advertising the synthetic-interview
+disclosure (names Rowan in a verbatim reading, exactly what `read_notes_html()`
+exists to prevent); and the block **emptied or absent** entirely.
+
+Unlike every prior instance of this axis the failure mode is not a broken asset
+but a **false or missing disclosure** shipped under a green gate.
+
+**Fix.** Lane-aware `disclosure` check in `verify_feed()`'s per-item loop,
+reported under `checks` with lane, char count and missing phrases. Lane from the
+same discriminators the rest of the pipeline uses — `is_reading()` for the read
+lane, manifest `preproduced` for supplied audio, a property of the RECORD and
+never of the episode number (run 036). No legacy waiver. Required phrases are
+verbatim substrings of the corresponding `publish_feed.py` branch, kept to
+phrases not paragraphs so editorial rewording cannot false-fail. Backup
+`robust_pipeline.py.bak-run064`.
+
+**Proof.** repro 35/35 against the unmodified module, with the run-058 duration,
+run-057 cover and run-038 empty-description detectors shown still firing as
+controls (so the machinery is present and only the prose was unprobed); fix
+proof 54/54 — pre-fix still reproduces, all four classes refused and named,
+nothing granted (intact tree and intact deploy pass with a verdict identical
+pre/post, `disclosure` the only added check name, a GENUINE `preproduced` record
+still accepted while a declared one missing the statement is refused, and
+run-038/057/058/063/enclosure/run-036/unparseable gates all still bite). Exactly
+one pre-existing function changed, 60 byte-identical including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status` and `deploy_drift`;
+`publish_feed.py` logic untouched. Tests `tests/test_disclosure_gate.py`, suite
+202 -> **220**, load-bearing: 17 of 18 fail against the pre-fix module and the
+restore is md5-identical.
+
+**Twelve pre-existing tests failed on first run — incomplete fixtures, not
+findings** (the run-058 class). Five fixture feeds carried no `<content:encoded>`
+at all, and one carried a block with only a notes href and no disclosure prose.
+Completed them rather than relaxing the gate. Trap worth copying: the first
+completion inserted a block advertising `episode-001-notes.md`, which the
+PRE-EXISTING href probe then demanded on disk — six tests failed with *missing
+local notes file*. That is the older gate working correctly on a fixture now
+advertising an asset it never had; the right block carries the disclosures and no
+href, except in `test_advertised_base_gate.py` where the href is load-bearing for
+run 063, so the disclosures went in alongside it. Harness bug also fixed as a
+harness bug (run 029's rule): scratch trees must copy `quoted_span_gate.py` and
+put the tree's `pipeline/` on `sys.path` at CALL time, since `preflight()`
+imports it lazily by bare name.
+
+Also corrected two now-false `ROBUST_PIPELINE.md` passages asserting nothing
+reads the disclosure prose, and the `publish_feed.py` docstring carrying the
+original admission — a doc that outlives its defect routes the next slice around
+a gate (run 031). Added a section for the fix.
+
+Final sweep: `coverage` 3/3, `registry` ok, `verify` local + `--remote` ok,
+`drift` ok 10/10 identical, `preflight` 001-003 ok, 3x `reconcile --write`
+0/0/0, `status.healthy` true, suite 220/220, `py_compile` clean on all pipeline
+modules, `feed-site/feed.xml` md5 **UNCHANGED** at 9fc23235 and equal to live.
+
 ## 2026-11-15T22:5xZ — run 062 (the advertised `<pubDate>` is gated)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; the 18 items

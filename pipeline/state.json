@@ -1827,16 +1827,43 @@
             }
           ],
           "deadline_at": "2026-11-16T03:01:39.464925Z",
-          "outcome": null,
+          "detail": "run063: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the advertised URL PREFIX had zero readers. Every absolute URL the feed emits (per-item <enclosure url>, channel+item <itunes:image href>, channel <image><url> and <link>) is the only thing a subscriber resolves, and nothing read any of it -- all four urlparse sites reduce to",
+          "finished_at": "2026-11-16T02:48:14.932335Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T02:36:39.464925Z"
+        },
+        {
+          "attempt_id": "501-1794811882",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-16T06:51:22.091218Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-16T06:54:44.325695Z",
+              "detail": "run064: content:encoded disclosure prose has zero readers; repro 35/35 vs unmodified, 4 classes (false preproduced provenance, interview-as-reading, reading-as-interview, empty block) all ok:true empty issues; 058/057/038 controls still fire",
+              "stage": "repro_proved"
+            },
+            {
+              "at": "2026-11-16T07:06:29.424452Z",
+              "detail": "run064: disclosure gate in verify_feed; repro 35/35, proof 54/54, suite 202->220 load-bearing 17/18, feed md5 unchanged, docs corrected",
+              "stage": "fix_proved"
+            }
+          ],
+          "deadline_at": "2026-11-16T07:16:22.091218Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-16T06:51:22.091218Z"
         }
       ],
-      "attempts": 58,
+      "attempts": 59,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T02:47:01Z"
+  "updated_at": "2026-11-16T07:06:29Z"
 }

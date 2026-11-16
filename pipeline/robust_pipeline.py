@@ -1568,6 +1568,48 @@ EXPECTED_ADVERTISED_BASES = (FEED_BASE,)
 FORBIDDEN_ADVERTISED_SUBSTRINGS = ("human-in-the-loop",)
 
 
+# The three mutually exclusive disclosure texts publish_feed.py can place in an
+# item's <content:encoded>, keyed by the lane each one is legitimate for.
+#
+# <content:encoded> is a PUBLISHED DELIVERABLE: it is what a podcast client
+# renders as the episode description, and it carries the show's mandated
+# WRITTEN disclosures. preflight() checks disclosures in script.md and
+# episode-notes.md; this block is built independently by notes_html() /
+# read_notes_html(), which branch on preproduced_episodes() and the read
+# manifest. So the block preflight approves is not the block subscribers
+# receive, and a wrong branch is invisible to every other check.
+#
+# preproduced_episodes() says so in its own docstring -- "No gate inspects
+# <content:encoded>, so preflight/verify/coverage all stay green on it" --
+# which documented the hole rather than closing it (run 042's lesson: when a
+# fix names a property no gate reads, wire a reader in the same slice).
+#
+# Each phrase is a verbatim substring of the corresponding publish_feed.py
+# branch. They are deliberately phrases, not whole paragraphs, so ordinary
+# editorial rewording of the surrounding prose does not false-fail.
+DISCLOSURE_INTERVIEW_REQUIRED = (
+    "synthetic/dramatized interview",
+    "fictional",
+    "AI-generated summary",
+)
+DISCLOSURE_READING_REQUIRED = (
+    "complete automated text-to-speech reading",
+    "read verbatim by a synthetic voice",
+)
+# A reading must NOT carry the synthetic-interview disclosure, and must not
+# name Rowan as a participant -- the style guide bars both, and
+# read_notes_html() exists precisely to emit a separate block instead.
+DISCLOSURE_READING_FORBIDDEN = (
+    "synthetic/dramatized interview",
+    "Rowan is a fictional composite",
+)
+# The pre-produced provenance statement asserts David supplied finished audio.
+# It is true only for an episode whose manifest record declares
+# `preproduced: true`; on a pipeline-rendered interview it is a false
+# provenance claim AND it displaces both mandated interview disclosures.
+DISCLOSURE_PREPRODUCED_PHRASE = "Pre-recorded audio provided by David Gagnon"
+
+
 def _parse_rfc2822(value: str) -> datetime | None:
     """Seconds-resolution datetime for an RFC 2822 date, or None if malformed.
 
@@ -1880,6 +1922,8 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                 f"can resolve them")
         base_check["relative"] = sorted(relative)
         result["checks"].append(base_check)
+        read_manifest_episodes = (load_read_manifest().get("episodes") or {})
+        manifest_episodes = load_manifest().get("episodes", {})
         for item in items:
             # Legacy = what the ledger says, NOT what the feed numbers say.
             # This was keyed on `<itunes:episode> == "1"`, which publish_feed.py
@@ -1893,6 +1937,112 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             # published_and_moved / published_pending_zotero_move family this
             # tree's real episodes use; reuse that one definition.
             legacy_item = _feed_item_number(item) in legacy_numbers
+            # ----------------------------------------------------------------
+            # The advertised WRITTEN disclosure.
+            #
+            # Until run 064 NOTHING read this. robust_pipeline.py mentioned
+            # <content:encoded> exactly twice, both in one block that pulls
+            # notes.md hrefs out of it to probe those files -- so the hrefs
+            # were verified and the prose around them was not. Reachable
+            # classes, all of which returned ok: true with an EMPTY issue list
+            # from verify_feed local AND --remote, plus coverage and preflight:
+            #
+            #   * an interview advertising the PRE-PRODUCED provenance (claims
+            #     David supplied the audio, and LOSES both the
+            #     fictional-correspondent and AI-generated disclosures)
+            #   * an interview advertising the READING disclosure (tells
+            #     listeners Rowan does not appear in an episode built on Rowan
+            #     dialogue)
+            #   * a reading advertising the SYNTHETIC-INTERVIEW disclosure
+            #     (names Rowan in a verbatim reading -- exactly what
+            #     read_notes_html() exists to prevent)
+            #   * the block emptied entirely (every written disclosure gone)
+            #
+            # That verdict is what publish_local() refuses on and what
+            # push_to_remote()'s wait loop breaks on to call a deploy live.
+            # This is the run-042/045/056/057/058/062/063 axis once more: an
+            # advertised field with zero readers. 057 was the cover art, 058
+            # the duration, 062 the pubDate, 063 the URL prefix -- and this is
+            # the one field whose CONTENT is a compliance statement.
+            #
+            # Lane is taken from the same discriminators the rest of the
+            # pipeline uses: is_reading() for the read lane, and the manifest
+            # `preproduced` flag for supplied audio (a property of the RECORD,
+            # not of the episode number).
+            encoded = item.find("content:encoded", {"content": "http://purl.org/rss/1.0/modules/content/"})
+            if encoded is None:
+                encoded = next((x for x in item if x.tag.endswith("encoded")), None)
+            disc_number = _feed_item_number(item)
+            disc_text = (encoded.text or "") if encoded is not None else ""
+            disc_is_read = bool(disc_number) and is_reading(disc_number, read_manifest_episodes)
+            disc_record = manifest_episodes.get(disc_number, {}) if disc_number else {}
+            disc_preproduced = disc_record.get("preproduced") is True
+            disclosure_check = {
+                "name": "disclosure",
+                "episode": disc_number or None,
+                "lane": "read" if disc_is_read else "interview",
+                "preproduced": disc_preproduced,
+                "chars": len(disc_text),
+            }
+            if encoded is None:
+                result["issues"].append(
+                    f"feed item for episode {disc_number or '<unidentified>'} has "
+                    f"no <content:encoded>, so it advertises none of the "
+                    f"written disclosures the style guide mandates")
+            elif not disc_text.strip():
+                result["issues"].append(
+                    f"feed item for episode {disc_number or '<unidentified>'} has "
+                    f"an empty <content:encoded>; this is the block a podcast "
+                    f"client renders and it carries the required written "
+                    f"disclosures")
+            elif disc_is_read:
+                missing = [p for p in DISCLOSURE_READING_REQUIRED if p not in disc_text]
+                for phrase in missing:
+                    result["issues"].append(
+                        f"reading {disc_number} advertises a <content:encoded> "
+                        f"missing the verbatim-reading disclosure phrase "
+                        f"{phrase!r}; publish_feed.read_notes_html() emits it")
+                for phrase in DISCLOSURE_READING_FORBIDDEN:
+                    if phrase in disc_text:
+                        result["issues"].append(
+                            f"reading {disc_number} advertises the "
+                            f"synthetic-interview disclosure ({phrase!r}) in its "
+                            f"<content:encoded>; the style guide bars it on a "
+                            f"verbatim reading, where Rowan does not appear")
+                if DISCLOSURE_PREPRODUCED_PHRASE in disc_text:
+                    result["issues"].append(
+                        f"reading {disc_number} advertises the pre-produced "
+                        f"provenance statement, which is false for a "
+                        f"pipeline-rendered reading")
+                disclosure_check["missing"] = missing
+            elif disc_preproduced:
+                if DISCLOSURE_PREPRODUCED_PHRASE not in disc_text:
+                    result["issues"].append(
+                        f"episode {disc_number} is declared preproduced in the "
+                        f"manifest but its <content:encoded> does not carry the "
+                        f"pre-produced provenance statement")
+            else:
+                missing = [p for p in DISCLOSURE_INTERVIEW_REQUIRED if p not in disc_text]
+                for phrase in missing:
+                    result["issues"].append(
+                        f"episode {disc_number} advertises a <content:encoded> "
+                        f"missing the required interview disclosure phrase "
+                        f"{phrase!r}")
+                if DISCLOSURE_PREPRODUCED_PHRASE in disc_text:
+                    result["issues"].append(
+                        f"episode {disc_number} advertises the pre-produced "
+                        f"provenance statement ('audio provided by David Gagnon "
+                        f"... not reviewed or transcribed') but its manifest "
+                        f"record does not declare preproduced: true; a "
+                        f"pipeline-rendered episode must not claim supplied audio")
+                for phrase in DISCLOSURE_READING_REQUIRED:
+                    if phrase in disc_text:
+                        result["issues"].append(
+                            f"episode {disc_number} is an interview but its "
+                            f"<content:encoded> advertises the verbatim-reading "
+                            f"disclosure ({phrase!r})")
+                disclosure_check["missing"] = missing
+            result["checks"].append(disclosure_check)
             # Required human-readable fields. publish_feed.py reads an
             # interview item's title/description off pipeline/manifest.json and
             # defaults description to '' -- so an episode registered without a
