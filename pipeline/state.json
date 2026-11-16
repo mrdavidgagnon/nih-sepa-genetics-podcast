@@ -1935,7 +1935,9 @@
             }
           ],
           "deadline_at": "2026-11-16T20:09:45.959777Z",
-          "outcome": null,
+          "detail": "run067: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: TWO METRICS SHARED THE NAME source_words across the build/verify boundary. record_verdict() did record['source_words'] = verification.get('source_words'), letting the gate's count overwrite build's -- build/register store extraction['words'] = len(text.split()) over the pypdf",
+          "finished_at": "2026-11-16T20:02:22.415945Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T19:44:45.959777Z"
         }
@@ -1946,5 +1948,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T20:00:36Z"
+  "updated_at": "2026-11-16T20:02:22Z"
 }
