@@ -1602,6 +1602,52 @@ GUID_REQUIRED_PREFIX = "moral-machines-"
 GUID_READING_MARKER = "-reading"
 
 
+# The CHANNEL'S OWN IDENTITY -- the show's name.
+#
+# Runs 056-065 enumerated and gated every advertised PER-ITEM field (the
+# deployed item set, cover art, duration, pubDate, URL base, written
+# disclosure, GUID) and the channel's ASSETS (the artwork href, the image
+# url, index.html's existence and its episode list). Nothing read the
+# channel's identity TEXT, in any of the four slots publish_feed.py writes
+# it to:
+#
+#   <channel><title>              the show's name in every podcast client
+#   <channel><image><title>       the artwork's caption
+#   index.html <title>            the deployed landing page's name
+#   index.html <h1>               the landing page's heading
+#
+# Those are the EXACT FOUR SLOTS run 004 found still reading "Human in the
+# Loop: Moral Machine Edition" after this tree was cloned from the sibling
+# show, and retargeted BY HAND. Nothing has held them since: a retargeting
+# slip, a bad merge from the sibling tree, or an edit to publish_feed.py's
+# hardcoded strings re-ships the sibling show's name to subscribers, and
+# verify_feed() returned ok: true with an EMPTY issue list on it -- the
+# verdict publish_local() refuses on and push_to_remote()'s wait loop breaks
+# on to declare a deploy live.
+#
+# Run 063 installed FORBIDDEN_ADVERTISED_SUBSTRINGS for exactly this
+# cross-show hazard, but scoped it to advertised URLs AND expressed it in
+# SLUG form ("human-in-the-loop"), which cannot match the sibling show's
+# PROSE name ("Human in the Loop") even where it is applied. So the module
+# discusses this hazard by name in two places and held no test on the field
+# that carries it -- run 042's lesson (a property a fix names but no gate
+# reads) on the show's identity rather than on one of its assets.
+#
+# Checked against SHOW_TITLE, the name this tree owns, and against the
+# sibling show's prose name. The channel title and the artwork caption must
+# agree, and the landing page must name the same show as the feed: those two
+# are generated from the same publish_feed.py constants, so a disagreement
+# means a hand-edit or a partial write and should never be found by a
+# listener. No legacy waiver (run 036): an imported episode is still carried
+# by this show's feed, and a feed with the wrong name or no name is wrong for
+# an import too.
+SHOW_TITLE = "Moral Machines"
+# The sibling show's PROSE name, as it would appear in an identity field --
+# distinct from FORBIDDEN_ADVERTISED_SUBSTRINGS' slug form, which is what a
+# URL or a GUID carries.
+FORBIDDEN_SHOW_TITLES = ("Human in the Loop",)
+
+
 # The three mutually exclusive disclosure texts publish_feed.py can place in an
 # item's <content:encoded>, keyed by the lane each one is legitimate for.
 #
@@ -1894,6 +1940,53 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     result["issues"].append(
                         f"remote cover art check failed for {cover_url}: {exc}")
         result["checks"].append(cover_check)
+
+        # The channel's identity text. See SHOW_TITLE above for why this had
+        # zero readers and why a slug-form URL guard does not cover it.
+        channel = root.find("channel")
+        channel_title = ((channel.findtext("title") or "").strip()
+                         if channel is not None else "")
+        channel_image = channel.find("image") if channel is not None else None
+        image_title = ((channel_image.findtext("title") or "").strip()
+                       if channel_image is not None else "")
+        identity_check: dict[str, Any] = {
+            "name": "show_identity",
+            "expected": SHOW_TITLE,
+            "channel_title": channel_title or None,
+            "image_title": image_title or None,
+        }
+        if channel is None:
+            result["issues"].append(
+                "feed has no <channel> element, so it advertises no show "
+                "identity at all")
+        elif not channel_title:
+            result["issues"].append(
+                "feed has an empty channel <title>, so every podcast client "
+                "shows a nameless show")
+        else:
+            if channel_title != SHOW_TITLE:
+                result["issues"].append(
+                    f"feed advertises the channel <title> {channel_title!r}, "
+                    f"but this show is {SHOW_TITLE!r}; the channel title is "
+                    f"the show's name in every subscriber's client")
+            for bad in FORBIDDEN_SHOW_TITLES:
+                if bad.lower() in channel_title.lower():
+                    result["issues"].append(
+                        f"feed advertises the channel <title> "
+                        f"{channel_title!r}, which names the sibling show "
+                        f"{bad!r}; the two shows must never share an identity")
+        if channel_image is not None:
+            if not image_title:
+                result["issues"].append(
+                    "feed's channel <image> has an empty <title>, so the "
+                    "artwork advertises no show name")
+            elif channel_title and image_title != channel_title:
+                result["issues"].append(
+                    f"feed's cover art caption <image><title> "
+                    f"{image_title!r} disagrees with the channel <title> "
+                    f"{channel_title!r}; publish_feed.py writes both, so they "
+                    f"drift only through a hand-edit or a partial write")
+        result["checks"].append(identity_check)
 
         # Advertised URL prefix vs the base this show owns.
         #
@@ -2420,6 +2513,37 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                         "local landing page index.html is not HTML; it "
                         "contains no <html> element")
                 else:
+                    # The page's own identity must name the same show as the
+                    # feed. Both come from publish_feed.py's hardcoded
+                    # strings, so a disagreement is a hand-edit or a partial
+                    # write -- and the page is a deployed deliverable a human
+                    # reader sees first.
+                    for slot, pattern in (("<title>", r"<title>([^<]*)</title>"),
+                                          ("<h1>", r"<h1>([^<]*)</h1>")):
+                        found = re.search(pattern, index_text,
+                                          flags=re.IGNORECASE)
+                        if found is None:
+                            result["issues"].append(
+                                f"landing page index.html has no {slot} "
+                                f"element, so it advertises no show name")
+                            continue
+                        page_name = found.group(1).strip()
+                        index_check[f"page_{slot.strip('<>/')}"] = page_name
+                        if not page_name:
+                            result["issues"].append(
+                                f"landing page index.html has an empty "
+                                f"{slot}, so it advertises no show name")
+                        elif page_name != SHOW_TITLE:
+                            result["issues"].append(
+                                f"landing page index.html advertises "
+                                f"{slot}{page_name!r}, but this show is "
+                                f"{SHOW_TITLE!r}")
+                        for bad in FORBIDDEN_SHOW_TITLES:
+                            if bad.lower() in page_name.lower():
+                                result["issues"].append(
+                                    f"landing page index.html advertises "
+                                    f"{slot}{page_name!r}, which names the "
+                                    f"sibling show {bad!r}")
                     # Every local asset the page links must exist on disk.
                     linked = sorted(set(re.findall(
                         r'href="([^":/?#]+\.(?:mp3|md|xml|html|png|svg))"',

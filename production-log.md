@@ -1,3 +1,94 @@
+## 2026-11-16T15:5xZ — run 066 (the channel's own identity is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's standing lane call — not re-raised).
+Opening audits all healthy and all blind: `coverage` ok 3/3, `registry` ok
+(ledger 4 / manifest 3, the 501 stub), `verify` local and `--remote` ok with no
+issues, `drift` ok, 3× `reconcile --write` at 0/0/0, `status` healthy, suite
+232/232. Stale lock owner pid 3614174 dead and the advisory lock free — the
+normal steady state; cleared with `unlock --force`. No production unit, so the
+slice closed a latent defect.
+
+**Defect.** The **channel's own identity** — the show's name — had zero
+readers, in all four slots `publish_feed.py` writes it to: the channel
+`<title>`, the channel `<image><title>`, `index.html`'s `<title>` and its
+`<h1>`. Runs 056-065 enumerated and gated every advertised **per-item** field
+(deployed item set, cover art, duration, `pubDate`, URL base, written
+disclosure, GUID) and the channel's **assets** (artwork href, image url,
+index.html existence and episode list) — the enumeration was scoped to items
+and assets, and the identity *text* fell outside it. `robust_pipeline.py`
+mentioned both show names only in prose (one comment, one docstring) and held
+no test on either.
+
+Those four slots are the **exact ones run 004** found still reading "Human in
+the Loop: Moral Machine Edition" after this tree was cloned from the sibling
+show, and retargeted **by hand**. Nothing has held them since. Four classes
+proved reachable, each `ok: true` with an **empty issue list** from
+`verify_feed` — `publish_local()`'s gate and `push_to_remote()`'s success
+criterion: the channel title set to the sibling show (the run-004 regression,
+re-shippable today), the channel title emptied entirely, the artwork caption
+drifting from the channel title, and `index.html` naming the sibling show while
+the feed is correct.
+
+**Sharpest part: run 063's guard was one field away AND in the wrong form.**
+`FORBIDDEN_ADVERTISED_SUBSTRINGS` was installed for exactly this cross-show
+hazard, but scoped to advertised URLs *and* expressed as a slug
+(`"human-in-the-loop"`), which cannot match the sibling show's prose name
+(`"Human in the Loop"`) even where it is applied. The repro keeps that as a
+control: the slug guard fires on a cross-show GUID on the same tree while the
+prose name in the title ships green.
+
+**Fix.** New `SHOW_TITLE` / `FORBIDDEN_SHOW_TITLES` constants and a
+`show_identity` check in `verify_feed()` (channel title and artwork caption,
+which must agree), plus the page's own `<title>`/`<h1>` folded into the
+existing `index_page` check. No legacy waiver (run 036). Whitespace is
+stripped; a wrong-case name is refused, because an identity is exact. Backup
+`robust_pipeline.py.bak-run066`; additive only (0 removed lines).
+
+Lesson: **a guard's form must match the field's form.** Run 065 taught that a
+guard installed for a named hazard is not a guard on every field that hazard
+reaches; this adds that the same hazard can need a different *representation*
+per field — a slug in a URL, prose in a title. And when enumerating "every
+advertised field", confirm the enumeration covered the **channel**, not only
+the items.
+
+Proof: repro 34/34 against the **unmodified** module (with the run-065 GUID,
+run-038 empty-description, run-057 cover and run-060 index-page detectors shown
+still firing as controls); proof 54/54 (pre-fix still reproduces; all six
+classes refused and named; nothing granted — intact tree and intact deploy pass
+with a verdict identical pre/post, `show_identity` the only added check name,
+and run-065/063/038/058/057/060/unparseable gates all still bite). Exactly one
+pre-existing function changed, 59 byte-identical incl. `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status`, `deploy_drift`,
+`_feed_item_number`, `_legacy_episode_numbers`; `publish_feed.py` untouched.
+Tests `tests/test_show_identity_gate.py`, suite 232 → **249**, load-bearing:
+15 of 17 fail against the pre-fix module (module restored md5-identical).
+
+Two harness bugs, neither a code defect (run 029's rule): a module copied to a
+temp dir resolves `ROOT` from **its own** location, so the relocated pre-fix
+module died at the first manifest read and returned a truncated check list —
+point every path constant back at the real tree. And run 058's function-slicer
+trap recurred in a new form: a pop-from-the-end loop is stopped by trailing
+**blank** lines, so a module constant block added after a function was still
+attributed to it; cut at the first unindented line after the `def` instead.
+Three more in the repro: two assertions claimed the show names appear nowhere
+in `robust_pipeline.py` when they appear in prose only — the sharper claim, so
+the assertion was corrected rather than the code — and one anchor matched both
+`<title>` elements.
+
+Also corrected two now-false enumerations in `ROBUST_PIPELINE.md` that each
+called an earlier field "the last unread dimension/field" (run 031: a doc that
+outlives a fix routes the next slice around the gate; the cron reads this file
+every run) and appended a section for the fix. Removals in that edit are
+exactly the five reworded lines.
+
+Final state: `coverage` 3/3, `registry` ok, `verify` local + `--remote` ok,
+`drift` ok, preflight 001-003 ok, 3× `reconcile` 0/0/0, `status` healthy, suite
+249/249. `feed-site/feed.xml` md5 **unchanged** and equal to live;
+`manifest.json` unchanged; `state.json` moved only by this run's own attempt
+checkpoints.
+
 ## 2026-11-16T11:3xZ — run 065 (the advertised GUID value is gated)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still

@@ -1583,11 +1583,14 @@ its `ok` flag is `push_to_remote()`'s success criterion.
 
 This is the run-042/045/057 axis once more: an advertised per-item field with
 zero readers. The cover art (057) and the deployed item set (056) were the
-previous two; the `<pubDate>` followed in run 062 below. The last unread
-dimension was not a field but a field's **value**: every advertised URL was
-only ever read for its final path segment, gated in run 063 below.
+previous two; the `<pubDate>` followed in run 062 below. A field's **value**
+was a further dimension: every advertised URL was only ever read for its final
+path segment, gated in run 063, and the `<guid>` value in run 065. Run 066
+then found the enumeration had been scoped to *items* the whole time -- the
+**channel's own identity**, the show's name, was unread in all four slots.
 **Enumerate every field the artifact advertises and confirm each is probed --
-then ask whether the probe reads the whole value.**
+then ask whether the probe reads the whole value, and whether the enumeration
+covered the channel as well as the items.**
 
 
 ## The advertised `<pubDate>` is gated (run 062)
@@ -1709,7 +1712,8 @@ false-fail.
 
 This is the **run-042/045/056/057/058/062/063 axis** once more — an advertised
 field with zero readers. 056 was the deployed item set, 057 the cover art, 058
-the duration, 062 the `pubDate`, 063 the URL prefix, 065 the GUID; this is the
+the duration, 062 the `pubDate`, 063 the URL prefix, 065 the GUID, 066 the
+show's own name; this is the
 one field whose
 **content is a compliance statement**, so the failure mode is not a broken asset
 but a false or missing legal disclosure shipped under a green gate. The
@@ -1897,3 +1901,81 @@ episode-number set moved, with no issue naming the GUID; and a case expecting
 recovers the number. Both were corrected to claim only what is true, which is
 what makes the finding precise: the defect is that no issue ever **names** the
 GUID.
+
+## The channel's own identity -- the show name -- is gated (run 066)
+
+`verify_feed()` checks the show's name in all four slots `publish_feed.py`
+writes it to, reported under `checks` as `name: "show_identity"` (channel title
+and artwork caption) and as `page_title` / `page_h1` on the existing
+`index_page` check:
+
+```
+<channel><title>            the show's name in every podcast client
+<channel><image><title>     the artwork's caption
+index.html <title>          the deployed landing page's name
+index.html <h1>             the landing page's heading
+```
+
+Until run 066 **nothing read any of them**. Runs 056-065 enumerated and gated
+every advertised **per-item** field (deployed item set, cover art, duration,
+`pubDate`, URL base, written disclosure, GUID) and the channel's **assets**
+(the artwork href, the image url, `index.html`'s existence and its episode
+list) -- the enumeration was scoped to items and assets, and the channel's
+identity *text* fell outside it. `robust_pipeline.py` mentioned both show names
+only in prose (one comment, one docstring) and held no test on either.
+
+Those four slots are the **exact ones run 004** found still reading *"Human in
+the Loop: Moral Machine Edition"* after this tree was cloned from the sibling
+show, and retargeted **by hand**. Nothing has held them since, so a retargeting
+slip, a bad merge from the sibling tree, or an edit to `publish_feed.py`'s
+hardcoded strings re-ships the sibling show's name to subscribers. Classes
+proved reachable, each `ok: true` with an **empty issue list** from
+`verify_feed` -- `publish_local()`'s gate and `push_to_remote()`'s success
+criterion:
+
+- the channel `<title>` set to the sibling show (the run-004 regression)
+- the channel `<title>` emptied entirely (a nameless feed)
+- the `<image><title>` drifting from the channel title
+- `index.html` naming the sibling show while the feed is correct
+
+**Run 063's guard was one field away and in the wrong form.**
+`FORBIDDEN_ADVERTISED_SUBSTRINGS` was installed for exactly this cross-show
+hazard, but scoped to advertised URLs *and* expressed as a slug
+(`"human-in-the-loop"`), which cannot match the sibling show's prose name
+(`"Human in the Loop"`) even where it is applied. Hence a separate
+`FORBIDDEN_SHOW_TITLES` beside `SHOW_TITLE`. No legacy waiver (run 036): a feed
+with the wrong name or no name is wrong for an import too. Surrounding
+whitespace is stripped; a wrong-case name is refused, because an identity is
+exact.
+
+The lesson that generalizes: **a guard's form must match the field's form.**
+Run 065 taught that a guard installed for a named hazard is not a guard on
+every field that hazard reaches; this adds that the same hazard can need a
+different *representation* per field -- a slug in a URL, prose in a title. And
+when enumerating "every advertised field", check that the enumeration covered
+the **channel** and not only the items.
+
+Latent as always: `coverage` 3/3, `registry` ok, `verify --remote` ok, `drift`
+ok and 3x `reconcile` 0/0/0 were all accurate and all blind.
+
+Harnesses `/opt/data/tmp/mm_show_identity_repro_run066.py` (34/34 against the
+**unmodified** module, with the run-065 GUID, run-038 empty-description,
+run-057 cover and run-060 index-page detectors shown still firing as controls)
+and `mm_show_identity_proof_run066.py` (54/54: pre-fix still reproduces; all
+six classes refused and named; nothing granted -- intact tree and intact deploy
+pass with a verdict identical pre/post, `show_identity` the only added check
+name, and run-065/063/038/058/057/060/unparseable gates all still bite; exactly
+one pre-existing function changed, 59 byte-identical incl. `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status`, `deploy_drift`,
+`_feed_item_number`, `_legacy_episode_numbers`; `publish_feed.py` untouched).
+Tests `tests/test_show_identity_gate.py` (suite 232 -> **249**), load-bearing:
+15 of 17 fail against the pre-fix module.
+
+Two harness bugs, neither a code defect (run 029's rule): a module copied to a
+temp dir resolves `ROOT` from **its own** location, so the relocated pre-fix
+module died at the first manifest read and returned a truncated check list --
+point every path constant back at the real tree. And run 058's function-slicer
+trap recurred in a new form: a pop-from-the-end loop is stopped by trailing
+**blank** lines, so a module constant block added after a function was still
+attributed to it; cut at the first unindented line after the `def` instead.

@@ -1886,13 +1886,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T11:09:47.433043Z"
+        },
+        {
+          "attempt_id": "501-1794842744",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-16T15:25:44.589841Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-16T15:35:52.168631Z",
+              "detail": "run066: show-identity gate added to verify_feed; repro 34/34, proof 54/54, tests 17 (suite 232->249)",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-16T15:50:44.589841Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-16T15:25:44.589841Z"
         }
       ],
-      "attempts": 60,
+      "attempts": 61,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T11:24:20Z"
+  "updated_at": "2026-11-16T15:36:01Z"
 }
