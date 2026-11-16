@@ -1881,7 +1881,9 @@
             }
           ],
           "deadline_at": "2026-11-16T11:34:47.433043Z",
-          "outcome": null,
+          "detail": "run065: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the advertised <guid> VALUE had zero readers. A GUID is the subscriber's permanent identity (clients key played/downloaded state on it; a collision makes one episode shadow another, which this show's docs call a hard bug). Every consumer reduced it to something else: _feed_it",
+          "finished_at": "2026-11-16T11:24:20.840541Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T11:09:47.433043Z"
         }
@@ -1892,5 +1894,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T11:23:28Z"
+  "updated_at": "2026-11-16T11:24:20Z"
 }
