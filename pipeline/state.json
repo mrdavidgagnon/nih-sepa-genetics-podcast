@@ -1903,7 +1903,9 @@
             }
           ],
           "deadline_at": "2026-11-16T15:50:44.589841Z",
-          "outcome": null,
+          "detail": "run066: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the CHANNEL'S OWN IDENTITY -- the show's name -- had zero readers in all four slots publish_feed.py writes it to (channel <title>, channel <image><title>, index.html <title>, index.html <h1>). Runs 056-065 enumerated every advertised PER-ITEM field and the channel's ASSETS; t",
+          "finished_at": "2026-11-16T15:38:30.996005Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T15:25:44.589841Z"
         }
@@ -1914,5 +1916,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T15:36:01Z"
+  "updated_at": "2026-11-16T15:38:30Z"
 }
