@@ -4367,3 +4367,107 @@ can carry that hazard, not every FORM of it. Runs 063 and 066 each added a
 representation of the cross-show identity guard and each scoped it to the
 fields in front of them; the hazard's third slot sat green between them. A
 guard's coverage is the product of its form and its scope — ask both.
+
+## 2026-11-17T17:xxZ — run 072 (each item's own artwork and rating are gated)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; 18 items
+still unfiled in the parent `YF84AUZK`, David's standing lane call, not
+re-raised). Opening audits all green: `coverage` 3/3, `registry` ok (ledger 4 /
+manifest 3), `verify` local+remote ok with no issues, `drift` ok, preflight
+001-003 ok, three `reconcile --write` passes at 0/0/0, `status healthy: true`,
+suite 358/358. Stale lock owned by run 071's dead pid 206556 — the normal
+steady state; both liveness tests (dead `/proc`, free `flock`) confirmed free
+before unlocking. No production unit, so the slice closed a latent defect.
+
+**Defect.** `publish_feed.py` emits **two per-item fields on every item, in
+both lanes** — `<itunes:explicit>false</itunes:explicit>` and
+`<itunes:image href="{BASE_URL}/cover.png"/>` — and `verify_feed()` read
+**neither per-item value**. Ten single-fault classes each shipped `ok: true`
+with an **empty issue list**, and an intact feed was proven
+**indistinguishable** from all ten (same check-name list, same verdict). That
+verdict is what `publish_local()` refuses on and what `push_to_remote()`'s wait
+loop breaks on to declare a deploy live. `coverage` and `registry` are blind by
+construction — neither reads the feed's artwork or rating.
+
+**Why three guards all stopped short, which is the finding.** Run 057 gated
+cover art, but `cover_art` is a document-wide **set union** over every image
+reference, resolved to filenames and probed for existence: it answers *"do the
+referenced files exist"*, not *"does each item advertise artwork"*. Strip the
+reference from every item and the surviving `<image><url>` repopulates the
+union, the check still reports `files: ['cover.png']`, and the feed ships green;
+its only absence arm (`not cover_refs`) is one an aggregate can satisfy while
+every item is bare. Run 063 gated an advertised URL's base and absoluteness — a
+*missing* URL advertises nothing and is outside that guard by construction. Run
+070 gated the **channel's** `<itunes:explicit>`; the item field of the same name
+had no reader, which is run 032's lane-asymmetry axis on the feed's two levels,
+exactly as run 067 found for `<description>`.
+
+**Scope established by control, not asserted.** A *repointed* href naming a
+file that does not exist is **already** refused pre-fix, incidentally, because a
+new filename enters run 057's union and the existence probe fires. The genuinely
+unreadable classes are a reference that is **absent**, one that is **empty**,
+and one that **disagrees while naming a file that exists** — so the agreement
+test is proved against artwork present on disk, where no existence probe can be
+what refuses it.
+
+**Fix.** An `item_artwork_rating` check immediately after `episode_number` in
+`verify_feed()`'s per-item loop, plus an `ITEM_ARTWORK_REQUIRED` constants block
+beside `EPISODE_TYPE_*`. **Form matched per field** (runs 066/068/070): artwork
+is an asset *reference*, so present, non-empty and agreeing with the channel's
+(both written from one `BASE_URL` constant, so a disagreement means a hand-edit
+or a partial write); the rating is an *enumerated* value, compared exactly
+against the closed set with a wrong **case** refused separately and named as
+case, because a rating is machine-read. No legacy waiver (run 036). A consistent
+artwork **rename** across channel and items still passes, so ordinary edits do
+not false-fail. Backup `robust_pipeline.py.bak-run072`; additive **+139/-0**
+non-blank lines.
+
+**FIXTURES COMPLETED, NOT GATE RELAXED** (runs 058/070's trap). 18 pre-existing
+tests across **eight** suites built an item carrying duration, ordinal,
+episodeType and an artwork href but **no `<itunes:explicit>`** — a feed
+`publish_feed.py` cannot produce. Completed with exactly the value it emits,
+each edit asserting its anchor count and that every original non-blank line
+survives in its extended form; two suites needed a second pass because their
+templates interpolate `{encoded}` / `{item_cover}` placeholders rather than a
+literal artwork tag.
+
+Proof: repro **71/71** against the unmodified module (zero readers by
+comment-stripped inspection, ten mutation classes green, indistinguishability,
+runs 057/063/070 kept as **controls**); proof **68/68** (pre-fix still
+reproduces; every class refused and **NAMED**; the wrong-case rating named as
+case and *not* as an out-of-vocabulary value; nothing granted — the real live
+feed's verdict identical pre/post, the consistent rename still passes, no legacy
+waiver, runs 071/070/069/066/065/063/058/038 all still bite, three
+`verify_feed` passes mutate zero bytes). Exactly **1** pre-existing function
+changed, **69 byte-identical** including `preflight`, `review_gate`,
+`fidelity_gate`, `feed_coverage`, `publish_local`, `push_to_remote`,
+`reconcile`, `registry_audit`, `status` and `deploy_drift`; `publish_feed.py`
+untouched. Tests `tests/test_item_artwork_gate.py` 19 tests, suite
+**358 -> 377**, load-bearing (**15/19 fail** against the pre-fix module; module
+restored md5-identical afterwards). `ROBUST_PIPELINE.md` +79/-0.
+
+Final state: `coverage` 3/3, `registry` ok, `verify` local+remote ok, `drift`
+ok, preflight 001-003 ok, 3x `reconcile` 0/0/0, `status healthy: true`, suite
+377/377. `feed-site/feed.xml` md5 **UNCHANGED** `9fc23235` and byte-identical to
+the live feed.
+
+**Lesson. An aggregate check cannot gate a per-element requirement.** Run 057's
+census recorded cover art as *gated*, and it is — as a set of files. The
+question it structurally cannot answer is whether each item carries the
+reference, because unioning the references is exactly what discards which
+element supplied them. When a check collects a property across a document and
+validates the collection, ask what it would say if **one contributor went
+missing**. So pair run 071's "ask what level you enumerated at" with "ask
+whether the check is **per-element or aggregate**": the same field name can be
+gated at one granularity and unread at the other.
+
+**Harness note (run 029's rule, five times in one slice).** Five first-run
+failures were the harness's fault and none a code defect: two substring censuses
+over `tests/` matched fixture lines that *emit* the tag and function *names*
+containing it (census the **assertion**, not the substring); an artwork mutation
+with a bare `replace(..., 1)` hit the **channel's** `<itunes:image>`, the first
+in the document, instead of an item's (anchor on `</item>`); a "pre-fix is
+silent" case was already caught incidentally by run 057's existence probe; and a
+`cover_art.advertised == []` assertion ignored the `<image><url>` fallback that
+repopulates the union. Harnesses `/opt/data/tmp/mm_item_artwork_repro_run072.py`
+and `mm_item_artwork_proof_run072.py`.

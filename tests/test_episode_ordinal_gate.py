@@ -40,7 +40,7 @@ FIXTURE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 </channel></rss>
 """
 
-ITEM = """      <item><title>Ep {num}</title><description>Desc {num}</description><guid isPermaLink="false">moral-machines-episode-{num}</guid><enclosure url="{base}/episode-{num}.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate>{episode}{etype}<itunes:duration>00:00:02</itunes:duration><itunes:image href="{base}/cover.png"/><content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p><p><a href="episode-{num}-notes.md">Full source notes, evidence limitations, and direct Zotero links</a></p>]]></content:encoded></item>"""
+ITEM = """      <item><title>Ep {num}</title><description>Desc {num}</description><guid isPermaLink="false">moral-machines-episode-{num}</guid><enclosure url="{base}/episode-{num}.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate>{episode}{etype}<itunes:duration>00:00:02</itunes:duration><itunes:explicit>false</itunes:explicit><itunes:image href="{base}/cover.png"/><content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p><p><a href="episode-{num}-notes.md">Full source notes, evidence limitations, and direct Zotero links</a></p>]]></content:encoded></item>"""
 
 INDEX_HTML = (
     '<!doctype html><html lang="en"><head><meta charset="utf-8">'

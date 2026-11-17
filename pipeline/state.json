@@ -2048,13 +2048,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T12:59:52.146309Z"
+        },
+        {
+          "attempt_id": "501-1794935986",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T17:19:46.248185Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T17:23:56.228555Z",
+              "detail": "run072 repro 71/71 vs unmodified module: per-ITEM <itunes:image> and <itunes:explicit> have zero readers. publish_feed.py emits both on every item in BOTH lanes; 10 mutation classes ship ok:true with an EMPTY issue list and are INDISTINGUISHABLE from an intact feed. cover_art (run 057) is a document-wide SET UNION so a removed/emptied item ref is repopulated by the surviving <image><url>; a REPOIN",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-17T17:32:00.300819Z",
+              "detail": "run072: item_artwork_rating gate added. repro 71/71, proof 68/68, tests 19 (suite 358->377, 15/19 load-bearing), fixtures completed in 8 suites not gate relaxed. docs +79/-0, log appended.",
+              "stage": "fix_proven"
+            }
+          ],
+          "deadline_at": "2026-11-17T17:44:46.248185Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T17:19:46.248185Z"
         }
       ],
-      "attempts": 66,
+      "attempts": 67,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T13:15:53Z"
+  "updated_at": "2026-11-17T17:32:00Z"
 }

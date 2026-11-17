@@ -1695,6 +1695,52 @@ EPISODE_TYPE_REQUIRED = "full"
 EPISODE_TYPE_ALLOWED = ("full", "trailer", "bonus")
 
 
+# The ITEM'S OWN ARTWORK REFERENCE and CONTENT RATING -- the per-item
+# <itunes:image href=...> and <itunes:explicit>.
+#
+# publish_feed.py emits BOTH on every item it writes, in BOTH lanes (the
+# interview line and the reading line each end
+# `...<itunes:explicit>false</itunes:explicit><itunes:image href="{BASE_URL}/
+# cover.png"/></item>`), and until run 072 nothing read either per-item value.
+#
+# Why the two existing guards do not reach them, which is the whole finding:
+#
+#   * Run 057 gated COVER ART, and its check is a document-wide SET UNION over
+#     every image reference in the feed, which it then resolves to FILENAMES
+#     and probes for existence. So it answers "do the referenced files exist",
+#     not "does each item advertise artwork". Delete the artwork reference from
+#     every item -- or from every item AND the channel -- and the surviving
+#     <image><url> text node repopulates the union, the check still reports
+#     files=['cover.png'], and the feed ships green. Its only absence arm is
+#     `not cover_refs`, which an aggregate can satisfy while every item is
+#     bare. A REPOINTED href IS caught, incidentally, because a new filename
+#     enters the union; a REMOVED or EMPTIED one puts nothing in the set to
+#     probe. An aggregate check cannot gate a per-element requirement.
+#   * Run 063 gated an advertised URL's BASE and its absoluteness, so a
+#     cross-show or relative item artwork URL is refused -- but a MISSING one
+#     advertises no URL at all and is outside that guard by construction.
+#   * Run 070 gated the CHANNEL's <itunes:explicit>. The item field of the
+#     SAME NAME had no reader: run 032's lane-asymmetry axis rotated onto the
+#     feed's two levels, exactly as run 067 found for <description>.
+#
+# That verdict is what publish_local() refuses on and what push_to_remote()'s
+# wait loop breaks on to declare a deploy live, and an intact feed was proven
+# INDISTINGUISHABLE from all ten mutation classes (same check-name list, same
+# ok, same empty issue list).
+#
+# Form matched per field (runs 066/068/070). Artwork is an ASSET REFERENCE, so
+# it is required to be present, non-empty and -- because run 057 probes files
+# and run 063 probes bases -- to name the same artwork the channel advertises,
+# which is a cross-field AGREEMENT test rather than a second opinion about
+# which file is correct. The rating is an ENUMERATED value, so it is compared
+# exactly against a closed set, with a wrong CASE refused separately and named
+# as case (a rating is machine-read, like the syndication envelope in run 071).
+#
+# No legacy waiver (run 036): an imported item is rendered by the same clients,
+# and an item with no artwork or a wrong rating is wrong for an import too.
+ITEM_ARTWORK_REQUIRED = True
+
+
 # The CHANNEL'S OWN IDENTITY -- the show's name.
 #
 # Runs 056-065 enumerated and gated every advertised PER-ITEM field (the
@@ -2858,6 +2904,101 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     f"pipeline produces is {EPISODE_TYPE_REQUIRED!r}, and a "
                     f"{type_text!r} is pinned outside the numbered run")
             result["checks"].append(ordinal_check)
+            # ----------------------------------------------------------------
+            # The item's OWN ARTWORK REFERENCE and CONTENT RATING.
+            #
+            # See ITEM_ARTWORK_REQUIRED above for why run 057's cover_art
+            # union, run 063's URL-base guard and run 070's channel rating
+            # gate all leave these two per-item fields unread.
+            #
+            # Refusals, each naming the episode:
+            #   * no <itunes:image> on the item, or an empty/whitespace href
+            #   * an item href naming artwork other than the channel's
+            #   * no <itunes:explicit> on the item, or an empty value
+            #   * a rating outside the specified vocabulary
+            #   * a rating inside the vocabulary but not this show's
+            #   * a rating differing from this show's only in CASE
+            art_episode = ordinal_episode or ""
+            art_node = next(
+                (x for x in item if x.tag.endswith("image")), None)
+            art_href = ((art_node.get("href") or "").strip()
+                        if art_node is not None else "")
+            rating_node = next(
+                (x for x in item if x.tag.endswith("explicit")), None)
+            rating_text = ((rating_node.text or "").strip()
+                           if rating_node is not None else "")
+            # The channel's artwork, for the agreement test. Taken from the
+            # channel's own <itunes:image href> with the <image><url> text
+            # node as the documented fallback, both of which publish_feed.py
+            # writes from one BASE_URL constant.
+            channel_art = ""
+            _chan = root.find("channel")
+            if _chan is not None:
+                _chan_img = next(
+                    (x for x in _chan if x.tag.endswith("image")
+                     and (x.get("href") or "").strip()), None)
+                if _chan_img is not None:
+                    channel_art = (_chan_img.get("href") or "").strip()
+                if not channel_art:
+                    _legacy_img = _chan.find("image")
+                    if _legacy_img is not None:
+                        channel_art = (_legacy_img.findtext("url") or "").strip()
+            artwork_check: dict[str, Any] = {
+                "name": "item_artwork_rating",
+                "episode": art_episode or None,
+                "artwork": art_href or None,
+                "channel_artwork": channel_art or None,
+                "rating": rating_text,
+                "lane": "read" if guid_is_read else "interview",
+            }
+            if art_node is None:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises no "
+                    f"<itunes:image>, which publish_feed.py emits on every "
+                    f"item; a client with no per-item artwork shows a blank "
+                    f"tile in a now-playing view")
+            elif not art_href:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises an "
+                    f"empty <itunes:image> href, so its artwork resolves to "
+                    f"nothing")
+            elif channel_art and art_href != channel_art:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises the "
+                    f"artwork {art_href!r} while the channel advertises "
+                    f"{channel_art!r}; publish_feed.py writes both from one "
+                    f"BASE_URL constant, so a disagreement means a hand-edit "
+                    f"or a partial write")
+            if rating_node is None:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises no "
+                    f"<itunes:explicit>, which publish_feed.py emits as "
+                    f"{REQUIRED_ITUNES_EXPLICIT!r} on every item; an item "
+                    f"with no rating inherits nothing and is treated as "
+                    f"unrated by a strict client")
+            elif not rating_text:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises an "
+                    f"empty <itunes:explicit>, so it advertises no content "
+                    f"rating")
+            elif rating_text.lower() not in ALLOWED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises the "
+                    f"<itunes:explicit> {rating_text!r}, which is not one of "
+                    f"{list(ALLOWED_ITUNES_EXPLICIT)}")
+            elif rating_text.lower() != REQUIRED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises the "
+                    f"<itunes:explicit> {rating_text!r}, but every episode "
+                    f"this pipeline produces is "
+                    f"{REQUIRED_ITUNES_EXPLICIT!r}")
+            elif rating_text != REQUIRED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed item for episode {art_episode} advertises the "
+                    f"<itunes:explicit> {rating_text!r}, which differs from "
+                    f"{REQUIRED_ITUNES_EXPLICIT!r} only in case; a rating is "
+                    f"machine-read")
+            result["checks"].append(artwork_check)
             # Required human-readable fields. publish_feed.py reads an
             # interview item's title/description off pipeline/manifest.json and
             # defaults description to '' -- so an episode registered without a
