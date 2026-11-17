@@ -2026,13 +2026,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T08:45:32.250520Z"
+        },
+        {
+          "attempt_id": "501-1794920392",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T12:59:52.146309Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T13:14:53.083093Z",
+              "detail": "run071: syndication envelope gated (rss version, both xmlns, enclosure type, guid isPermaLink); repro 43/47, proof 83/83, suite 340->358",
+              "stage": "defect_closed"
+            }
+          ],
+          "deadline_at": "2026-11-17T13:24:52.146309Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T12:59:52.146309Z"
         }
       ],
-      "attempts": 65,
+      "attempts": 66,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T08:58:31Z"
+  "updated_at": "2026-11-17T13:14:53Z"
 }

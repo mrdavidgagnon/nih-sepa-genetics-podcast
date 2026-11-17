@@ -1541,6 +1541,68 @@ PUBDATE_TOLERANCE_SECONDS = 120.0
 # the deploy, not for scheduling.
 PUBDATE_FUTURE_ALLOWANCE_SECONDS = 86400.0
 
+# The feed's SYNDICATION ENVELOPE -- the five fields that tell a podcast
+# client what KIND of document this is and how to read it:
+#
+#   <rss version="2.0">     the syndication format itself
+#   xmlns:itunes=...        binds every itunes: field in the feed
+#   xmlns:content=...       binds <content:encoded>, the published show notes
+#   <enclosure type=...>    the audio MIME type, per item
+#   <guid isPermaLink=...>  whether the GUID is an identity or a URL, per item
+#
+# Until run 071 NOTHING read any of them. robust_pipeline.py did not contain
+# the strings "audio/mpeg", "isPermaLink" or "xmlns" on a single code line;
+# the two namespace URIs appeared only as ET lookup helpers, never as a value
+# compared against what the feed declares.
+#
+# This is the run-042/045/056/057/058/062/063/064/065/069/070 axis -- an
+# advertised field with zero readers -- but one level ABOVE every previous
+# instance. Those runs enumerated the channel's and the items' fields; this is
+# the envelope that decides whether a client can read those fields at all. The
+# previous runs asked "is each advertised value correct?"; the unread question
+# was "is this document still an RSS 2.0 podcast feed?".
+#
+# Each class ships ok: true with an EMPTY issue list -- the verdict
+# publish_local() refuses on and push_to_remote()'s wait loop breaks on to
+# declare a deploy live:
+#
+#   * version "1.0" or absent: not RSS 2.0, so a strict client rejects the
+#     whole feed and every episode disappears at once.
+#   * xmlns:content bound to a wrong URI: <content:encoded> lands in a foreign
+#     namespace, so the show notes -- a PUBLISHED DELIVERABLE carrying both
+#     mandated disclosures -- are invisible to every client. Run 064's gate
+#     stays green through it, because that gate finds the element with an
+#     `x.tag.endswith("encoded")` portability fallback, which matches
+#     regardless of which namespace the tag resolved into. A fallback written
+#     for robustness masks the namespace defect exactly.
+#   * xmlns:itunes bound to a wrong URI is caught only INCIDENTALLY, by run
+#     068's channel-attribution arm reporting the fields as ABSENT when they
+#     are present under the wrong namespace -- a true refusal with a
+#     misleading message. Named here so the diagnosis points at the binding.
+#   * type="video/mp4" or absent: a podcast client refuses to play an
+#     enclosure whose declared type it does not handle, so the episode is
+#     listed and unplayable.
+#   * isPermaLink="true" (or absent, which RSS DEFAULTS to true): the client
+#     reinterprets "moral-machines-episode-001" as a relative URL instead of a
+#     permanent identity. GUID identity is what this show's docs call a hard
+#     bug when it collides; this is the same field's OTHER half.
+#
+# FORM MATCHED PER FIELD (runs 066/068/070): all five are enumerated values
+# from a closed set, so each is compared EXACTLY against the one legal value
+# and a wrong-case variant is refused separately and named -- an envelope is
+# machine-read, so "AUDIO/MPEG" is not a copy edit, it is a different string
+# to a parser.
+#
+# No legacy waiver (run 036): the envelope is a property of the syndication
+# format, not of any episode, so no episode's provenance can exempt it.
+RSS_REQUIRED_VERSION = "2.0"
+RSS_REQUIRED_NAMESPACES = {
+    "itunes": "http://www.itunes.com/dtds/podcast-1.0.dtd",
+    "content": "http://purl.org/rss/1.0/modules/content/",
+}
+ENCLOSURE_REQUIRED_TYPE = "audio/mpeg"
+GUID_REQUIRED_ISPERMALINK = "false"
+
 # Every absolute URL the feed advertises -- the per-item <enclosure url>, the
 # channel and per-item <itunes:image href>, the channel <image><url> and
 # <link> -- is the only thing a subscriber ever resolves. Until run 063 NOTHING
@@ -1991,6 +2053,131 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
         if len(guids) != len(set(guids)):
             result["issues"].append("duplicate RSS GUID")
         result["checks"].append({"name": "feed_parse", "ok": True, "items": len(items)})
+        # ------------------------------------------------------------------
+        # The SYNDICATION ENVELOPE (run 071). See RSS_REQUIRED_VERSION above
+        # for why each of these five fields had zero readers and what each
+        # defect costs a subscriber. Enumerated values, compared exactly,
+        # wrong case named separately, no legacy waiver (run 036).
+        # ------------------------------------------------------------------
+        envelope_check: dict[str, Any] = {"name": "syndication_envelope"}
+        raw_feed_text = xml.decode("utf-8", errors="replace") if isinstance(xml, bytes) else str(xml)
+
+        # --- <rss version> : enumerated -----------------------------------
+        root_tag = root.tag.split("}")[-1]
+        envelope_check["root_element"] = root_tag
+        if root_tag != "rss":
+            result["issues"].append(
+                f"feed's root element is <{root_tag}>, not <rss>; a podcast "
+                f"client reads nothing from a document that is not an RSS feed")
+        version = root.get("version")
+        envelope_check["rss_version"] = version
+        envelope_check["expected_rss_version"] = RSS_REQUIRED_VERSION
+        if version is None:
+            result["issues"].append(
+                "feed's <rss> element declares no version attribute, so a "
+                "strict client cannot confirm it is RSS 2.0 and may reject "
+                "the whole feed, taking every episode with it")
+        elif version.strip() != RSS_REQUIRED_VERSION:
+            if version.strip().casefold() == RSS_REQUIRED_VERSION.casefold():
+                result["issues"].append(
+                    f"feed declares <rss version={version!r}>, which differs "
+                    f"from {RSS_REQUIRED_VERSION!r} only in case; a version "
+                    f"string is machine-read, so it must match exactly")
+            else:
+                result["issues"].append(
+                    f"feed declares <rss version={version!r}>, not "
+                    f"{RSS_REQUIRED_VERSION!r}; this pipeline emits RSS 2.0 "
+                    f"and a client reading another version loses every item")
+
+        # --- the declared namespace bindings : enumerated -----------------
+        #
+        # ElementTree discards the prefix->URI map, so the DECLARED binding is
+        # read from the raw bytes. That is the right source anyway: the
+        # question is what the published feed tells a client, and a client
+        # reads the declaration, not this tree's lookup helpers.
+        declared: dict[str, str] = {}
+        for prefix, uri in re.findall(
+                r'xmlns:([A-Za-z_][\w.-]*)\s*=\s*"([^"]*)"', raw_feed_text[:4096]):
+            declared.setdefault(prefix, uri)
+        envelope_check["declared_namespaces"] = declared
+        envelope_check["expected_namespaces"] = dict(RSS_REQUIRED_NAMESPACES)
+        for prefix, expected_uri in sorted(RSS_REQUIRED_NAMESPACES.items()):
+            actual = declared.get(prefix)
+            if actual is None:
+                result["issues"].append(
+                    f"feed declares no xmlns:{prefix} binding, so every "
+                    f"{prefix}: element in it is unbound and the feed does "
+                    f"not parse as XML at all")
+            elif actual.strip() != expected_uri:
+                if actual.strip().casefold() == expected_uri.casefold():
+                    result["issues"].append(
+                        f"feed binds xmlns:{prefix} to {actual!r}, which "
+                        f"differs from {expected_uri!r} only in case; a "
+                        f"namespace URI is compared byte-for-byte by every "
+                        f"parser, so it must match exactly")
+                else:
+                    result["issues"].append(
+                        f"feed binds xmlns:{prefix} to {actual!r} instead of "
+                        f"{expected_uri!r}; every {prefix}: field in the feed "
+                        f"lands in a foreign namespace and is invisible to a "
+                        f"client, while this tree's own endswith() lookups "
+                        f"still find it and stay green")
+
+        # --- per-item <enclosure type> and <guid isPermaLink> -------------
+        enclosure_types: dict[str, Any] = {}
+        permalink_flags: dict[str, Any] = {}
+        for item in items:
+            number = _feed_item_number(item) or (item.findtext("guid") or "?").strip()
+            enclosure_el = item.find("enclosure")
+            if enclosure_el is not None:
+                declared_type = enclosure_el.get("type")
+                enclosure_types[number] = declared_type
+                if declared_type is None:
+                    result["issues"].append(
+                        f"episode {number} advertises an <enclosure> with no "
+                        f"type attribute, so a podcast client cannot tell the "
+                        f"file is audio and may refuse to play it")
+                elif declared_type.strip() != ENCLOSURE_REQUIRED_TYPE:
+                    if declared_type.strip().casefold() == ENCLOSURE_REQUIRED_TYPE:
+                        result["issues"].append(
+                            f"episode {number} advertises enclosure type "
+                            f"{declared_type!r}, which differs from "
+                            f"{ENCLOSURE_REQUIRED_TYPE!r} only in case; a MIME "
+                            f"type is machine-read, so it must match exactly")
+                    else:
+                        result["issues"].append(
+                            f"episode {number} advertises enclosure type "
+                            f"{declared_type!r}, not {ENCLOSURE_REQUIRED_TYPE!r}; "
+                            f"every episode this pipeline renders is an mp3, so "
+                            f"the item is listed and unplayable")
+            guid_el = item.find("guid")
+            if guid_el is not None:
+                flag = guid_el.get("isPermaLink")
+                permalink_flags[number] = flag
+                if flag is None:
+                    result["issues"].append(
+                        f"episode {number} advertises a <guid> with no "
+                        f"isPermaLink attribute, which RSS DEFAULTS to true, "
+                        f"so a client reads the episode's permanent identity "
+                        f"as a relative URL")
+                elif flag.strip() != GUID_REQUIRED_ISPERMALINK:
+                    if flag.strip().casefold() == GUID_REQUIRED_ISPERMALINK:
+                        result["issues"].append(
+                            f"episode {number} advertises isPermaLink="
+                            f"{flag!r}, which differs from "
+                            f"{GUID_REQUIRED_ISPERMALINK!r} only in case; the "
+                            f"attribute is machine-read, so it must match exactly")
+                    else:
+                        result["issues"].append(
+                            f"episode {number} advertises isPermaLink={flag!r}; "
+                            f"this show's GUIDs are opaque identities, not URLs, "
+                            f"and a client that resolves one re-delivers or "
+                            f"shadows the episode")
+        envelope_check["enclosure_types"] = enclosure_types
+        envelope_check["permalink_flags"] = permalink_flags
+        envelope_check["expected_enclosure_type"] = ENCLOSURE_REQUIRED_TYPE
+        envelope_check["expected_ispermalink"] = GUID_REQUIRED_ISPERMALINK
+        result["checks"].append(envelope_check)
         # ------------------------------------------------------------------
         # Cover art. The feed advertises it in five slots -- the channel's
         # <itunes:image href>, the channel's <image><url>, and one

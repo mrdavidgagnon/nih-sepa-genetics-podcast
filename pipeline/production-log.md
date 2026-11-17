@@ -1,3 +1,81 @@
+## 2026-11-17T13:xxZ — run 071 (the syndication envelope had no reader)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK — David's standing lane call, not re-raised).
+Opening audits all healthy and all blind: `coverage` ok 3/3, `registry` ok
+(ledger 4 / manifest 3, the 501 stub), `verify` local and `--remote` ok with no
+issues (remote 3/3, both drift lists empty), three `reconcile --write` passes at
+0/0/0, preflight 001-003 ok, `status` healthy, suite 340/340. Stale lock owner
+pid 87034 dead and the advisory lock free — the normal steady state; cleared
+with `unlock --force`. No production unit, so the slice closed a latent defect.
+
+**Defect.** The feed's **syndication envelope** — the five fields that decide
+what kind of document this is and whether a client can read the rest of it —
+had **zero readers**. `audio/mpeg`, `isPermaLink` and `xmlns` appeared on no
+code line at all (comment- and docstring-stripped); the two namespace URIs
+existed only as `ET` lookup helpers, never compared against what the feed
+declares. Eight single-fault classes each shipped `ok: true` with an **empty
+issue list**, and the intact feed was proved indistinguishable from every one.
+
+This is one **level above** every prior instance of the axis. Runs
+042/045/056/057/058/062/063/064/065/069/070 enumerated the channel's and the
+items' advertised fields and run 070 called that census closed; none asked
+whether the document is still an RSS 2.0 podcast feed.
+
+**Sharpest part.** Run 064's notes gate finds its element with an
+`x.tag.endswith("encoded")` portability fallback, which matches in **any**
+namespace — so binding `xmlns:content` to a foreign URI leaves that gate green
+while a real client sees no show notes. A fallback written for robustness
+cannot gate the property it tolerates. A *removed* `xmlns` is already caught
+(ElementTree *unbound prefix*) and a wrong `xmlns:itunes` only **incidentally**,
+by run 068 reporting present-but-misbound fields as absent — a true refusal
+with a misleading message. Both are now named at the binding.
+
+**Fix.** A `syndication_envelope` check after `feed_parse`, form matched per
+field (runs 066/068/070): enumerated values compared exactly, wrong case
+refused separately and named as case, bindings read from the raw feed bytes
+since ElementTree discards the prefix map. No legacy waiver (run 036) — an
+envelope is a property of the format, not of an episode. Backup
+`robust_pipeline.py.bak-run071`; exactly one pre-existing function changed, 60
+byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local`/`push_to_remote`/`reconcile`/`registry_audit`/`status`;
+`publish_feed.py` untouched; additive only +187/-0.
+
+**Proof.** repro 43/47 vs the unmodified module (the four non-passes were
+**harness bugs, not code defects** — run 029 — and both were confirmed by
+direct ElementTree probes before anything was touched); proof **83/83**
+(pre-fix reproduces all eight classes plus all eight indistinguishability
+pairs; every class refused and named; three case variants named as case;
+nothing granted — real live feed verdict **identical** pre/post, runs
+069/065/038/063/066/068/058/057 all still bite, a ledger-`published` import
+still refused, 3x `verify_feed` mutates zero bytes).
+
+Tests `tests/test_syndication_envelope_gate.py` 18 tests, suite 340 → **358**,
+load-bearing 16/18 fail pre-fix (module then restored md5-identical). Also
+completed `test_remote_feed_drift.py`'s fixture, which declared no
+`xmlns:itunes` — a feed publish_feed.py cannot produce (run 058's trap); that
+test is scoped to "deployed feed" substrings so it passed either way, so this
+is hygiene, not a gate relaxation.
+
+Two fixture traps, both the fixture's fault: an mp3 of magic bytes plus zeros
+is correctly refused by run 058's duration gate (use `_make_mp3()` from
+`test_duration_gate.py`), and a relocated module resolves `ROOT` from its own
+location so the pre-fix run looked like it *refused* six classes (run 066).
+
+Final: `coverage` 3/3, `registry` ok, `verify` local+remote ok, preflight
+001-003 ok, 3x `reconcile` 0/0/0, `status` healthy, suite **358/358**,
+`feed-site/feed.xml` md5 **UNCHANGED** 9fc23235 and == live, items 3/3.
+
+**Lesson.** Runs 063/066/070 established that a guard's coverage is the product
+of its *form* and its *scope*. This adds the **level**: an enumeration of
+"every advertised field" is bounded by the layer you enumerated at, so before
+calling such a census closed, ask what the artifact declares about **itself**
+— format, version, namespace bindings — since those are not values a client
+renders but the preconditions for reading every other field. Corollary: when a
+reader finds a field through a tolerant lookup (`endswith`, a regex, a
+casefold), that reader is structurally unable to gate the property the
+tolerance ignores.
+
 ## 2026-11-17T00:2xZ — run 068 (the channel's own BLURB had no reader)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still

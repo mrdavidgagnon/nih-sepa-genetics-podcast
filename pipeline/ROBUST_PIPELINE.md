@@ -2250,3 +2250,99 @@ green, because run 063's guard is slug-form scoped to advertised URLs and run
 066's is scoped to the title fields.
 
 Tests: `tests/test_channel_attribution_gate.py` (30 tests, suite 310 -> 340).
+
+## The SYNDICATION ENVELOPE had no reader (fixed run 071)
+
+Runs 042/045/056/057/058/062/063/064/065/069/070 each closed one advertised
+field with zero readers, and run 070 declared the channel's attribution block
+the last of them. All of those asked **"is each advertised value correct?"**.
+The unread question sat one level above: **"is this document still an RSS 2.0
+podcast feed, and can a client read those fields at all?"**
+
+Five fields carry that answer and `robust_pipeline.py` read none of them. The
+strings `audio/mpeg`, `isPermaLink` and `xmlns` appeared on **no code line**
+(comment- and docstring-stripped); the two namespace URIs appeared only as
+`ET` lookup helpers, never as a value compared against what the feed declares.
+
+| field | what it decides | cost of a defect |
+|---|---|---|
+| `<rss version="2.0">` | the syndication format | a strict client rejects the whole feed; every episode disappears at once |
+| `xmlns:itunes` | binds every `itunes:` field | all iTunes metadata unbound |
+| `xmlns:content` | binds `<content:encoded>` | the show notes — a published deliverable carrying both mandated disclosures — invisible to every client |
+| `<enclosure type>` | the audio MIME type | the item is listed and **unplayable** |
+| `<guid isPermaLink>` | identity vs URL | the GUID is resolved as a relative URL, re-delivering or shadowing the episode |
+
+Eight single-fault classes each shipped `ok: true` with an **empty issue
+list** — the verdict `publish_local()` refuses on and `push_to_remote()`'s
+wait loop breaks on to declare a deploy live — and the intact feed was proved
+**indistinguishable** from every one of them (identical check-name list,
+identical verdict).
+
+**Sharpest part: a portability fallback masked the namespace defect exactly.**
+Run 064's gate finds the notes element with
+`next((x for x in item if x.tag.endswith("encoded")), None)`, which matches
+**whatever namespace the tag resolved into**. So binding `xmlns:content` to a
+foreign URI leaves run 064 green while a real client reading the content
+module sees no notes at all. A fallback written for robustness is a reader
+that cannot detect the thing it is reading around.
+
+By contrast a **removed** `xmlns` is already detected — ElementTree refuses
+the document with *unbound prefix* — and a **wrong** `xmlns:itunes` is caught
+only **incidentally**, by run 068's arm reporting the attribution fields as
+*absent* when they are present under the wrong namespace: a true refusal with
+a misleading message. Both are now named at the binding.
+
+Fixed with a `syndication_envelope` check after `feed_parse`, **form matched
+per field** (runs 066/068/070): all five are enumerated values from a closed
+set, so each is compared exactly and a wrong-case variant is refused
+**separately and named as a case defect** — an envelope is machine-read, so
+`AUDIO/MPEG` is not a copy edit, it is a different string to a parser. The
+declared bindings are read from the **raw feed bytes**, because ElementTree
+discards the prefix→URI map and because the question is what the published
+feed tells a client, not what this tree's helpers resolve. **No legacy waiver**
+(run 036): the envelope is a property of the syndication format, not of any
+episode, so no episode's provenance can exempt it.
+
+Healthy state here is `rss_version: "2.0"`, both namespaces exact, and
+`audio/mpeg` / `false` for all three items.
+
+**Lesson.** Runs 063/066/070 taught that a guard's coverage is the product of
+its *form* and its *scope*. This adds the **level**: an enumeration of
+"every field the artifact advertises" is still bounded by the layer you
+enumerated at. Before calling such a census closed, ask what the artifact
+declares about **itself** — its format, its version, its namespace bindings —
+because those fields are not values a client renders, they are the
+preconditions for reading any of the others. And when a reader uses a
+tolerant fallback (`endswith`, a regex, a casefold) to find a field, that
+reader is structurally unable to gate the property the fallback tolerates;
+grep for tolerant lookups and gate what they ignore.
+
+Harnesses `/opt/data/tmp/mm_envelope_repro_run071.py` (43/47 against the
+**unmodified** module — the four non-passes were **harness bugs, not code
+defects** (run 029): a removed `xmlns` is a genuine parse refusal and a wrong
+`xmlns:itunes` is caught incidentally, both confirmed by direct ElementTree
+probes) and `mm_envelope_proof_run071.py` (83/83: pre-fix still reproduces all
+eight classes and all eight indistinguishability pairs; every class refused and
+named; three case variants named as case; nothing granted — the real live feed's
+verdict is **identical** pre/post, runs 069/065/038/063/066/068/058/057 all
+still bite, a ledger-`published` import is still refused, and three
+`verify_feed` passes mutate zero bytes; exactly **one** pre-existing function
+changed with **60** byte-identical including `preflight`, `review_gate`,
+`fidelity_gate`, `feed_coverage`, `publish_local`, `push_to_remote`,
+`reconcile`, `registry_audit` and `status`; `publish_feed.py` untouched;
+additive only +187/-0).
+
+Tests `tests/test_syndication_envelope_gate.py` (18 tests, suite 340 → **358**),
+load-bearing: **16 of 18 fail** against the pre-fix module, which was then
+restored md5-identical.
+
+**Two fixture traps, both the fixture's fault (run 029 again).** The first
+draft's mp3 was magic bytes plus zeros, which run 058's duration gate correctly
+refuses as *"the right byte length but not playable audio"* — the fixture built
+a feed this pipeline cannot produce; reuse `test_duration_gate.py`'s
+`_make_mp3()` helper instead. And the proof harness initially reported the
+pre-fix module **refusing** six classes: a module copied into scratch resolves
+`ROOT` from **its own** location (run 066's trap), so every registry read died
+and `verify_feed` returned a truncated check list that reads exactly like "the
+fix added checks". Repoint `ROOT`/`PIPELINE`/`LEDGER_PATH`/`MANIFEST_PATH`/
+`READ_MANIFEST_PATH` at the real tree after loading a relocated copy.
