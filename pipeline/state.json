@@ -2043,7 +2043,9 @@
             }
           ],
           "deadline_at": "2026-11-17T13:24:52.146309Z",
-          "outcome": null,
+          "detail": "run071: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the feed's SYNDICATION ENVELOPE had ZERO readers -- <rss version>, xmlns:itunes, xmlns:content, <enclosure type>, <guid isPermaLink>. Strings 'audio/mpeg'/'isPermaLink'/'xmlns' appeared on NO code line (comment-stripped); the two namespace URIs existed only as ET lookup helpe",
+          "finished_at": "2026-11-17T13:15:53.435369Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T12:59:52.146309Z"
         }
@@ -2054,5 +2056,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T13:14:53Z"
+  "updated_at": "2026-11-17T13:15:53Z"
 }
