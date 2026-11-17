@@ -1994,7 +1994,9 @@
             }
           ],
           "deadline_at": "2026-11-17T04:47:32.837844Z",
-          "outcome": null,
+          "detail": "run069: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the advertised ORDINAL and KIND had ZERO readers. <itunes:episode> (what every client sorts the feed by and prints beside the title) and <itunes:episodeType> (full/trailer/bonus; Apple pins a trailer OUTSIDE the numbered run) are emitted by publish_feed.py on every item in BO",
+          "finished_at": "2026-11-17T04:44:07.911984Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T04:22:32.837844Z"
         }
@@ -2005,5 +2007,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T04:43:10Z"
+  "updated_at": "2026-11-17T04:44:07Z"
 }
