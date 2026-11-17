@@ -2435,3 +2435,72 @@ the **channel's** `<itunes:image>`, the first in the document, instead of an
 item's (anchor on `</item>`); a "pre-fix is silent" case was already caught
 incidentally by run 057's existence probe; and a `cover_art.advertised == []`
 assertion ignored the `<image><url>` fallback that repopulates the union.
+
+## The channel's navigation and artwork container had no reader (run 073)
+
+`verify_feed()` now carries a `channel_navigation` check over the four fields
+`publish_feed.py` writes from its one `BASE_URL` constant and nothing read:
+
+    <channel><link>{BASE_URL}/</link>
+    <channel><image><url>{BASE_URL}/cover.png</url>
+                    <link>{BASE_URL}/</link></image>
+
+These are not prose a client renders; they are how a subscriber **leaves** the
+feed. `<channel><link>` is the show's homepage -- every client's "visit
+website" affordance and the canonical page a directory submission records.
+`<image><url>` is the RSS 2.0 artwork a non-iTunes client renders, and
+`<image><link>` is where that artwork clicks through to.
+
+Nine single-fault classes each shipped `ok: true` with an **empty issue list**
+-- the verdict `publish_local()` refuses on and `push_to_remote()`'s wait loop
+breaks on to declare a deploy live -- and an intact feed was
+**indistinguishable** from all nine.
+
+Why three nearby guards stopped short:
+
+- `cover_art` (run 057) is a document-wide **set union** over image refs,
+  reduced to `Path(urlparse(h).path).name` and probed for existence. A removed
+  or emptied `<image><url>` is repopulated by the surviving per-item
+  `<itunes:image href>`, so the union still reports `files=['cover.png']`.
+- `show_identity` (run 066) guards its whole artwork arm behind
+  `if channel_image is not None`, so a wholly **absent** `<image>` block skips
+  every artwork check rather than failing one.
+- `advertised_base` (run 063) checks an advertised URL's **host and
+  directory**. A `<link>` repointed at this show's own `episode-001.mp3` is
+  under the expected base and passes; an absent `<link>` advertises nothing
+  and is outside that guard by construction.
+
+**Scope by control.** Two nearby mutations are *already* refused pre-fix and
+the tests record which guard does it: a wrong-**case** host by run 063's base
+check, and an `<image><url>` naming a file that does not exist by run 057's
+existence probe. So the genuinely unreadable classes are absent / empty /
+disagrees-while-naming-a-file-that-**exists** -- which is why the agreement
+test writes a second real artwork file first.
+
+Form matched per field (runs 066/068/070/071): a URL is compared as a URL with
+the trailing slash normalized (no client distinguishes the two forms), and a
+wrong-case homepage is refused separately and **named as case**, because a
+homepage is machine-read by every directory. No legacy waiver (run 036): a
+dead homepage and missing RSS artwork are wrong for an import too.
+
+Backup `pipeline/robust_pipeline.py.bak-run073`; exactly one pre-existing
+function changed (`verify_feed`), 63 byte-identical including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit` and `status`;
+`publish_feed.py` untouched; additive only +142/-0. Tests
+`tests/test_channel_navigation_gate.py` 18 tests, suite 377 -> **395**,
+load-bearing (14/18 fail against the pre-fix module, then restored
+md5-identical).
+
+Seven pre-existing fixtures across seven suites declared no channel `<link>`
+and/or no `<image><link>` -- feeds `publish_feed.py` cannot produce. Those
+were **completed, not the gate relaxed** (the run-058/070 trap), and one of
+them had the wrong homepage form (`{base}/index.html`).
+
+**Lesson.** This is run 072's per-element-vs-aggregate finding with the
+granularity **inverted**. Run 072 found a field gated in aggregate and unread
+per element; here the per-element arm **exists** and is skipped by its own
+presence guard, while the aggregate arm is satisfied by a *different*
+element's contribution. A presence guard written to avoid a crash is
+structurally unable to gate presence -- so when a check is wrapped in
+`if X is not None`, ask what reports X being None.

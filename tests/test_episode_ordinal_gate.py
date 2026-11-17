@@ -35,7 +35,7 @@ import robust_pipeline as rp  # noqa: E402
 BASE = "https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast"
 
 FIXTURE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
-<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><language>en-us</language><copyright>© 2026 Field Day Lab, UW–Madison</copyright><itunes:author>Field Day Lab, UW–Madison</itunes:author><itunes:explicit>false</itunes:explicit><itunes:type>episodic</itunes:type><itunes:category text="Education"/><link>{base}/</link><description>Playful, dramatized interviews synthesizing research on machine ethics.</description><itunes:image href="{base}/cover.png"/><image><url>{base}/cover.png</url><title>Moral Machines</title></image>
+<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><language>en-us</language><copyright>© 2026 Field Day Lab, UW–Madison</copyright><itunes:author>Field Day Lab, UW–Madison</itunes:author><itunes:explicit>false</itunes:explicit><itunes:type>episodic</itunes:type><itunes:category text="Education"/><link>{base}/</link><description>Playful, dramatized interviews synthesizing research on machine ethics.</description><itunes:image href="{base}/cover.png"/><image><url>{base}/cover.png</url><title>Moral Machines</title><link>{base}/</link></image>
 {items}
 </channel></rss>
 """

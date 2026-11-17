@@ -1,3 +1,88 @@
+## 2026-11-17T21:5xZ — run 073 (the channel's navigation + artwork container had no reader)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK — David's standing lane call, not re-raised).
+Opening audits all healthy and all blind: `coverage` ok 3/3, `registry` ok
+(ledger 4 / manifest 3, the 501 stub), `verify` local and `--remote` ok with no
+issues, three `reconcile --write` passes at 0/0/0, preflight 001-003 ok,
+`status` healthy, suite 377/377. Stale lock owner pid 330531 dead and the
+advisory lock free — the normal steady state; cleared with `unlock --force`.
+No production unit, so the slice closed a latent defect.
+
+**Defect.** The channel's **structural navigation and artwork container** —
+`<channel><link>`, the `<channel><image>` block itself, and its `<url>` and
+`<link>` children — had **zero readers**. These are not fields a client renders
+as prose; they are how a subscriber *leaves* the feed: the homepage every
+client exposes as "visit website" and every directory records as canonical, the
+RSS 2.0 artwork a non-iTunes client renders, and that artwork's click-through.
+Nine single-fault classes each shipped `ok: true` with an **empty issue list**
+and an intact feed was **indistinguishable** from all nine.
+
+**Why three nearby guards stopped short.** `cover_art` (057) is a document-wide
+set union over image refs reduced to filenames and probed for existence, so a
+removed or emptied `<image><url>` is repopulated by the surviving per-item
+`<itunes:image href>` and `files=['cover.png']` is still reported.
+`show_identity` (066) guards its entire artwork arm behind
+`if channel_image is not None`, so a wholly **absent** `<image>` block *skips*
+every artwork check rather than failing one. `advertised_base` (063) checks an
+advertised URL's host and directory, so a `<link>` repointed at this show's own
+`episode-001.mp3` is under the expected base and passes, and an absent `<link>`
+advertises nothing and is outside that guard by construction.
+
+**Scope by control.** Two nearby mutations are ALREADY refused pre-fix, and the
+tests record which guard does it rather than claiming credit: a wrong-**case**
+host by run 063's base check, and an `<image><url>` naming a file that does not
+exist by run 057's existence probe. Both initially read as proof-harness
+failures and were **harness scope errors, not code defects** (run 029). So the
+genuinely unreadable classes are absent / empty /
+disagrees-while-naming-a-file-that-**exists**, which is why the agreement test
+is proved against a second artwork file written to disk first.
+
+**Fix.** A `channel_navigation` check after `show_identity`, form matched per
+field (066/068/070/071): the homepage compared as a URL with the trailing slash
+normalized (no client distinguishes them), wrong case refused separately and
+named as case because a homepage is machine-read by every directory; the
+`<image>` block's presence reported rather than skipped; `<image><url>` required
+present, non-empty and in agreement with the channel `<itunes:image href>`
+(both from one `BASE_URL`, so disagreement is a hand-edit or partial write);
+`<image><link>` required to be the homepage. No legacy waiver (036) — a dead
+homepage and missing RSS artwork are wrong for an import too. Backup
+`robust_pipeline.py.bak-run073`; exactly **one** pre-existing function changed,
+63 byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/
+`feed_coverage`/`publish_local`/`push_to_remote`/`reconcile`/`registry_audit`/
+`status`; `publish_feed.py` untouched; additive only **+142/-0**.
+
+**Proof.** repro 32/33 vs the unmodified module (the one non-pass was a harness
+control bug that *revealed* a ninth class — the wholly absent `<image>` block —
+so the harness error widened the finding); proof **69/71 then clean on the
+corrected scope** (pre-fix reproduces every class; each refused and named;
+wrong case named as case; nothing granted — real live feed verdict **identical**
+pre/post, trailing-slash-free homepage still passes, a consistent artwork rename
+across channel+items still passes, a ledger-`published` import still refused,
+and runs 071/072/070/066/068/063/065 all still bite; 3x `verify_feed` mutates
+zero bytes).
+
+Tests `tests/test_channel_navigation_gate.py` 18 tests, suite 377 -> **395**,
+load-bearing **14/18 fail pre-fix** (module then restored md5-identical). Seven
+pre-existing fixtures across seven suites declared no channel `<link>` and/or no
+`<image><link>` — feeds `publish_feed.py` cannot produce — and one carried the
+wrong homepage form `{base}/index.html`. **Fixtures completed, gate not
+relaxed** (the 058/070 trap); backups `tests/*.py.bak-run073`.
+
+Final: `coverage` 3/3, `registry` ok, `verify` local+remote ok, preflight
+001-003 ok, 3x `reconcile` 0/0/0, `status` healthy, suite **395/395**,
+`feed-site/feed.xml` md5 **UNCHANGED** 9fc23235 and == live, items 3/3.
+
+**Lesson.** Run 072's per-element-vs-aggregate finding with the granularity
+**inverted**. Run 072 found a field gated in aggregate and unread per element;
+here the per-element arm **exists** and is skipped by its own presence guard,
+while the aggregate arm is satisfied by a *different* element's contribution.
+A presence guard written to avoid a crash is structurally unable to gate
+presence — so when a check sits inside `if X is not None`, ask what reports X
+being None. Corollary for the advertised-field census: ask not only what level
+you enumerated at (071) and whether the check is per-element or aggregate
+(072), but whether the field is one a listener **reads** or one they **follow**.
+
 ## 2026-11-16T15:5xZ — run 066 (the channel's own identity is gated)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still

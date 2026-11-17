@@ -2075,13 +2075,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T17:19:46.248185Z"
+        },
+        {
+          "attempt_id": "501-1794951298",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T21:34:58.571108Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T21:43:08.914072Z",
+              "detail": "run073 channel_navigation gate + 18 tests, suite 395",
+              "stage": "defect_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-17T21:59:58.571108Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T21:34:58.571108Z"
         }
       ],
-      "attempts": 67,
+      "attempts": 68,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T17:32:59Z"
+  "updated_at": "2026-11-17T21:43:14Z"
 }

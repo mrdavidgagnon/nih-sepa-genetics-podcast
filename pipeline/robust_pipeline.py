@@ -1780,6 +1780,50 @@ ITEM_ARTWORK_REQUIRED = True
 # listener. No legacy waiver (run 036): an imported episode is still carried
 # by this show's feed, and a feed with the wrong name or no name is wrong for
 # an import too.
+# The channel's STRUCTURAL NAVIGATION and ARTWORK CONTAINER -- <channel><link>,
+# the <channel><image> block itself, and its <url> and <link> children.
+#
+# These are not fields a client renders as prose; they are how a subscriber
+# LEAVES the feed. <channel><link> is the show's homepage: every podcast client
+# exposes it as the "visit website" affordance, and a directory submission uses
+# it as the show's canonical page. <image><url> is the RSS 2.0 artwork a
+# non-iTunes client renders, and <image><link> is where that artwork clicks
+# through to.
+#
+# Until run 073 NOTHING read any of them. Every reader reduced them to
+# something else, or skipped them entirely:
+#
+#   verify_feed() cover_art   a document-wide SET UNION over image refs,
+#                             reduced to Path(urlparse(h).path).name and
+#                             probed for existence -- so a REMOVED or EMPTIED
+#                             <image><url> is repopulated by the surviving
+#                             per-item <itunes:image href> and the union still
+#                             reports files=['cover.png']
+#   verify_feed() show_identity  guards its whole artwork arm behind
+#                             `if channel_image is not None`, so a wholly
+#                             ABSENT <image> block skips every artwork check
+#                             rather than failing one
+#   verify_feed() advertised_base  collects node.text for any tag ending in
+#                             "url"/"link" and checks the HOST and DIRECTORY --
+#                             so a <link> repointed at this show's own
+#                             episode-001.mp3 is under the expected base and
+#                             passes, and an ABSENT <link> advertises nothing
+#                             and is outside that guard by construction
+#
+# This is run 072's per-element-vs-aggregate lesson with the granularity
+# inverted. Run 072 found a field gated in aggregate and unread per element;
+# here the per-element arm EXISTS and is skipped by its own presence guard,
+# while the aggregate arm is satisfied by a DIFFERENT element's contribution.
+# A presence guard written to avoid a crash is structurally unable to gate
+# presence.
+#
+# publish_feed.py emits all four unconditionally from its one BASE_URL
+# constant, so any disagreement is a hand-edit or a partial write. No legacy
+# waiver (run 036): a dead homepage and missing RSS artwork are wrong for an
+# import too, and a waiver is a gate with the sign flipped.
+SHOW_HOMEPAGE = FEED_BASE + "/"
+
+
 SHOW_TITLE = "Moral Machines"
 # The sibling show's PROSE name, as it would appear in an identity field --
 # distinct from FORBIDDEN_ADVERTISED_SUBSTRINGS' slug form, which is what a
@@ -2392,6 +2436,104 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                             f"placeholder token {token!r}, so it was never "
                             f"written for this show")
         result["checks"].append(identity_check)
+
+        # The channel's STRUCTURAL NAVIGATION and ARTWORK CONTAINER. See
+        # SHOW_HOMEPAGE above for why all four had zero readers, and why
+        # neither cover_art's union nor show_identity's presence-guarded
+        # artwork arm nor advertised_base's host check reaches any of them.
+        #
+        # Form matched per field (runs 066/068/070/071): a URL is compared as
+        # a URL (trailing slash normalized, since no client distinguishes
+        # them), with a wrong-case host refused separately and NAMED as case,
+        # because a homepage is machine-read by every directory.
+        nav_check: dict[str, Any] = {"name": "channel_navigation",
+                                     "expected_homepage": SHOW_HOMEPAGE}
+        if channel is not None:
+            def _same_url(a: str, b: str) -> bool:
+                return a.rstrip("/") == b.rstrip("/")
+
+            link_el = channel.find("link")
+            channel_link = ((link_el.text or "").strip()
+                            if link_el is not None else "")
+            nav_check["channel_link"] = channel_link or None
+            if link_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <link> element, so the show "
+                    "advertises no homepage and every client's 'visit "
+                    "website' affordance is dead")
+            elif not channel_link:
+                result["issues"].append(
+                    "feed has an empty channel <link>, so the show "
+                    "advertises no homepage")
+            elif not _same_url(channel_link, SHOW_HOMEPAGE):
+                if _same_url(channel_link.casefold(),
+                             SHOW_HOMEPAGE.casefold()):
+                    result["issues"].append(
+                        f"feed advertises the channel <link> "
+                        f"{channel_link!r}, which differs from "
+                        f"{SHOW_HOMEPAGE!r} only in case; a homepage URL is "
+                        f"machine-read by every podcast directory")
+                else:
+                    result["issues"].append(
+                        f"feed advertises the channel <link> "
+                        f"{channel_link!r}, but this show's homepage is "
+                        f"{SHOW_HOMEPAGE!r}; the channel link is where every "
+                        f"subscriber and directory is sent for the show")
+
+            # The <image> block's PRESENCE is the gap show_identity's
+            # `if channel_image is not None` arm skips rather than reports.
+            nav_check["image_present"] = channel_image is not None
+            if channel_image is None:
+                result["issues"].append(
+                    "feed's <channel> has no <image> element, so the show "
+                    "advertises no RSS 2.0 artwork and a non-iTunes client "
+                    "renders it with no cover at all")
+            else:
+                img_url_el = channel_image.find("url")
+                img_url = ((img_url_el.text or "").strip()
+                           if img_url_el is not None else "")
+                nav_check["image_url"] = img_url or None
+                itunes_href = ""
+                itunes_img = channel.find(
+                    "{http://www.itunes.com/dtds/podcast-1.0.dtd}image")
+                if itunes_img is not None:
+                    itunes_href = (itunes_img.get("href") or "").strip()
+                nav_check["channel_itunes_image"] = itunes_href or None
+                if img_url_el is None:
+                    result["issues"].append(
+                        "feed's channel <image> has no <url> element, so the "
+                        "artwork container advertises no image file")
+                elif not img_url:
+                    result["issues"].append(
+                        "feed has an empty channel <image><url>, so the "
+                        "artwork container advertises no image file")
+                elif itunes_href and not _same_url(img_url, itunes_href):
+                    result["issues"].append(
+                        f"feed's channel <image><url> {img_url!r} disagrees "
+                        f"with the channel <itunes:image href> "
+                        f"{itunes_href!r}; publish_feed.py writes both from "
+                        f"one BASE_URL, so they drift only through a "
+                        f"hand-edit or a partial write")
+
+                img_link_el = channel_image.find("link")
+                img_link = ((img_link_el.text or "").strip()
+                            if img_link_el is not None else "")
+                nav_check["image_link"] = img_link or None
+                if img_link_el is None:
+                    result["issues"].append(
+                        "feed's channel <image> has no <link> element, so "
+                        "its artwork clicks through to nothing")
+                elif not img_link:
+                    result["issues"].append(
+                        "feed has an empty channel <image><link>, so its "
+                        "artwork clicks through to nothing")
+                elif not _same_url(img_link, SHOW_HOMEPAGE):
+                    result["issues"].append(
+                        f"feed's channel <image><link> {img_link!r} is not "
+                        f"this show's homepage {SHOW_HOMEPAGE!r}; "
+                        f"publish_feed.py writes it from the same BASE_URL "
+                        f"as the channel <link>")
+        result["checks"].append(nav_check)
 
         # The channel's ATTRIBUTION and CLASSIFICATION block. See
         # SHOW_LANGUAGE above for why all six fields had zero readers, what
