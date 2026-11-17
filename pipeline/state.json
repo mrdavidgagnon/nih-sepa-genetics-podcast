@@ -2021,7 +2021,9 @@
             }
           ],
           "deadline_at": "2026-11-17T09:10:32.250520Z",
-          "outcome": null,
+          "detail": "run070: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the channel's whole ATTRIBUTION/CLASSIFICATION block had ZERO readers and ZERO tests -- <language>, <copyright>, <itunes:author>, <itunes:type>, <itunes:category>, channel <itunes:explicit>, all six written by publish_feed.py on every feed. 20 single-fault classes each shippe",
+          "finished_at": "2026-11-17T08:58:31.667495Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T08:45:32.250520Z"
         }
@@ -2032,5 +2034,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T08:57:59Z"
+  "updated_at": "2026-11-17T08:58:31Z"
 }
