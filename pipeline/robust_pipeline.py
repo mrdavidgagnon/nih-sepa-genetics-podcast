@@ -1647,6 +1647,53 @@ SHOW_TITLE = "Moral Machines"
 # URL or a GUID carries.
 FORBIDDEN_SHOW_TITLES = ("Human in the Loop",)
 
+# The channel's own BLURB -- <channel><description> -- and the fifth slot run
+# 004 retargeted off the sibling show by hand.
+#
+# Run 066 gated the four show-NAME slots and closed "the channel's identity
+# text". This field was outside that: it is the show's self-description, which
+# every podcast client renders beside the artwork as the show description, and
+# it had ZERO readers. The item-level <description> of the SAME NAME is gated
+# (run 038), so the asymmetry is channel-vs-item on one field name -- run 032's
+# lane-asymmetry axis rotated onto the feed's two levels.
+#
+# Neither existing guard reaches it. FORBIDDEN_SHOW_TITLES is applied only to
+# the title fields, and FORBIDDEN_ADVERTISED_SUBSTRINGS is SLUG form scoped to
+# advertised URLs. Worse, the sibling show's blurb names neither show, so even
+# applying both guards here unscoped would still ship it green -- a blurb needs
+# a guard on its OWN content, which is run 066's "a guard's form must match the
+# field's form" one step further: the same hazard needs a third representation.
+#
+# Form chosen to match the field. A title is exact, so run 066 compares it
+# exactly; a blurb is editorial prose that is legitimately reworded, so an
+# exact-match guard would false-fail on ordinary copy edits. Instead: it must
+# be present and non-empty, must carry this show's durable project anchor, must
+# not carry the sibling show's distinctive blurb phrasing or either show name,
+# and must not be unfilled placeholder text. No legacy waiver (run 036) -- a
+# show with no description, or with another show's description, is wrong for an
+# import too.
+#
+# Deliberately NO required-content arm. An earlier draft of this gate demanded
+# a project anchor ("NIH SEPA") in the blurb, and 16 pre-existing fixtures in
+# four other gate suites failed on it -- the evidence that it mandated
+# editorial CONTENT instead of detecting an identity defect. A blurb may
+# legitimately describe the topic without naming the grant, and the topic
+# itself may broaden (the parent Zotero collection already reaches past AV
+# ethics into bioethics). The run-004 clone regression -- the hazard this gate
+# exists for -- is caught by the sibling-blurb-phrase and sibling-name arms,
+# which test what is WRONG rather than prescribing what must be said. Run 029's
+# rule decided it: when a suite fails, establish which side is wrong before
+# editing either.
+# The sibling show's blurb, by its distinctive phrase. Deliberately a phrase
+# from the blurb's own content, because the sibling's blurb names neither show
+# and so is invisible to every name-based guard.
+FORBIDDEN_SHOW_DESCRIPTIONS = ("learning, technology, and human judgment",)
+# Unfilled-template sentinels, in the same spirit as duration()'s "00:00:00"
+# and the LEGACY_PUB_DATE fallback: a value that means "nobody wrote this yet".
+PLACEHOLDER_DESCRIPTION_TOKENS = ("todo", "tbd", "fixme", "lorem ipsum",
+                                  "describe this podcast", "your show here",
+                                  "xxx")
+
 
 # The three mutually exclusive disclosure texts publish_feed.py can place in an
 # item's <content:encoded>, keyed by the lane each one is legitimate for.
@@ -1986,6 +2033,42 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     f"{image_title!r} disagrees with the channel <title> "
                     f"{channel_title!r}; publish_feed.py writes both, so they "
                     f"drift only through a hand-edit or a partial write")
+        # The channel's BLURB. See FORBIDDEN_SHOW_DESCRIPTIONS above for why
+        # this had zero readers and why neither name-based guard reaches it.
+        channel_desc_el = (channel.find("description")
+                           if channel is not None else None)
+        channel_desc = ((channel_desc_el.text or "").strip()
+                        if channel_desc_el is not None else "")
+        identity_check["channel_description_chars"] = len(channel_desc)
+        if channel is not None:
+            if channel_desc_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <description> element, so the "
+                    "show advertises no description at all")
+            elif not channel_desc:
+                result["issues"].append(
+                    "feed has an empty channel <description>, so every "
+                    "podcast client shows the show with no description")
+            else:
+                low = channel_desc.lower()
+                for bad in FORBIDDEN_SHOW_DESCRIPTIONS:
+                    if bad.lower() in low:
+                        result["issues"].append(
+                            f"feed's channel <description> carries the "
+                            f"sibling show's blurb phrasing {bad!r}; the two "
+                            f"shows must never share an identity")
+                for bad in FORBIDDEN_SHOW_TITLES:
+                    if bad.lower() in low:
+                        result["issues"].append(
+                            f"feed's channel <description> names the sibling "
+                            f"show {bad!r}; the two shows must never share an "
+                            f"identity")
+                for token in PLACEHOLDER_DESCRIPTION_TOKENS:
+                    if token in low:
+                        result["issues"].append(
+                            f"feed's channel <description> still carries the "
+                            f"placeholder token {token!r}, so it was never "
+                            f"written for this show")
         result["checks"].append(identity_check)
 
         # Advertised URL prefix vs the base this show owns.

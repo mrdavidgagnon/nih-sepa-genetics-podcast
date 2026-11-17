@@ -1940,13 +1940,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-16T19:44:45.959777Z"
+        },
+        {
+          "attempt_id": "501-1794874029",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T00:07:09.319734Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T00:14:14.720141Z",
+              "detail": "run068: channel <description> gated (repro 26/26, proof 48/48)",
+              "stage": "defect_fixed"
+            },
+            {
+              "at": "2026-11-17T00:18:04.039852Z",
+              "detail": "run068: suite 269->288, 10/19 fail pre-fix, module restored md5-identical",
+              "stage": "tests_green"
+            }
+          ],
+          "deadline_at": "2026-11-17T00:32:09.319734Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T00:07:09.319734Z"
         }
       ],
-      "attempts": 62,
+      "attempts": 63,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-16T20:02:22Z"
+  "updated_at": "2026-11-17T00:19:57Z"
 }

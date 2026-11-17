@@ -1,3 +1,70 @@
+## 2026-11-17T00:2xZ — run 068 (the channel's own BLURB had no reader)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's standing lane call — not re-raised).
+Opening audits all healthy and all blind: `coverage` ok 3/3, `registry` ok
+(ledger 4 / manifest 3, the 501 stub), `verify` local and `--remote` ok with no
+issues, manifest and ledger agree at `published_and_moved` for 001-003, suite
+269/269. Stale lock owner pid 3898579 dead and the advisory lock free — the
+normal steady state; cleared with `unlock --force`. No production unit, so the
+slice closed a latent defect.
+
+**Defect.** `<channel><description>` — the show's self-description, rendered by
+every podcast client beside the artwork — had **zero readers** in
+`verify_feed()`. The field name appeared on exactly **one** code line in the
+whole 812-line function, and that line is run 038's **item**-level loop: the
+identical field name was gated one level down and ungated at the channel.
+
+It is the **fifth slot run 004 retargeted off the sibling show by hand**. Run
+066 gated the four show-*name* slots and declared "the channel's identity text"
+closed; the blurb was retargeted in the same breath and nothing has held it.
+Four classes shipped green with an **empty issue list** — the sibling show's
+blurb (the run-004 regression, re-shippable today), an empty description, the
+element removed, and placeholder text. The intact feed was proved
+**indistinguishable** from the regression: same check-name list, same verdict.
+
+**Sharpest part: neither existing guard can reach it even unscoped.**
+`FORBIDDEN_SHOW_TITLES` is applied only to the title fields and
+`FORBIDDEN_ADVERTISED_SUBSTRINGS` is slug-form scoped to URLs — but the
+sibling's blurb **names neither show**, so applying both here would still pass
+it. Run 066's "a guard's form must match the field's form" needs a **third
+representation**: a guard on the field's own *content*.
+
+**The first draft of the fix was itself wrong, and the suite caught it.** It
+also demanded a project anchor ("NIH SEPA") be present, and **16 pre-existing
+fixtures in four other gate suites failed** — evidence the arm mandated
+editorial *content* rather than detecting a defect. The arm was removed, not
+the fixtures (run 029: establish which side is wrong first). The gate now tests
+only what is wrong: non-empty, no sibling-blurb phrasing, no sibling show name,
+no placeholder sentinel. Folded into `show_identity` (one identity, one owner)
+and records `channel_description_chars`. No legacy waiver (run 036).
+
+Backup `robust_pipeline.py.bak-run068`; additive only (0 removed lines).
+Nothing granted: intact tree and real live feed pass with an identical verdict,
+a topic-only blurb and an ordinary rewording are accepted, and the run-066
+title / run-038 item-description / run-065 GUID / run-057 cover / run-060
+index / run-058 duration / unparseable gates all still bite.
+
+Proof: repro **26/26** against the unmodified module (with the run-066 and
+run-038 detectors kept as controls, showing the machinery works and only this
+field was unread); proof **48/48**. Exactly one pre-existing function changed,
+**60** byte-identical incl. `preflight`, `review_gate`, `fidelity_gate`,
+`feed_coverage`, `publish_local`, `push_to_remote`, `reconcile`,
+`registry_audit`, `status`, `deploy_drift`; `publish_feed.py` untouched. Tests
+`tests/test_channel_description_gate.py`, suite 269 → **288**, load-bearing:
+**10 of 19** fail pre-fix (module restored md5-identical).
+`ROBUST_PIPELINE.md` section added (run 031's lesson).
+
+Lesson: **when a field name is gated at one level of an artifact, check every
+other level that carries it.** And a gate's *shape* must suit its field —
+an exact-match guard on editorial prose is overreach, and a failing pre-existing
+suite is the cheapest evidence of it.
+
+Harness note: scoring a modified feed from a bare temp dir makes every asset
+probe report a missing file and swamp the verdict, reading exactly like the new
+gate false-failing. Symlink the real `feed-site` assets beside the scratch
+`feed.xml` and filter the issue list to the field under test.
+
 ## 2026-11-16T20:0xZ — run 067 (two metrics shared the name `source_words`)
 
 Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18

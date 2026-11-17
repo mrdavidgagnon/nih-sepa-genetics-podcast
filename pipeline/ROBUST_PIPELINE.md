@@ -2053,3 +2053,79 @@ design** -- the gate catches it with the *order* check instead. A proof that
 asserts "dropped text is a coverage refusal" therefore false-fails on its own
 fixture; drop a whole paragraph to exercise the floor, and keep both cases,
 since they are two distinct real refusals.
+
+## The channel's own BLURB had no reader (fixed run 068)
+
+`<channel><description>` -- the show's self-description, which every podcast
+client renders beside the artwork -- had **zero readers** in `verify_feed()`.
+The field name appeared on exactly **one** code line in the whole function, and
+that line is run 038's **item**-level loop: so the identical field name was
+gated one level down and ungated at the channel. Run 032's lane-asymmetry axis
+rotated onto the feed's two levels.
+
+It is the **fifth slot run 004 retargeted off the sibling show by hand**. Run
+066 gated the four show-*name* slots and closed "the channel's identity text";
+the blurb was retargeted in the same breath and nothing has held it since.
+
+Four classes were reachable, each returning `ok: true` with an **empty issue
+list** -- the verdict `publish_local()` refuses on and `push_to_remote()`'s wait
+loop breaks on to declare a deploy live:
+
+- the **sibling show's blurb** (the run-004 clone regression, re-shippable today)
+- an **empty** channel description
+- the `<description>` element **removed entirely**
+- unfilled **placeholder** text (`TODO`, `TBD`, `lorem ipsum`, ...)
+
+**Neither existing guard reaches it, and that is the sharp part.**
+`FORBIDDEN_SHOW_TITLES` is applied only to the title fields;
+`FORBIDDEN_ADVERTISED_SUBSTRINGS` is slug-form and scoped to advertised URLs.
+Worse, the sibling show's blurb **names neither show**, so even applying both
+guards here unscoped would still ship it green. Run 066 taught that a guard's
+*form* must match the field's form (a slug in a URL, prose in a title); this
+adds that the same hazard can need a **third representation** -- a guard on the
+field's own *content*, because an identity defect in a blurb may mention no
+identity at all.
+
+**Form chosen to match the field, and this is where the first draft was
+wrong.** A title is exact, so run 066 compares it exactly. A blurb is editorial
+prose that gets legitimately reworded, so the gate tests only what is *wrong*:
+present and non-empty, no sibling-blurb phrasing, no sibling show name, no
+placeholder sentinel. An earlier draft also demanded a project anchor
+("NIH SEPA") be *present* -- and **16 pre-existing fixtures in four other gate
+suites failed on it**. That was the evidence the arm mandated editorial
+**content** rather than detecting a defect, so the arm was removed, not the
+fixtures. Run 029's rule at its most useful: when a suite fails, establish
+which side is wrong before editing either -- here the suites were right and my
+new gate was overreaching.
+
+The verdict folds into the existing `show_identity` check (one identity, one
+owner) and records `channel_description_chars`, so the field now has a reader
+that is visible in the output. **No legacy waiver** (run 036): a show with no
+description, or with another show's description, is wrong for an import too.
+
+**Nothing granted.** The intact tree and the real live feed still pass with an
+identical verdict; a topic-only blurb that names no grant is accepted; an
+ordinary editorial rewording is accepted; and the run-066 title, run-038 item
+description, run-065/063 GUID, run-057 cover, run-060 index-page, run-058
+duration and unparseable-feed gates all still bite.
+
+Harnesses `/opt/data/tmp/mm_channel_desc_repro_run068.py` (26/26 against the
+**unmodified** module: zero readers proved by code inspection, all four classes
+green, the intact feed proved **indistinguishable** from the regression, and
+the run-066 title / run-038 item-description detectors kept as controls to show
+the machinery works and only this field was unread) and
+`mm_channel_desc_proof_run068.py` (48/48: pre-fix backup still reproduces; all
+classes refused and named; 15 nothing-granted assertions; exactly **one**
+pre-existing function changed with **60** byte-identical incl. `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status` and `deploy_drift`;
+`publish_feed.py` untouched; additive only, 0 removed lines). Tests
+`tests/test_channel_description_gate.py` (suite 269 -> **288**), load-bearing:
+**10 of 19** fail against the pre-fix module (restored md5-identical).
+
+Harness note: scoring a modified feed from a bare temp dir makes every asset
+probe (cover, enclosures, notes, index) report a missing file and swamp the
+verdict -- which reads exactly like the new gate false-failing. Symlink the real
+`feed-site` assets beside the scratch `feed.xml`, and filter the issue list to
+the field under test.
+
