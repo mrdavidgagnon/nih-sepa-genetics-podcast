@@ -2129,3 +2129,87 @@ verdict -- which reads exactly like the new gate false-failing. Symlink the real
 `feed-site` assets beside the scratch `feed.xml`, and filter the issue list to
 the field under test.
 
+
+## The advertised ORDINAL and KIND had no reader (fixed run 069)
+
+`<itunes:episode>` and `<itunes:episodeType>` -- the number every podcast
+client sorts the feed by and prints beside the title, and the label that tells
+a client whether an item is a `full` episode, a `trailer` or `bonus` -- had
+**zero readers** in `verify_feed()`. `publish_feed.py` emits both on every
+item, in both lanes (`<itunes:episode>{int(num)}</itunes:episode>` and a
+hardcoded `full`).
+
+**The sharp part is that this field HAD a reader and run 036 removed it.** The
+legacy waiver run 036 fixed was keyed on `<itunes:episode> == "1"`, which is
+not what the field means; run 036 was right to delete that use and re-key the
+waiver on the durable ledger. Nothing replaced the read. So the field went from
+*misread* to *unread*, and has been ungated since -- while the run-036 comment
+explaining its removal remained in the file, which is exactly what made a grep
+for the field look like it had a reader.
+
+Five classes were reachable, each returning `ok: true` with an **empty issue
+list** -- the verdict `publish_local()` refuses on and `push_to_remote()`'s
+wait loop breaks on to declare a deploy live:
+
+- an ordinal disagreeing with the item's own GUID (`7` on episode 001)
+- an ordinal that is absent, empty, zero, or non-numeric (`one`, `1.5`, `-3`)
+- `episodeType: trailer` or `bonus` on a fully gated interview, which in Apple
+  Podcasts pins the item **outside the numbered run** a listener follows
+- a wrong-case `FULL`, invalid per the spec
+- the element missing entirely
+
+The intact feed was proved **indistinguishable** from every one of them: same
+check-name list, same verdict.
+
+**Scored against the GUID, not against the feed's ordering.** The GUID is this
+show's durable identity for an episode (run 065) and `_feed_item_number()`
+already derives the number from it, so the check is a cross-field **agreement**
+test rather than a second opinion about what the ordinal should be. Recorded
+under a new `episode_number` check (`advertised`, `episode`, `episode_type`,
+`lane`). No legacy waiver (run 036): an import's advertised ordinal is what a
+subscriber's client sorts it by just the same.
+
+**A first draft carried an arm that could never fire.** It also refused "two
+items advertise one ordinal", and the proof harness showed the condition is
+unreachable past the checks above: two items sharing an ordinal either disagree
+with their GUIDs (caught by the agreement arm) or carry the same GUID number,
+which the pre-existing duplicate-GUID check already refuses. **The dead arm was
+removed rather than the claim weakened**, and a test now pins that no
+`advertised_ordinals` machinery survives. Run 068's lesson in a new shape: a
+guard you cannot prove bites is not a guard.
+
+**Fixtures completed, not gate relaxed.** 16 pre-existing tests failed once the
+fields became gated, in seven suites whose item fixtures carried
+`<itunes:episode>` but **no `<itunes:episodeType>` at all** -- run 058's trap
+exactly, an incomplete fixture rather than a finding, since `publish_feed.py`
+emits the element on every item it writes. A 17th was sharper: the disclosure
+suite hardcoded `<itunes:episode>1</itunes:episode>` while parameterising the
+episode number everywhere else, so its **reading 501** fixture advertised
+ordinal `1`. `publish_feed.py` emits `{int(num)}`, so a real reading advertises
+`501`; the fixture was parameterised to match the code.
+
+**Blast radius.** Exactly **one** pre-existing function changed
+(`verify_feed`), **60 byte-identical** including `preflight`/`review_gate`/
+`fidelity_gate`/`feed_coverage`/`publish_local`/`push_to_remote`/`reconcile`/
+`registry_audit`/`status`/`deploy_drift`. `publish_feed.py` untouched.
+Additive only: 111 lines added, **0 removed**.
+
+**Harnesses.** `/opt/data/tmp/mm_itunes_episode_repro_run069.py` **30/30**
+against the **unmodified** module (zero readers by code inspection, all five
+classes green, indistinguishability, with the run-058 duration and run-065
+GUID detectors kept as controls). `mm_itunes_episode_proof_run069.py`
+**54/54**: the pre-fix backup still reproduces; every class refused and named;
+14 nothing-granted checks -- the real live feed keeps an identical verdict
+pre/post, and the run-038/057/058/060/065/066 detectors all still bite.
+
+**Tests.** `tests/test_episode_ordinal_gate.py`, 22 tests, suite
+**288 -> 310**. Proven load-bearing: **18 of 22 fail** against the
+`.bak-run069` module; restored and confirmed md5-identical with all 310 green.
+
+**Lesson that generalizes: when a fix REMOVES a reader, it leaves the field
+unread.** Runs 056-068 hunted fields that *never* had a reader. This one is the
+opposite history and is harder to see, because the removal was correct and its
+explanatory comment stays behind -- so `grep -n '<field>'` returns a hit and the
+field reads as covered. When auditing coverage, strip comments before counting
+readers, and treat any field whose only mention is a comment about a *past*
+reader as ungated.

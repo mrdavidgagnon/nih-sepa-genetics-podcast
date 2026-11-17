@@ -1602,6 +1602,37 @@ GUID_REQUIRED_PREFIX = "moral-machines-"
 GUID_READING_MARKER = "-reading"
 
 
+# The item's ADVERTISED ORDINAL and KIND -- <itunes:episode> and
+# <itunes:episodeType>.
+#
+# Every podcast client sorts the feed by the advertised episode number and
+# prints it beside the title; episodeType tells the client whether an item is
+# a `full` episode, a `trailer` or `bonus` (Apple pins a trailer OUTSIDE the
+# numbered run, so a mislabelled episode disappears from the sequence a
+# listener follows). publish_feed.py emits both on every item --
+# <itunes:episode>{int(num)}</itunes:episode> and a hardcoded `full` -- and
+# until run 069 NOTHING read either value.
+#
+# The sharp part is that <itunes:episode> HAD a reader and run 036 REMOVED it:
+# it was keyed on the value "1" as a legacy waiver, which is not what the field
+# means, and run 036 was right to delete that use. Nothing replaced it. So the
+# field went from misread to unread, and a defect in it has been shippable
+# since -- verify_feed() returning ok: true with an EMPTY issue list, which is
+# exactly the verdict publish_local() refuses on and push_to_remote()'s wait
+# loop breaks on to declare a deploy live.
+#
+# Scored against the GUID, never against the feed's own ordering: the GUID is
+# this show's durable identity for an episode (run 065) and _feed_item_number()
+# already derives the number from it. That makes the check a cross-field
+# AGREEMENT test rather than a second opinion about what the number should be.
+#
+# No legacy waiver (run 036): an import's advertised ordinal is what a
+# subscriber's client sorts it by just the same, and a waiver is a gate with
+# the sign flipped.
+EPISODE_TYPE_REQUIRED = "full"
+EPISODE_TYPE_ALLOWED = ("full", "trailer", "bonus")
+
+
 # The CHANNEL'S OWN IDENTITY -- the show's name.
 #
 # Runs 056-065 enumerated and gated every advertised PER-ITEM field (the
@@ -2331,6 +2362,86 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             guid_check["guid_number"] = guid_from_guid[0] if guid_from_guid else None
             guid_check["enclosure_number"] = guid_from_url[0] if guid_from_url else None
             result["checks"].append(guid_check)
+            # ----------------------------------------------------------------
+            # The advertised ORDINAL and KIND of this item.
+            #
+            # See EPISODE_TYPE_REQUIRED above for why both fields had zero
+            # readers and why run 036 is the reason rather than an oversight.
+            # Five refusals, each keyed on the record's own GUID:
+            #   * a number disagreeing with the GUID's episode number
+            #   * a number that is absent, empty, or not a positive integer
+            #   * an episodeType outside the Apple-specified vocabulary
+            #   * an episodeType that is valid but not `full`, which silently
+            #     moves a gated episode out of the numbered run
+            #
+            # There is deliberately NO separate "two items share an ordinal"
+            # arm: that condition is unreachable past the checks above. Two
+            # items advertising one ordinal either disagree with their GUIDs --
+            # caught by the agreement arm here -- or carry the same GUID
+            # number, which the pre-existing duplicate-GUID check refuses. A
+            # first draft of this gate carried that arm and the proof harness
+            # showed it could never fire; the arm was removed rather than the
+            # claim weakened.
+            ordinal_episode = guid_number or ""
+            ordinal_node = next(
+                (x for x in item if x.tag.endswith("episode")
+                 and not x.tag.endswith("episodeType")), None)
+            ordinal_text = ((ordinal_node.text or "").strip()
+                            if ordinal_node is not None else "")
+            type_node = next(
+                (x for x in item if x.tag.endswith("episodeType")), None)
+            type_text = ((type_node.text or "").strip()
+                         if type_node is not None else "")
+            ordinal_check: dict[str, Any] = {
+                "name": "episode_number",
+                "episode": ordinal_episode or None,
+                "advertised": ordinal_text,
+                "episode_type": type_text,
+                "lane": "read" if guid_is_read else "interview",
+            }
+            if ordinal_node is None:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises no "
+                    f"<itunes:episode>, so every client orders it by date "
+                    f"alone and prints no episode number")
+            elif not ordinal_text:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises an empty "
+                    f"<itunes:episode>")
+            elif not re.fullmatch(r"\d+", ordinal_text):
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises the "
+                    f"malformed <itunes:episode> {ordinal_text!r}; the field "
+                    f"must be a positive integer")
+            elif int(ordinal_text) <= 0:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises the "
+                    f"<itunes:episode> {ordinal_text!r}; an ordinal of zero "
+                    f"is not a position in any client's ordering")
+            elif ordinal_episode and int(ordinal_text) != int(ordinal_episode):
+                result["issues"].append(
+                    f"feed item advertises <itunes:episode> {ordinal_text} "
+                    f"while its GUID identifies episode {ordinal_episode}; the "
+                    f"ordinal a client sorts and displays by disagrees with "
+                    f"the episode's durable identity")
+            if type_node is None:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises no "
+                    f"<itunes:episodeType>, which publish_feed.py emits as "
+                    f"{EPISODE_TYPE_REQUIRED!r} on every item")
+            elif type_text not in EPISODE_TYPE_ALLOWED:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises the "
+                    f"<itunes:episodeType> {type_text!r}, which is outside "
+                    f"the specified vocabulary "
+                    f"{list(EPISODE_TYPE_ALLOWED)}")
+            elif type_text != EPISODE_TYPE_REQUIRED:
+                result["issues"].append(
+                    f"feed item for episode {ordinal_episode} advertises the "
+                    f"<itunes:episodeType> {type_text!r}; every episode this "
+                    f"pipeline produces is {EPISODE_TYPE_REQUIRED!r}, and a "
+                    f"{type_text!r} is pinned outside the numbered run")
+            result["checks"].append(ordinal_check)
             # Required human-readable fields. publish_feed.py reads an
             # interview item's title/description off pipeline/manifest.json and
             # defaults description to '' -- so an episode registered without a

@@ -4211,3 +4211,85 @@ Backups `pipeline/robust_pipeline.py.bak-run063`,
 lanes empty. One durable gate gap closed on the publish path. Feed
 byte-identical. Standing blocker unchanged: 18 items unfiled in `YF84AUZK`
 awaiting David's lane decision (Summerize = interview, Read = verbatim reading).
+
+
+## Run 069 -- 2026-11-17
+
+**Intake.** Summerize (`V4WXTY8M`) 0 items, Read (`DV6F4ILX`) 0 items. 18
+items remain unfiled directly in `YF84AUZK` awaiting David's lane decision --
+the standing blocker, unchanged, not re-raised. No production unit available,
+so the slice went to a durable defect per the Read-lane-idle rule.
+
+**Defect: the advertised ORDINAL and KIND had zero readers.**
+`<itunes:episode>` and `<itunes:episodeType>` are emitted by
+`publish_feed.py` on every item in both lanes and were read by nothing.
+`<itunes:episode>` is what every podcast client sorts the feed by and prints
+beside the title; `episodeType` decides whether the item sits inside the
+numbered run at all.
+
+The sharp part: **this field HAD a reader and run 036 removed it** -- the
+legacy waiver keyed on the value `"1"`, correctly deleted and re-keyed on the
+durable ledger. Nothing replaced the read, so the field went from misread to
+unread, while run 036's explanatory comment stayed in the file and made a grep
+for the field look covered.
+
+Five classes reachable, each `ok: true` with an **empty issue list** (the
+verdict `publish_local()` refuses on and `push_to_remote()`'s wait loop breaks
+on): an ordinal disagreeing with the item's GUID, an absent/empty/zero/
+non-numeric ordinal, `episodeType: trailer`/`bonus` on a gated interview
+(Apple pins a trailer outside the numbered run), wrong-case `FULL`, and the
+element missing entirely. The intact feed was proved **indistinguishable** from
+all five.
+
+Fixed with an `episode_number` check scored against the item's own **GUID**
+(run 065's durable identity, via `_feed_item_number()`), making it a cross-field
+agreement test rather than a second opinion. No legacy waiver (run 036).
+
+**A first draft of my own fix carried an arm that could never fire** -- a
+separate duplicate-ordinal refusal. The proof harness showed the condition is
+unreachable: two items sharing an ordinal either disagree with their GUIDs
+(caught by the agreement arm) or share a GUID number, which the pre-existing
+duplicate-GUID check refuses. The dead arm was **removed rather than the claim
+weakened**, and a test pins that no `advertised_ordinals` machinery survives.
+
+**Fixtures completed, not gate relaxed.** 16 pre-existing tests failed across
+seven suites whose item fixtures carried `<itunes:episode>` but no
+`<itunes:episodeType>` -- run 058's trap, incomplete fixtures rather than
+findings. A 17th was sharper: the disclosure suite hardcoded ordinal `1` while
+parameterising the number everywhere else, so its **reading 501** fixture
+advertised `1`; `publish_feed.py` emits `{int(num)}`, so the fixture was
+parameterised to match the code.
+
+**Blast radius.** One pre-existing function changed (`verify_feed`), 60
+byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/
+`publish_local`/`push_to_remote`/`reconcile`/`registry_audit`/`status`/
+`deploy_drift`; `publish_feed.py` untouched; additive only, +111/-0.
+
+**Harnesses.** `mm_itunes_episode_repro_run069.py` 30/30 against the unmodified
+module (run-058 and run-065 detectors kept as controls);
+`mm_itunes_episode_proof_run069.py` 54/54.
+
+**Tests.** `tests/test_episode_ordinal_gate.py`, 22 tests, suite 288 -> 310;
+load-bearing, 18/22 fail pre-fix, module restored md5-identical.
+
+**Validation (deterministic, final window):** `py_compile` clean on all
+`pipeline/*.py`; suite **310/310**; `coverage` ok 3/3; `registry` ok
+`issues: []`; `verify` local ok `issues: []`; `verify --remote` ok; `drift` ok
+10 checked / 10 identical; `preflight 001-003 --audio` each ok `issues: []`;
+three `reconcile --write` passes 0/0/0; `status.healthy: true`; `feed.xml` md5
+**unchanged** at `9fc23235fcb49ca809059092da619b54`.
+
+Backups `pipeline/robust_pipeline.py.bak-run069`,
+`pipeline/ROBUST_PIPELINE.md.bak-run069`, `production-log.md.bak-run069`.
+
+**Lesson.** Runs 056-068 hunted fields that *never* had a reader; this is the
+opposite history and harder to see, because the removal was correct and its
+comment stays behind, so a grep returns a hit and the field reads as covered.
+**Strip comments before counting readers, and treat a field whose only mention
+is a comment about a past reader as ungated.**
+
+**Outcome:** no episode or reading created, rendered or published -- both intake
+lanes empty. One durable gate gap closed on the publish path. Feed
+byte-identical. Standing blocker unchanged: 18 items unfiled in `YF84AUZK`
+awaiting David's lane decision (Summerize = interview, Read = verbatim
+reading).

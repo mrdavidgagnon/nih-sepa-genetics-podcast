@@ -1967,13 +1967,43 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T00:07:09.319734Z"
+        },
+        {
+          "attempt_id": "501-1794889352",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T04:22:32.837844Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T04:27:32.195382Z",
+              "detail": "run069: itunes:episode + itunes:episodeType have zero readers in verify_feed; run 036 removed this field's only (misused) reader without replacing it",
+              "stage": "defect_selected"
+            },
+            {
+              "at": "2026-11-17T04:41:02.710019Z",
+              "detail": "run069: episode_number gate; proof 54/54; suite 288->310; load-bearing 18/22 fail pre-fix",
+              "stage": "gate_implemented"
+            },
+            {
+              "at": "2026-11-17T04:43:10.126675Z",
+              "detail": "run069: ROBUST_PIPELINE.md + production-log.md additive, 0 removed",
+              "stage": "docs_updated"
+            }
+          ],
+          "deadline_at": "2026-11-17T04:47:32.837844Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T04:22:32.837844Z"
         }
       ],
-      "attempts": 63,
+      "attempts": 64,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T00:20:51Z"
+  "updated_at": "2026-11-17T04:43:10Z"
 }
