@@ -4293,3 +4293,77 @@ lanes empty. One durable gate gap closed on the publish path. Feed
 byte-identical. Standing blocker unchanged: 18 items unfiled in `YF84AUZK`
 awaiting David's lane decision (Summerize = interview, Read = verbatim
 reading).
+
+## 2026-11-17T09:1xZ — run 070 (the channel's attribution block is gated)
+
+Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still
+unfiled in the parent YF84AUZK, David's standing lane call, not re-raised).
+Opening audits all green: `coverage` 3/3, `registry` ok (ledger 4 / manifest 3),
+`verify` local+remote ok with no issues, `drift` 10/10 identical, preflight
+001-003 ok, three `reconcile --write` passes at 0/0/0, `status healthy: true`.
+Stale lock owned by run 069's dead pid 4160162 — the normal steady state, both
+liveness tests confirmed free before unlocking. Subcommand census vs the sibling
+tree: only HITL's by-design `register` is absent here. No production unit, so
+the slice closed a latent defect.
+
+**Defect.** `publish_feed.py` writes six channel-level fields on every feed —
+`<language>`, `<copyright>`, `<itunes:author>`, `<itunes:type>`,
+`<itunes:category>` and the channel `<itunes:explicit>` — and `verify_feed()`
+read **none** of them. Zero readers by comment-stripped code inspection and
+zero tests, so twenty single-fault classes each shipped `ok: true` with an
+**empty issue list**, and an intact feed was proven **indistinguishable** from
+all of them (same check-name list, same verdict).
+
+**Sharpest, and why this is not cosmetic.** `<itunes:author>` is an IDENTITY
+slot. Run 063 installed the cross-show guard in **slug** form scoped to
+advertised URLs; run 066 added a **prose** form scoped to the title fields. The
+sibling show's prose name sitting in `<itunes:author>` is outside both, and the
+repro proves it ships green. So the cross-show identity hazard has a THIRD slot
+— run 066's "a guard's form must match the field's form" with the axis moved
+from the field's FORM to the field's LOCATION. `<itunes:type>` is the costliest
+value: `serial` makes a client present the whole catalogue oldest-first.
+
+**Fix.** A constants block (`SHOW_LANGUAGE`, `SHOW_COPYRIGHT_HOLDER`,
+`SHOW_ITUNES_AUTHOR`, `REQUIRED_ITUNES_TYPE`/`ALLOWED_ITUNES_TYPES`,
+`REQUIRED_ITUNES_CATEGORY`, `REQUIRED_ITUNES_EXPLICIT`/
+`ALLOWED_ITUNES_EXPLICIT`) plus a `channel_attribution` check in
+`verify_feed()`, immediately after `show_identity`. **Form matched per field**
+(run 066/068's rule): enumerated values compared exactly against a closed set,
+prose fields required to name the holder as a substring so ordinary copy edits
+do not false-fail, the category compared against Apple's own spelling. No
+legacy waiver (run 036). Backup `robust_pipeline.py.bak-run070`; additive only,
+**+221/-0** non-blank lines.
+
+**FIXTURES COMPLETED, NOT GATE RELAXED** (run 058's trap, at its largest yet).
+18 pre-existing tests failed across **eight** suites whose fixtures build a
+minimal `<channel>` carrying only title/description/link/image — no attribution
+block at all, i.e. a feed this pipeline cannot produce. Completed the fixtures
+with exactly the values `publish_feed.py` emits, copied from the live feed; each
+edit asserted anchor-count 1 and enumerated its single reworded line.
+
+Proof: repro **74/74** against the unmodified module (zero readers by
+comment-stripped inspection, zero tests, 14 mutation classes green,
+indistinguishability, run-066/063/038/057 detectors kept as **controls**);
+proof **69/69** (pre-fix still reproduces on all 20 classes; every class refused
+and NAMED; nothing granted — the real live feed's verdict identical pre/post, a
+reworded rights line and an extra category still pass, run-066/063/058/069/038/
+057 all still bite, no legacy waiver, the gate mutates no byte). Exactly **1**
+pre-existing function changed, **60 byte-identical** including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `reconcile`, `registry_audit`, `status` and `deploy_drift`;
+`publish_feed.py` untouched.
+
+Tests `tests/test_channel_attribution_gate.py` 30 tests, suite **310 -> 340**,
+load-bearing (**26/30 fail** against the pre-fix module; module restored
+md5-identical afterwards).
+
+Final state: `coverage` 3/3, `registry` ok, `verify` local+remote ok, `drift`
+10/10, preflight 001-003 ok, 3x `reconcile` 0/0/0, `status healthy`, suite
+340/340. `feed-site/feed.xml` md5 **UNCHANGED** 9fc23235 and byte-identical to
+the live feed.
+
+**Lesson.** When a guard is installed for a hazard, enumerate every FIELD that
+can carry that hazard, not every FORM of it. Runs 063 and 066 each added a
+representation of the cross-show identity guard and each scoped it to the
+fields in front of them; the hazard's third slot sat green between them. A
+guard's coverage is the product of its form and its scope — ask both.

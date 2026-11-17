@@ -1725,6 +1725,64 @@ PLACEHOLDER_DESCRIPTION_TOKENS = ("todo", "tbd", "fixme", "lorem ipsum",
                                   "describe this podcast", "your show here",
                                   "xxx")
 
+# The channel's ATTRIBUTION and CLASSIFICATION block -- <language>,
+# <copyright>, <itunes:author>, <itunes:type>, <itunes:category> and the
+# channel-level <itunes:explicit>.
+#
+# publish_feed.py writes all six on every feed it builds, and verify_feed()
+# read NONE of them. Runs 056-069 each closed one advertised field with no
+# reader; this is the whole remaining block, and it is the show's own
+# bibliographic identity rather than one asset's address.
+#
+# What each failure costs a subscriber, which is why these are issues and not
+# warnings:
+#   <language>      directory language routing and the client's locale
+#   <copyright>     the rights line; a WRONG holder misattributes the work
+#   <itunes:author> the show's author line, rendered beside the title
+#   <itunes:type>   episodic vs serial; 'serial' makes a client present the
+#                   feed OLDEST-FIRST, silently reordering the whole catalogue
+#   <itunes:category> the directory category; absent = uncategorised
+#   <itunes:explicit> the content rating
+#
+# SHARPEST, and the reason this block is not cosmetic: <itunes:author> is an
+# IDENTITY field that run 066's FORBIDDEN_SHOW_TITLES never reaches. Run 066
+# gated the four show-NAME slots and the repro for this run proves the sibling
+# show's prose name can sit in <itunes:author> with ok: true and an empty issue
+# list. So the cross-show identity hazard run 063 installed a guard for, and
+# run 066 extended to a second representation, has a THIRD slot -- run 066's
+# "a guard's form must match the field's form" with the axis moved from the
+# field's FORM to the field's LOCATION.
+#
+# Form chosen per field (run 066/068's rule). A language code, an iTunes type
+# and an explicit flag are ENUMERATED, so they are compared exactly and
+# case-insensitively against a closed set -- a wrong-case value is still a
+# defect but is reported as such rather than as an unknown value. A copyright
+# holder and an author are PROSE naming an institution, so they are required
+# to be non-empty, to name the holder this tree owns, and to be free of the
+# sibling show's identity; they are NOT compared exactly, because a rights line
+# is legitimately reworded. A category is compared exactly against Apple's
+# own vocabulary spelling, because a typo there is silently uncategorised.
+#
+# No legacy waiver (run 036): these are CHANNEL fields, so they are not a
+# property of any one episode and an imported episode cannot make the show's
+# own language, rights line or category wrong-but-acceptable.
+SHOW_LANGUAGE = "en-us"
+# The institution this show's rights line and author line must name. Matched
+# as a SUBSTRING, case-insensitively, so "(c) 2026 Field Day Lab, UW-Madison"
+# and "Copyright 2026, Field Day Lab" both pass while a different lab fails.
+SHOW_COPYRIGHT_HOLDER = "Field Day Lab"
+SHOW_ITUNES_AUTHOR = "Field Day Lab"
+# <itunes:type>: Apple defines exactly two values. 'serial' would present the
+# feed oldest-first, which is wrong for this show and invisible locally.
+REQUIRED_ITUNES_TYPE = "episodic"
+ALLOWED_ITUNES_TYPES = ("episodic", "serial")
+# <itunes:category text="...">: the value is an ATTRIBUTE, not element text,
+# which is why an element-text sweep over the feed never saw this field.
+REQUIRED_ITUNES_CATEGORY = "Education"
+# <itunes:explicit>: Apple accepts only these two spellings.
+REQUIRED_ITUNES_EXPLICIT = "false"
+ALLOWED_ITUNES_EXPLICIT = ("true", "false")
+
 
 # The three mutually exclusive disclosure texts publish_feed.py can place in an
 # item's <content:encoded>, keyed by the lane each one is legitimate for.
@@ -2101,6 +2159,177 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                             f"placeholder token {token!r}, so it was never "
                             f"written for this show")
         result["checks"].append(identity_check)
+
+        # The channel's ATTRIBUTION and CLASSIFICATION block. See
+        # SHOW_LANGUAGE above for why all six fields had zero readers, what
+        # each one costs a subscriber, and why <itunes:author> is an identity
+        # slot that run 066's title guard cannot reach.
+        itunes_ns = "{http://www.itunes.com/dtds/podcast-1.0.dtd}"
+        attribution_check: dict[str, Any] = {"name": "channel_attribution"}
+        if channel is not None:
+            def _chan_text(tag: str) -> tuple[Any, str]:
+                el = channel.find(tag)
+                return el, ((el.text or "").strip() if el is not None else "")
+
+            # --- <language> : enumerated, exact ---------------------------
+            lang_el, lang = _chan_text("language")
+            attribution_check["language"] = lang
+            if lang_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <language> element, so a "
+                    "directory cannot route the show by language")
+            elif not lang:
+                result["issues"].append(
+                    "feed has an empty channel <language>, so the show "
+                    "advertises no language at all")
+            elif lang.lower() != SHOW_LANGUAGE.lower():
+                result["issues"].append(
+                    f"feed advertises the channel <language> {lang!r}, but "
+                    f"this show is {SHOW_LANGUAGE!r}; every client and "
+                    f"directory routes the show by this value")
+            elif lang != SHOW_LANGUAGE:
+                result["issues"].append(
+                    f"feed advertises the channel <language> {lang!r}, which "
+                    f"differs from {SHOW_LANGUAGE!r} only in case; a language "
+                    f"tag is matched literally by some directories")
+
+            # --- <copyright> : prose naming the holder --------------------
+            copy_el, copyright_text = _chan_text("copyright")
+            attribution_check["copyright"] = copyright_text
+            if copy_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <copyright> element, so the "
+                    "show publishes no rights line")
+            elif not copyright_text:
+                result["issues"].append(
+                    "feed has an empty channel <copyright>, so the show "
+                    "publishes no rights line")
+            else:
+                low = copyright_text.lower()
+                if SHOW_COPYRIGHT_HOLDER.lower() not in low:
+                    result["issues"].append(
+                        f"feed advertises the channel <copyright> "
+                        f"{copyright_text!r}, which does not name "
+                        f"{SHOW_COPYRIGHT_HOLDER!r}; a rights line naming the "
+                        f"wrong holder misattributes the whole show")
+                for bad in FORBIDDEN_SHOW_TITLES:
+                    if bad.lower() in low:
+                        result["issues"].append(
+                            f"feed's channel <copyright> names the sibling "
+                            f"show {bad!r}; the two shows must never share an "
+                            f"identity")
+
+            # --- <itunes:author> : prose, AND an identity slot ------------
+            author_el = channel.find(itunes_ns + "author")
+            author = ((author_el.text or "").strip()
+                      if author_el is not None else "")
+            attribution_check["itunes_author"] = author
+            if author_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <itunes:author> element, so the "
+                    "show advertises no author beside its title")
+            elif not author:
+                result["issues"].append(
+                    "feed has an empty channel <itunes:author>, so the show "
+                    "advertises no author beside its title")
+            else:
+                low = author.lower()
+                if SHOW_ITUNES_AUTHOR.lower() not in low:
+                    result["issues"].append(
+                        f"feed advertises the channel <itunes:author> "
+                        f"{author!r}, which does not name "
+                        f"{SHOW_ITUNES_AUTHOR!r}; the author line is rendered "
+                        f"beside the show title in every client")
+                # Run 066's identity guard, which is scoped to the title
+                # fields and never reached this slot.
+                for bad in FORBIDDEN_SHOW_TITLES:
+                    if bad.lower() in low:
+                        result["issues"].append(
+                            f"feed's channel <itunes:author> names the "
+                            f"sibling show {bad!r}; the two shows must never "
+                            f"share an identity")
+
+            # --- <itunes:type> : enumerated, exact ------------------------
+            type_el = channel.find(itunes_ns + "type")
+            show_type = ((type_el.text or "").strip()
+                         if type_el is not None else "")
+            attribution_check["itunes_type"] = show_type
+            if type_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <itunes:type> element, so a "
+                    "client must guess whether the show is episodic or serial")
+            elif not show_type:
+                result["issues"].append(
+                    "feed has an empty channel <itunes:type>, so a client "
+                    "must guess whether the show is episodic or serial")
+            elif show_type.lower() not in ALLOWED_ITUNES_TYPES:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:type> "
+                    f"{show_type!r}, which is not one of "
+                    f"{list(ALLOWED_ITUNES_TYPES)}")
+            elif show_type.lower() != REQUIRED_ITUNES_TYPE:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:type> "
+                    f"{show_type!r}, but this show is "
+                    f"{REQUIRED_ITUNES_TYPE!r}; 'serial' makes a client "
+                    f"present the catalogue oldest-first, silently "
+                    f"reordering every episode")
+            elif show_type != REQUIRED_ITUNES_TYPE:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:type> "
+                    f"{show_type!r}, which differs from "
+                    f"{REQUIRED_ITUNES_TYPE!r} only in case; Apple matches "
+                    f"this value literally")
+
+            # --- <itunes:category> : the value is an ATTRIBUTE ------------
+            cat_els = channel.findall(itunes_ns + "category")
+            cats = [(e.get("text") or "").strip() for e in cat_els]
+            attribution_check["itunes_categories"] = cats
+            if not cat_els:
+                result["issues"].append(
+                    "feed's <channel> has no <itunes:category> element, so "
+                    "the show is uncategorised in every directory")
+            elif not any(cats):
+                result["issues"].append(
+                    "feed's channel <itunes:category> carries an empty text "
+                    "attribute, so the show is uncategorised in every "
+                    "directory")
+            elif REQUIRED_ITUNES_CATEGORY not in cats:
+                result["issues"].append(
+                    f"feed advertises the channel categories {cats}, which do "
+                    f"not include {REQUIRED_ITUNES_CATEGORY!r}; a category "
+                    f"spelling outside Apple's vocabulary is silently "
+                    f"uncategorised")
+
+            # --- channel <itunes:explicit> : enumerated -------------------
+            expl_el = channel.find(itunes_ns + "explicit")
+            explicit = ((expl_el.text or "").strip()
+                        if expl_el is not None else "")
+            attribution_check["itunes_explicit"] = explicit
+            if expl_el is None:
+                result["issues"].append(
+                    "feed's <channel> has no <itunes:explicit> element, so "
+                    "the show advertises no content rating")
+            elif not explicit:
+                result["issues"].append(
+                    "feed has an empty channel <itunes:explicit>, so the "
+                    "show advertises no content rating")
+            elif explicit.lower() not in ALLOWED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:explicit> "
+                    f"{explicit!r}, which is not one of "
+                    f"{list(ALLOWED_ITUNES_EXPLICIT)}")
+            elif explicit.lower() != REQUIRED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:explicit> "
+                    f"{explicit!r}, but this show is "
+                    f"{REQUIRED_ITUNES_EXPLICIT!r}")
+            elif explicit != REQUIRED_ITUNES_EXPLICIT:
+                result["issues"].append(
+                    f"feed advertises the channel <itunes:explicit> "
+                    f"{explicit!r}, which differs from "
+                    f"{REQUIRED_ITUNES_EXPLICIT!r} only in case")
+        result["checks"].append(attribution_check)
 
         # Advertised URL prefix vs the base this show owns.
         #

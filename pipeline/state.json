@@ -1999,13 +1999,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T04:22:32.837844Z"
+        },
+        {
+          "attempt_id": "501-1794905132",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-17T08:45:32.250520Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-17T08:48:11.298819Z",
+              "detail": "run070: both lanes empty; selected channel attribution/classification block (language, copyright, itunes:author, itunes:type, itunes:category, itunes:explicit) = 6 fields, ZERO readers, ZERO tests",
+              "stage": "defect_selected"
+            },
+            {
+              "at": "2026-11-17T08:57:59.131965Z",
+              "detail": "run070: channel_attribution gate added; repro 74/74, proof 69/69, suite 310->340, 1 function changed / 60 byte-identical, feed md5 unchanged",
+              "stage": "fix_proven"
+            }
+          ],
+          "deadline_at": "2026-11-17T09:10:32.250520Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-17T08:45:32.250520Z"
         }
       ],
-      "attempts": 64,
+      "attempts": 65,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T04:44:07Z"
+  "updated_at": "2026-11-17T08:57:59Z"
 }

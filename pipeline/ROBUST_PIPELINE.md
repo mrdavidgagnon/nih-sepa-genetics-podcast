@@ -2213,3 +2213,40 @@ explanatory comment stays behind -- so `grep -n '<field>'` returns a hit and the
 field reads as covered. When auditing coverage, strip comments before counting
 readers, and treat any field whose only mention is a comment about a *past*
 reader as ungated.
+
+## The channel's attribution/classification block is gated (run 070)
+
+`verify_feed()` scores the six channel-level fields `publish_feed.py` writes on
+every feed, reported under the `channel_attribution` check:
+
+- `<language>` — compared exactly against `SHOW_LANGUAGE` (`en-us`); a
+  wrong-case tag is refused separately, because some directories match the
+  language tag literally.
+- `<copyright>` — must be non-empty and must name `SHOW_COPYRIGHT_HOLDER`
+  (`Field Day Lab`) as a case-insensitive substring, and must not name the
+  sibling show. Deliberately **not** an exact match: a rights line is prose and
+  is legitimately reworded, so `Copyright 2026, Field Day Lab. All rights
+  reserved.` passes.
+- `<itunes:author>` — same prose treatment against `SHOW_ITUNES_AUTHOR`, **plus
+  run 066's `FORBIDDEN_SHOW_TITLES` identity guard**, which had never been
+  applied to this slot.
+- `<itunes:type>` — must be `episodic`. `serial` makes a client present the
+  catalogue **oldest-first**, silently reordering every episode.
+- `<itunes:category>` — the value is an **attribute** (`text="Education"`), not
+  element text, which is why an element-text sweep never saw this field. An
+  additional category alongside `Education` is legal.
+- channel `<itunes:explicit>` — must be `false`; only `true`/`false` are
+  accepted spellings. The item-level element of the same name is a different
+  field and is not mistaken for this one.
+
+**No legacy waiver** (run 036): these are channel fields, not a property of any
+one episode, so no ledger status can excuse them.
+
+Before this run all six had **zero readers and zero tests**, so each shipped
+`ok: true` with an **empty issue list** — the verdict `publish_local()` refuses
+on and `push_to_remote()`'s wait loop breaks on to declare a deploy live. The
+sharpest class: the sibling show's prose name in `<itunes:author>` passed
+green, because run 063's guard is slug-form scoped to advertised URLs and run
+066's is scoped to the title fields.
+
+Tests: `tests/test_channel_attribution_gate.py` (30 tests, suite 310 -> 340).
