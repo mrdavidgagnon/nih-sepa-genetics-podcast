@@ -2070,7 +2070,9 @@
             }
           ],
           "deadline_at": "2026-11-17T17:44:46.248185Z",
-          "outcome": null,
+          "detail": "run072: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: each item's OWN <itunes:image> and <itunes:explicit> had ZERO readers. publish_feed.py emits both on every item in BOTH lanes; 10 single-fault classes each shipped ok:true with an EMPTY issue list (publish_local's gate, push_to_remote's success criterion) and an intact feed w",
+          "finished_at": "2026-11-17T17:32:59.965255Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T17:19:46.248185Z"
         }
@@ -2081,5 +2083,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T17:32:00Z"
+  "updated_at": "2026-11-17T17:32:59Z"
 }
