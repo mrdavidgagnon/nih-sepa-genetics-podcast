@@ -1962,7 +1962,9 @@
             }
           ],
           "deadline_at": "2026-11-17T00:32:09.319734Z",
-          "outcome": null,
+          "detail": "run068: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the channel's own BLURB had ZERO readers. <channel><description> -- the show's self-description, rendered by every podcast client beside the artwork -- appeared on exactly ONE code line in verify_feed's 812 lines, and that line is run 038's ITEM-level loop: the identical fiel",
+          "finished_at": "2026-11-17T00:20:51.394891Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-17T00:07:09.319734Z"
         }
@@ -1973,5 +1975,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-17T00:19:57Z"
+  "updated_at": "2026-11-17T00:20:51Z"
 }
