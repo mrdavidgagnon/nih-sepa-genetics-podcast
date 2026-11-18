@@ -2173,7 +2173,9 @@
             }
           ],
           "deadline_at": "2026-11-18T10:58:24.018924Z",
-          "outcome": null,
+          "detail": "run076: ported feed_sync()+feedsync subcommand (committed feed-site vs fresh regeneration had NO reader; 4 classes shipped ok:true/empty issues; drift cannot see a deployed stale commit). Repro 43/43, proof 76/76, mutants 18/18 (M10 found a real test gap, M16 was a bad mutant), suite 435->460, +272/-1, 2 fns added/only main changed. ROBUST_PIPELINE.md documents it; stale 187-test count corrected t",
+          "finished_at": "2026-11-18T10:57:56.919690Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T10:33:24.018924Z"
         }
@@ -2184,5 +2186,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T10:57:14Z"
+  "updated_at": "2026-11-18T10:57:56Z"
 }
