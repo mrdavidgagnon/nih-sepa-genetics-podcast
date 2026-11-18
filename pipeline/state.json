@@ -2192,10 +2192,17 @@
               "at": "2026-11-18T15:07:43.954277Z",
               "detail": "run077: push_to_remote declares deploy live on verify_feed existence-only verdict; deploy_drift detector exists but is CLI-only, unreachable from the shipping command",
               "stage": "defect_selected"
+            },
+            {
+              "at": "2026-11-18T15:13:56.000525Z",
+              "detail": "run077: fix+13 tests+ROBUST_PIPELINE.md+production-log.md, suite 460->473, committed d83586f, pushed",
+              "stage": "docs_and_tests"
             }
           ],
           "deadline_at": "2026-11-18T15:26:28.449137Z",
-          "outcome": null,
+          "detail": "run077: push_to_remote declared deploys live on verify_feed's existence-only remote probes; deploy_drift (the byte comparator) was CLI-only so no gate or shipping command reached it. Wait loop now requires verify_feed AND deploy_drift; drift under its own key; fail-open on comparator fault, refusal never downgraded. Repro 23/23, proof 48/48 (one fn changed, 65 byte-identical), suite 460->473, load",
+          "finished_at": "2026-11-18T15:13:56.453763Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T15:01:28.449137Z"
         }
@@ -2206,5 +2213,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T15:13:30Z"
+  "updated_at": "2026-11-18T15:13:56Z"
 }
