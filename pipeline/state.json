@@ -2114,7 +2114,9 @@
             }
           ],
           "deadline_at": "2026-11-18T02:12:25.980006Z",
-          "outcome": null,
+          "detail": "run074: both lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: verify_feed()'s cover_art -- the ONLY reader of the artwork, wired run 057 -- was an EXISTENCE check on all four arms (present, non-empty, root copy == deployed copy, remote 200), every one satisfied by garbage of the right length, recording no format/width/height at all. Run",
+          "finished_at": "2026-11-18T02:09:18.000489Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T01:47:25.980006Z"
         }
@@ -2125,5 +2127,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T02:07:13Z"
+  "updated_at": "2026-11-18T02:09:18Z"
 }
