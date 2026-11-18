@@ -2222,7 +2222,9 @@
             }
           ],
           "deadline_at": "2026-11-18T19:40:31.234391Z",
-          "outcome": null,
+          "detail": "run078: both intake lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: Pages serves the REPO ROOT and push copies feed-site/* into the clone root, and this tree keeps a second git-tracked copy of every deliverable at its own root with no copy site in publish_feed.py -- run 057 gated that hand-sync for cover.png/cover.svg ONLY (ROOT/name i",
+          "finished_at": "2026-11-18T19:37:05.275392Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T19:15:31.234391Z"
         }
@@ -2233,5 +2235,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T19:36:13Z"
+  "updated_at": "2026-11-18T19:37:05Z"
 }
