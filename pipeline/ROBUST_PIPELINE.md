@@ -2600,3 +2600,30 @@ presence guard, while the aggregate arm is satisfied by a *different*
 element's contribution. A presence guard written to avoid a crash is
 structurally unable to gate presence -- so when a check is wrapped in
 `if X is not None`, ask what reports X being None.
+
+### The advertised show-notes link (`show_notes_link`)
+
+`verify_feed()` scores every item's show-notes href — the
+`<a href="episode-NNN-notes.md">` inside `<content:encoded>` that
+`publish_feed.py`'s `notes_html()` / `read_notes_html()` emit on every item in
+both lanes. The notes are a **published deliverable**: they carry the
+unabridged disclosure, the evidence boundaries and every numbered citation with
+its Zotero link, and this href is a listener's only route to them from a podcast
+client.
+
+Three refusals, each naming the episode and the offending value:
+
+- the href resolves to **another episode's** notes
+- the item advertises **no** show-notes link at all
+- the href carries a **cross-show substring** or sits outside this show's
+  advertised base
+
+Scored against the item's **GUID-derived number**, so it is a cross-field
+agreement test. A reading may use either `episode-NNN-reading-notes.md` or
+`episode-NNN-notes.md`. There is **no legacy waiver** — an imported episode's
+notes are reached by the same link in the same client.
+
+Note what this does *not* duplicate: the older probe asks whether the file the
+href names **exists** (locally, and HTTP 200 live). That arm is unchanged and
+still catches a nonexistent target. Existence was never evidence of
+**correctness** — the wrong episode's notes file exists too.

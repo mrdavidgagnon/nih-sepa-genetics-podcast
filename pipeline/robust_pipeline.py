@@ -1849,6 +1849,63 @@ EPISODE_TYPE_ALLOWED = ("full", "trailer", "bonus")
 ITEM_ARTWORK_REQUIRED = True
 
 
+# The item's ADVERTISED SHOW-NOTES LINK -- the href inside <content:encoded>.
+#
+# publish_feed.py emits one on every item in both lanes (notes_html() writes
+# `<a href="episode-NNN-notes.md">` and read_notes_html() the `-reading-notes`
+# form), and the show notes are a PUBLISHED DELIVERABLE: they carry the
+# unabridged disclosure, the evidence boundaries and every numbered citation
+# with its Zotero link, deliberately left in full when David shortened the
+# SPOKEN disclosure to one sentence. The link is the only route a listener has
+# to them from a podcast client.
+#
+# Until this run the href was READ but never SCORED. The one block that
+# touches it pulls each href out of the CDATA, reduces it to
+# `Path(urlparse(href).path).name`, and asks only whether that filename
+# exists locally / returns HTTP 200 live. So the VALUE -- which episode it
+# names, whether it is there at all, and which SHOW's site it points at --
+# was gated by nothing, and three classes shipped with verify_feed()
+# returning ok: true and an EMPTY issue list, the verdict publish_local()
+# refuses on and push_to_remote()'s wait loop breaks on to declare a deploy
+# live:
+#
+#   * REPOINTED AT ANOTHER EPISODE. Episode 001 advertising
+#     `episode-003-notes.md` sends every listener to the wrong paper's
+#     citations, boundaries and Zotero links. The existence probe is
+#     SATISFIED, because the file it names is a real published deliverable.
+#   * ABSENT ENTIRELY. With no href the loop body never executes, so the
+#     item's notes are probed zero times -- a check that iterates what it
+#     finds cannot see what is missing (run 041's lesson, here per item).
+#     The disclosure guard (064) still passes, because the mandated PHRASES
+#     are all present; only the route to the full notes is gone.
+#   * REPOINTED AT THE SIBLING SHOW. An absolute
+#     absolute URL pointing at the SIBLING SHOW's Pages site is the
+#     documented hard bug, and
+#     it is the case the two neighbouring guards structurally cannot reach:
+#     run 063's advertised_base iterates XML ATTRIBUTES plus `url`/`link`
+#     ELEMENT TEXT, and this href is neither -- it lives inside a CDATA text
+#     blob, outside that guard by construction. Meanwhile the existence
+#     probe collapses the cross-show URL to its local filename and passes it.
+#
+# Scoped by control (run 073): an href naming a file that does NOT exist is
+# already refused by the existence arm, so the unread classes are all
+# RIGHT-SHAPE WRONG-TARGET plus outright absence -- the same
+# measured-but-not-interpreted line run 058 drew for audio and run 074 for
+# the cover, rotated onto a LINK: a probe that proves a target exists says
+# nothing about whether it is the RIGHT target.
+#
+# Form matched per field (runs 066/068/070/074). A notes link is a
+# CROSS-REFERENCE, so it is scored against the item's own identity -- the
+# GUID-derived number, this show's durable identity for an episode (run 065)
+# -- making it an AGREEMENT test rather than a second opinion about which
+# file is correct. Both lane spellings are accepted for a reading, since
+# publish_feed.py derives the reading's base independently.
+#
+# No legacy waiver (run 036): an imported episode's notes are reached by the
+# same link in the same client, and a waiver is a gate with the sign flipped.
+SHOW_NOTES_LINK_REQUIRED = True
+
+
 # The CHANNEL'S OWN IDENTITY -- the show's name.
 #
 # Runs 056-065 enumerated and gated every advertised PER-ITEM field (the
@@ -3527,6 +3584,70 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                 notes_link = next((x for x in item if x.tag.endswith("encoded")), None)
             if notes_link is not None:
                 hrefs = re.findall(r'href=["\']([^"\']+notes\.md)["\']', notes_link.text or "")
+                # ------------------------------------------------------
+                # The advertised show-notes link's VALUE.
+                #
+                # See SHOW_NOTES_LINK_REQUIRED above. The probes below ask
+                # only whether the target EXISTS; this asks whether it is
+                # the RIGHT target. Scored against the item's GUID-derived
+                # number, so it is a cross-field agreement test.
+                # ------------------------------------------------------
+                notes_number = _feed_item_number(item)
+                notes_is_read = bool(notes_number) and is_reading(
+                    notes_number, read_manifest_episodes)
+                expected_notes = (
+                    {f"episode-{notes_number}-reading-notes.md",
+                     f"episode-{notes_number}-notes.md"}
+                    if notes_is_read
+                    else {f"episode-{notes_number}-notes.md"})
+                notes_check: dict[str, Any] = {
+                    "name": "show_notes_link",
+                    "episode": notes_number or None,
+                    "lane": "read" if notes_is_read else "interview",
+                    "advertised": list(hrefs),
+                    "expected": sorted(expected_notes),
+                }
+                if not hrefs:
+                    result["issues"].append(
+                        f"feed item for episode "
+                        f"{notes_number or '<unidentified>'} advertises no "
+                        f"show-notes link in its <content:encoded>; the "
+                        f"notes carry the unabridged disclosure, the "
+                        f"evidence boundaries and every numbered citation "
+                        f"with its Zotero link, and this href is a "
+                        f"listener's only route to them")
+                for href in hrefs:
+                    low = href.lower()
+                    for bad in FORBIDDEN_ADVERTISED_SUBSTRINGS:
+                        if bad in low:
+                            result["issues"].append(
+                                f"feed item for episode "
+                                f"{notes_number or '<unidentified>'} "
+                                f"advertises the show-notes link {href!r}, "
+                                f"which carries the cross-show substring "
+                                f"{bad!r}; the two shows must never share a "
+                                f"URL or a GUID")
+                    if low.startswith(("http://", "https://")) and not any(
+                            _under_advertised_base(href, base)
+                            for base in EXPECTED_ADVERTISED_BASES):
+                        result["issues"].append(
+                            f"feed item for episode "
+                            f"{notes_number or '<unidentified>'} advertises "
+                            f"the show-notes link {href!r}, which is not "
+                            f"under this show's base "
+                            f"{EXPECTED_ADVERTISED_BASES[0]}; a subscriber "
+                            f"resolves the advertised URL, not the local "
+                            f"filename")
+                    name = Path(urllib.parse.urlparse(href).path).name
+                    if notes_number and name not in expected_notes:
+                        result["issues"].append(
+                            f"feed item for episode {notes_number} "
+                            f"advertises the show-notes link {href!r}, which "
+                            f"resolves to {name!r} and not this episode's "
+                            f"{sorted(expected_notes)[0]!r}; the link sends "
+                            f"every listener to another episode's citations, "
+                            f"evidence boundaries and Zotero links")
+                result["checks"].append(notes_check)
                 if feed_path:
                     for href in hrefs:
                         local_notes = feed_path.parent / Path(urllib.parse.urlparse(href).path).name

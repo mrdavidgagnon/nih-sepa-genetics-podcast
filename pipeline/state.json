@@ -2119,13 +2119,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T01:47:25.980006Z"
+        },
+        {
+          "attempt_id": "501-1794982345",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-18T06:12:25.312077Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-18T06:16:53.331329Z",
+              "detail": "run075: per-item show-notes href VALUE unread; repro 34/34 vs unmodified (repoint to another episode, removal, sibling-show URL all ok:true empty issues; controls: missing file + disclosure still bite)",
+              "stage": "defect_reproduced"
+            },
+            {
+              "at": "2026-11-18T06:20:48.233894Z",
+              "detail": "run075: show_notes_link gate added to verify_feed; repro 34/34, proof 48/48, additive +121/-0, 1 function changed / 61 identical",
+              "stage": "fix_proven"
+            }
+          ],
+          "deadline_at": "2026-11-18T06:37:25.312077Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-18T06:12:25.312077Z"
         }
       ],
-      "attempts": 69,
+      "attempts": 70,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T02:09:18Z"
+  "updated_at": "2026-11-18T06:20:48Z"
 }

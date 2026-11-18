@@ -448,3 +448,74 @@ md5-unchanged throughout.
 
 Proof: repro 29/29 against unmodified code, fix proof 56/56 including
 pre-fix-still-reproduces and three no-weakening tampering cases.
+
+## Run 075 (2026-11-18) — the advertised show-notes LINK had no reader
+
+No production unit: Summerize (`V4WXTY8M`) and Read (`DV6F4ILX`) both empty on a
+live read; the 18 unfiled items in the parent (`YF84AUZK`) remain David's
+standing lane call, already raised. Stale lock (dead pid 68025) cleared with
+`unlock --force` — the normal steady state, not an incident. Slice spent on a
+durable defect.
+
+**Defect.** `verify_feed()` pulled every item's show-notes href out of
+`<content:encoded>` and reduced it to `Path(urlparse(href).path).name`, then
+asked only whether that filename exists locally / returns HTTP 200 live. The
+href's **value** was read by nothing, so three classes shipped with
+`verify_feed()` returning `ok: true` and an **empty issue list** — the verdict
+`publish_local()` refuses on and `push_to_remote()`'s wait loop breaks on to
+declare a deploy live:
+
+- **repointed at another episode** — 001 advertising `episode-003-notes.md`
+  sends every listener to the wrong paper's citations, evidence boundaries and
+  Zotero links. The existence probe is *satisfied*, because the file it names
+  is a real published deliverable.
+- **absent entirely** — with no href the loop body never executes, so the
+  item's notes are probed zero times. Run 041's lesson per item: a check that
+  iterates what it finds cannot see what is missing. The 064 disclosure guard
+  still passes, since the mandated *phrases* are all present; only the route to
+  the full notes is gone.
+- **repointed at the sibling show** — the documented hard bug, and the case the
+  two neighbouring guards structurally cannot reach: run 063's
+  `advertised_base` iterates XML **attributes** plus `url`/`link` **element
+  text**, and this href is neither (it lives inside a CDATA blob), while the
+  existence probe collapses the cross-show URL to its local filename and passes
+  it.
+
+The show notes are a published deliverable — they carry the unabridged
+disclosure, the evidence boundaries and every numbered citation with its Zotero
+link, deliberately left in full when David shortened the *spoken* disclosure to
+one sentence (2026-11-03). This href is a listener's only route to them from a
+podcast client.
+
+**Fix.** `SHOW_NOTES_LINK_REQUIRED` + a `show_notes_link` check scored against
+the item's own GUID-derived number, making it a cross-field **agreement** test
+rather than a second opinion about which file is correct. Both lane spellings
+accepted for a reading. No legacy waiver (run 036). Scoped by control: an href
+naming a file that does **not** exist was already refused by the existence arm,
+so the unread classes are all right-shape/wrong-target plus outright absence.
+
+**Proof.** Repro 34/34 against the unmodified module (all three classes
+`ok: true` with empty issue lists, indistinguishable from intact; controls: a
+missing target and a broken disclosure both still bite). Proof 48/48: pre-fix
+backup still reproduces; each class refused and named; nothing granted — the
+real feed's verdict identical pre/post, both reading spellings accepted, and the
+036/038/058/063/064/066 guards all still refusing. Exactly one pre-existing
+function changed (`verify_feed`), 61 byte-identical including `preflight`,
+`review_gate`, `fidelity_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `registry_audit` and `reconcile`. Additive: +121 lines, 0
+removals. Tests `tests/test_show_notes_link_gate.py` (16), suite **419 -> 435**,
+load-bearing (11 failures against the pre-fix module).
+
+**Fixture debt paid, same class as run 074.** 12 suites wrote a
+`<content:encoded>` block with the disclosure prose but no show-notes href — a
+block `publish_feed.py` is *incapable* of producing, since `notes_html()` and
+`read_notes_html()` both emit the link unconditionally in every lane. Those
+failures were fixture incompleteness, not gate findings. Patched with the href
+plus, where a suite builds a feed-site, the notes file the existence arm
+already probed.
+
+Audits: `coverage ok: true` (3/3), `registry ok: true`, `verify ok: true` (0
+issues / 29 checks), `verify --remote ok: true` (3 local / 3 remote, both drift
+lists empty), live-vs-local `feed.xml` md5 identical
+(`9fc23235fcb49ca809059092da619b54`, unchanged all slice), `status healthy:
+true`. No feed byte moved; nothing published this run.

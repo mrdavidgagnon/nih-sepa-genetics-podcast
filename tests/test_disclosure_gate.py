@@ -153,6 +153,15 @@ class DisclosureGateTests(unittest.TestCase):
         mp3.write_bytes(_FIXTURE_MP3)
         (self.site / f"episode-{num}-notes.md").write_text("# notes\n")
         (self.site / "index.html").write_text(INDEX_HTML.format(num=num))
+        # publish_feed.py's notes_html() and read_notes_html() BOTH
+        # emit a show-notes link on every item, so a disclosure block
+        # without one is a block no generator can produce (run 075).
+        # It is appended here rather than baked into the prose
+        # constants because only _build() knows the episode number --
+        # the constants are passed through literally, never formatted.
+        if encoded_html and encoded_html.strip() and "notes.md" not in encoded_html:
+            encoded_html = encoded_html + (
+                '<p><a href="episode-%s-notes.md">Full source notes</a></p>' % num)
         encoded = ("<content:encoded><![CDATA[" + encoded_html + "]]></content:encoded>"
                    if encoded_html is not None else "")
         feed = self.site / "feed.xml"

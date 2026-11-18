@@ -51,7 +51,7 @@ def _make_fixture_png(width: int = 1400, height: int = 1400) -> bytes:
 
 FIXTURE_FEED = """<?xml version="1.0" encoding="UTF-8"?>
 <rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd" xmlns:content="http://purl.org/rss/1.0/modules/content/"><channel><title>Moral Machines</title><language>en-us</language><copyright>© 2026 Field Day Lab, UW–Madison</copyright><itunes:author>Field Day Lab, UW–Madison</itunes:author><itunes:explicit>false</itunes:explicit><itunes:type>episodic</itunes:type><itunes:category text="Education"/><link>https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/</link><description>Show</description><itunes:image href="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/cover.png"/><image><url>https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/cover.png</url><title>Moral Machines</title><link>https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/</link></image>
-      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-001.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate><itunes:episode>1</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:duration>00:00:02</itunes:duration><itunes:explicit>false</itunes:explicit><itunes:image href="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/cover.png"/><content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p>]]></content:encoded></item>
+      <item><title>Ep One</title><description>Desc one</description><guid isPermaLink="false">moral-machines-episode-001</guid><enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-001.mp3" length="{length}" type="audio/mpeg"/><pubDate>Tue, 03 Nov 2026 23:39:45 +0000</pubDate><itunes:episode>1</itunes:episode><itunes:episodeType>full</itunes:episodeType><itunes:duration>00:00:02</itunes:duration><itunes:explicit>false</itunes:explicit><itunes:image href="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/cover.png"/><content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p><p><a href="episode-001-notes.md">Full source notes, evidence limitations, and direct Zotero links</a></p>]]></content:encoded></item>
 </channel></rss>
 """
 
@@ -86,6 +86,10 @@ class IndexPageGateTests(unittest.TestCase):
         self.site.mkdir()
         self.audio = self.site / "episode-001.mp3"
         self.audio.write_bytes(_MP3)
+        # publish_feed.py copies episode-notes.md beside the audio
+        # for every published item and the feed item links to it,
+        # so a feed-site without one is incomplete (run 075).
+        (self.site / "episode-001-notes.md").write_text("# notes\n")
         cover = _make_fixture_png()
         (self.site / "cover.png").write_bytes(cover)
         (self.dir / "cover.png").write_bytes(cover)

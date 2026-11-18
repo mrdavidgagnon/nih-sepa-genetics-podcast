@@ -30,13 +30,13 @@ FEED = """<?xml version="1.0" encoding="utf-8"?>
       <description>First</description>
       <guid>moral-machines-episode-001</guid>
       <enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-001.mp3" length="3" type="audio/mpeg"/>
-    <content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p>]]></content:encoded></item>
+    <content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p><p><a href="episode-001-notes.md">Full source notes, evidence limitations, and direct Zotero links</a></p>]]></content:encoded></item>
     <item>
       <title>Episode 002</title>
       <description>Second</description>
       <guid>moral-machines-episode-002</guid>
       <enclosure url="https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast/episode-002.mp3" length="3" type="audio/mpeg"/>
-    <content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p>]]></content:encoded></item>
+    <content:encoded><![CDATA[<p>This is a synthetic/dramatized interview with fictional research correspondent Dr. Rowan Field.</p><p>This is an AI-generated summary that may contain errors.</p><p><a href="episode-002-notes.md">Full source notes, evidence limitations, and direct Zotero links</a></p>]]></content:encoded></item>
   </channel>
 </rss>
 """
