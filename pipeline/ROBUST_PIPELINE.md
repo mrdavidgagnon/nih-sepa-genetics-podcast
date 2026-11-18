@@ -523,6 +523,47 @@ tree's behaviour, not just its code.
 Covered by 22 tests in `tests/test_deploy_drift.py`, including that neither
 `publish_local()` nor `verify_feed()` calls it (it must stay a non-gate).
 
+### `push` now asserts the deployed bytes too (run 077)
+
+`drift` is still **not** an episode gate -- `publish_local()` and
+`verify_feed()` continue not to call it -- but it *is* now part of the shipping
+command's liveness criterion.
+
+`push_to_remote()` used to declare a deploy live on `verify_feed(..., remote=)`
+alone, and every remote probe there is an **existence** probe (the list above).
+So a deploy whose `feed.xml` text, show notes, cover art or landing page was
+rewritten -- or whose enclosure bytes were swapped at the same byte length --
+satisfied the wait loop with an **empty issue list** and was reported live. The
+comparator that catches exactly those classes already existed and was
+**CLI-only**, so no gate and no shipping command could reach it; the operator's
+own live-vs-local md5 habit was the only cover, one slice late.
+
+The wait loop now breaks only when `verify_feed` **and** `deploy_drift` both
+pass, and the final `ok` accounts for both. The drift verdict is reported under
+its own top-level **`drift`** key -- never folded into `verify_feed`'s dict -- and
+its issues are appended to `push`'s issue list.
+
+`_deploy_drift_verdict()` is deliberately **fail-open** on an exception (run
+055's rule for a helper on the publish path: a comparator that could raise would
+make every deploy impossible, which is worse than the class it guards). A
+*definite* `ok: false` is a refusal and is never downgraded.
+
+The same-length binary byte swap remains outside the range probe's reach -- a
+documented limit, with `preflight`'s `checks.audio.sha256` (run 045) covering
+audio provenance.
+
+Lesson: this is run 041's ("when a read-only audit detects a class the gates do
+not, wire it into the gate") combined with run 045's ("ask whether the reader is
+reachable from the command the operator runs to **ship**, not merely whether a
+reader exists"). `tests/test_deploy_drift.py` pinned that `publish_local` and
+`verify_feed` do not call the comparator -- correctly -- but `push_to_remote`
+was a **third caller it never named**, and that unnamed third caller was the
+defect. When a test enumerates the callers a function must *not* have, ask which
+callers it *should*.
+
+Covered by 13 tests in `tests/test_push_deploy_drift_gate.py` (load-bearing: 10
+failures/errors against the pre-fix module).
+
 ## Tests
 
 ```sh
@@ -533,7 +574,7 @@ python3 pipeline/robust_pipeline.py registry
 python3 pipeline/robust_pipeline.py feedsync
 ```
 
-This tree **does** have a `tests/` directory -- **460 tests** across twenty-six
+This tree **does** have a `tests/` directory -- **473 tests** across twenty-seven
 modules, run with `unittest` (there is no `pytest` in either venv). The count
 grows with every gate; a figure in this document is a snapshot, so trust
 `unittest discover` over the number written here. The older

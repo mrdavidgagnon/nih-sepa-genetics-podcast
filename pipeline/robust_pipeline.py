@@ -3938,6 +3938,26 @@ def load_deploy_token() -> str:
                         return val
     raise ValueError("deploy token not set (GITHUB_PODCAST_TOKEN or GITHUB_TOKEN)")
 
+def _deploy_drift_verdict(remote: str | None = None) -> dict[str, Any]:
+    """deploy_drift()'s verdict for push_to_remote(), fail-open on a fault.
+
+    Deliberately fail-open (run 055's rule for a helper on the publish path):
+    a comparator that could raise would make every deploy impossible, which is
+    a worse failure than the class it guards. An exception therefore yields
+    ``ok: true`` with the reason recorded, while a DEFINITE ``ok: false`` from
+    the comparator is a refusal and is never downgraded.
+
+    deploy_drift() stays read-only and is still not a publication gate: it
+    grants nothing, and publish_local()/verify_feed() continue not to call it.
+    This is a POST-push deploy assertion, not an episode gate.
+    """
+    try:
+        return deploy_drift(remote)
+    except Exception as exc:  # pragma: no cover - comparator fault
+        return {"ok": True, "issues": [],
+                "unavailable": f"{type(exc).__name__}: {exc}"}
+
+
 def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120,
                    push_timeout: int | None = None) -> dict[str, Any]:
     """Deploy the verified local feed-site to the GitHub Pages site and confirm live.
@@ -4040,16 +4060,49 @@ def push_to_remote(episodes: list[str] | None = None, wait_seconds: int = 120,
                env=push_env)
         result["pushed"] = True
         # GitHub Pages propagates within a couple of minutes; verify live feed.
+        #
+        # The liveness criterion is TWO questions, not one. verify_feed()
+        # answers "does the deployed feed parse, carry the right GUIDs, and
+        # are its assets fetchable" -- and every one of its remote probes is
+        # an EXISTENCE probe: show notes, cover art and the landing page are
+        # checked for HTTP 200 plus a few bytes, enclosures for their
+        # Content-Range total only, and the deployed feed by GUID set. So a
+        # deploy whose feed text, notes, cover or landing page was rewritten,
+        # or whose enclosure bytes were swapped at the same byte length,
+        # satisfied it with an EMPTY issue list and was declared live.
+        #
+        # deploy_drift() asks the strictly different question -- do the
+        # deployed BYTES equal the local bytes -- and already detected every
+        # one of those classes. It was CLI-only, so the detector existed but
+        # no gate and no shipping command reached it; the operator's own
+        # live-vs-local md5 habit was the only thing covering the gap, one
+        # slice late. That is run 041's lesson (when a read-only audit
+        # detects a class the gates do not, wire it into the gate) and run
+        # 045's (ask whether a field's reader is reachable from the command
+        # the operator runs to SHIP, not merely whether a reader exists).
+        #
+        # Both must pass to break the wait loop, because Pages lag makes an
+        # early iteration legitimately stale on either axis. Reported under
+        # its own top-level key rather than folded into verify_feed's verdict
+        # (run 041's third harness trap: a distinct assertion gets a distinct
+        # key, never another check's dict).
         deadline = time.time() + wait_seconds
         while time.time() < deadline:
             v = verify_feed(str(ROOT / "feed-site" / "feed.xml"), remote=FEED_BASE)
             result["live"] = v
-            if v["ok"]:
+            d = _deploy_drift_verdict()
+            result["drift"] = d
+            if v["ok"] and d["ok"]:
                 break
             time.sleep(30)
-        result["ok"] = bool(result["live"]) and not result["live"]["issues"]
+        live_ok = bool(result["live"]) and not result["live"]["issues"]
+        drift = result.get("drift") or {}
+        drift_ok = bool(drift.get("ok", True))
+        result["ok"] = live_ok and drift_ok
         if not result["ok"]:
-            result["issues"] = result["live"]["issues"]
+            issues = list(result["live"]["issues"]) if result.get("live") else []
+            issues.extend(drift.get("issues", []) or [])
+            result["issues"] = issues
         return result
     except sp.TimeoutExpired as exc:
         # A timed-out push is NOT a failed push: git may have finished

@@ -2178,13 +2178,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T10:33:24.018924Z"
+        },
+        {
+          "attempt_id": "501-1795014088",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-18T15:01:28.449137Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-18T15:07:43.954277Z",
+              "detail": "run077: push_to_remote declares deploy live on verify_feed existence-only verdict; deploy_drift detector exists but is CLI-only, unreachable from the shipping command",
+              "stage": "defect_selected"
+            }
+          ],
+          "deadline_at": "2026-11-18T15:26:28.449137Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-18T15:01:28.449137Z"
         }
       ],
-      "attempts": 71,
+      "attempts": 72,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T10:57:56Z"
+  "updated_at": "2026-11-18T15:13:30Z"
 }

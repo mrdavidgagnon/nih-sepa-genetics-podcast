@@ -1,3 +1,82 @@
+## Run 077 (2026-11-18) — the shipping command never compared deployed bytes
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items still sit directly in `YF84AUZK` awaiting David's lane call), so
+no production unit. Opening audits all green: `coverage ok` 3/3, `registry ok`
+(ledger 4 / manifest 3), `feedsync ok` (committed md5 == regenerated),
+`drift ok` (10 identical), `verify ok` 0 issues / 29 checks, `status healthy:
+true`. Stale lock from run 076 had a dead owner pid (310383) and a free
+advisory lock — the normal steady state; released with `unlock --force`.
+
+**Defect.** `push_to_remote()` — the mandated shipping command — declared a
+deploy live on `verify_feed(..., remote=FEED_BASE)` alone, and every remote
+probe there is an **existence** probe: show notes, cover art and the landing
+page get HTTP 200 plus a few bytes, enclosures only their `Content-Range`
+total, the deployed feed only a GUID-set comparison. So a deploy whose
+`feed.xml` text, notes, cover or `index.html` was rewritten satisfied the wait
+loop with `ok: true` and an **empty issue list**, and `push` reported it live.
+
+The detector already existed: `deploy_drift()` md5s deployed text against local
+and checks binary deployed length, and it refuses every one of those classes.
+It was **CLI-only** — `grep` shows its single call site is the argparse
+dispatch — so no gate and no shipping command reached it. The operator's
+live-vs-local md5 habit was the only thing covering the gap, and only on the
+*next* slice.
+
+Sharpest part: `tests/test_deploy_drift.py` deliberately pinned that
+`publish_local()` and `verify_feed()` do **not** call the comparator (it must
+stay a non-gate) — and that is correct. But `push_to_remote()` is a **third
+caller the test never named**, and that unnamed caller was the defect. A test
+enumerating the callers a function must not have does not establish which
+callers it should.
+
+**Fix.** The wait loop breaks only when `verify_feed` **and** `deploy_drift`
+both pass; the final `ok` is `live_ok and drift_ok`; the drift verdict is
+reported under its own top-level `drift` key (run 041: a distinct assertion
+gets a distinct key, never another check's dict) with its issues appended.
+`_deploy_drift_verdict()` is **fail-open** on an exception (run 055: a helper
+on the publish path that could raise would make every deploy impossible), while
+a definite `ok: false` is never downgraded. `deploy_drift()` stays read-only
+and is still not an episode gate.
+
+**Proof.** Repro 23/23 against the unmodified module: `push` breaks on
+`verify_feed`'s ok, does not call the comparator, and a deploy with every GUID
+intact but rewritten feed text / notes / index / cover is reported
+`ok: true, issues: []` — with `deploy_drift` refusing the identical deploy as
+the control, proving the detector worked and only the call site was missing.
+Proof 48/48: pre-fix backup still reproduces; each of the four text classes now
+refused and named; **nothing granted** — a clean deploy still passes with an
+identical verdict pre/post, the comparator stays out of `publish_local` and
+`verify_feed`, `deploy_drift` still writes nothing, a comparator fault fails
+open while a refusal is passed through, and local `verify`/`coverage`/`registry`
+still pass. Blast radius: exactly **one** pre-existing function changed
+(`push_to_remote`), **65** byte-identical including `preflight`, `review_gate`,
+`fidelity_gate`, `feed_coverage`, `publish_local`, `verify_feed`,
+`registry_audit`, `reconcile`, `deploy_drift`, `feed_sync` and `status`.
+Additive: 3 removals, all three the deliberately-rewritten wait-loop lines.
+
+The same-length binary byte swap stays outside the range probe's reach — a
+documented limit, with `preflight`'s `checks.audio.sha256` (run 045) covering
+audio provenance.
+
+Tests `tests/test_push_deploy_drift_gate.py` (13), suite **460 -> 473**,
+load-bearing: 10 failures/errors against the pre-fix module (restored
+md5-identical afterwards). `ROBUST_PIPELINE.md` documents it and its stale
+460-test count is corrected to 473.
+
+Harness trap, a harness bug not a code defect (run 029's rule): section A
+false-failed on all four classes because a module copied into scratch resolves
+`ROOT` from **its own** location — the relocated pre-fix module was reading
+`/opt/data/profiles/joshua/cache/scratch` and returning a truncated verdict
+that reads exactly like "the bug is not real". Run 066's trap recurring;
+repoint every `*_PATH`/`ROOT` global at the real tree before trusting a
+relocated backup.
+
+Audits after the fix: `coverage ok` 3/3, `registry ok`, `feedsync ok`,
+`drift ok`, `verify ok` (0 issues / 29 checks), `verify --remote ok`,
+live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`,
+unchanged all slice), 473 tests OK. No feed byte moved; nothing published.
+
 ## Run 076 (2026-11-18) — the committed feed was never compared to its generator
 
 Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
