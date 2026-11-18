@@ -1,3 +1,117 @@
+## Run 076 (2026-11-18) — the committed feed was never compared to its generator
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+items still sit unfiled in the parent `YF84AUZK` — David's standing lane call,
+not re-raised). Opening audits all healthy and all blind: `coverage` ok 3/3,
+`registry` ok (ledger 4 / manifest 3, the 501 stub), `verify` local ok with 0
+issues / 29 checks, `verify --remote` ok (3 local / 3 remote, both drift lists
+empty), three `reconcile --write` passes at 0/0/0, `status healthy: true`,
+suite 435/435. Stale lock owner pid 194175 dead and the advisory lock free —
+the normal steady state; cleared with `unlock --force`. No production unit, so
+the slice closed a latent defect.
+
+**Defect.** Every file in `feed-site/` is **derived** from the registries, and
+nothing in this tree ever compared the **committed** bytes to what
+`publish_feed.py` **generates now**. A registry edit that is never republished
+was therefore invisible offline, and the next `push` deploys it. The sibling
+tree gained `feed_sync()` + a `feedsync` subcommand for exactly this class; a
+`--help` census (run 053's method, not run 010's line-count diff) showed both
+absent here.
+
+Proven reachable by perturbation against the real catalogue. A manifest
+**title** edit, a manifest **description** edit, a stale committed **notes
+body**, and a rewritten episode title inside **index.html** each left
+`coverage`, `registry`, `verify` and `reconcile` at `ok: true` with **empty
+issue lists** — the verdict `publish_local()` refuses on and
+`push_to_remote()`'s wait loop breaks on to declare a deploy live.
+
+**Why no existing audit covers it.** Each asks a question whose expectations
+come from the artifact itself: `coverage` relates registry records to the
+committed feed, `registry` relates the two registries to each other, `verify`
+scores the committed document against itself and disk, `reconcile` compares
+episode dirs to ledger records, and `drift` compares **live** bytes to
+**local** bytes — so once a stale commit is deployed, live equals local and
+drift passes. None of them holds the generator's output as the reference.
+
+Two near misses worth recording. `verify_feed()`'s `index_page` check **does**
+catch an omitted episode and a wrong show name (both controls fired), but reads
+only `<title>`/`<h1>`, local hrefs and the `episode-NNN` number set — never the
+link **text**, so a rewritten episode title passes. And the notes arm is the
+sharpest: a notes-body edit leaves `feed.xml` **byte-identical** whenever the
+numbered citation entries are untouched, and the notes are a published
+deliverable carrying the unabridged disclosure, the evidence boundaries and
+every Zotero link.
+
+**Fix.** Ported `feed_sync()` + `_feed_diff_sample()` + the `feedsync`
+subcommand, with three retargets this tree required (run 053's rule — read the
+sibling's assumptions against *this* tree's behaviour): its docstring credits
+the stale-feed class to a forgotten hardcoded `EP` append, which cannot happen
+here because `interview_episodes()` derives the list (run 010), so the cause is
+reworded to a registry edit; `PUBLISH_FEED_PATH` had to be added to the
+constants block; and `import io` was absent. `.mp3` enclosures are excluded by
+design — already audited for presence and advertised length by `coverage` and
+actually decoded by the run-058 duration check. It renders into a private temp
+dir, writes nothing, and is **not** a publication gate.
+
+**Proof.** Repro 43/43 against the unmodified module (all four classes shipping
+`ok: true` with empty issue lists; controls: an omitted index entry and a
+deleted committed notes file are both already refused). Proof 76/76: pre-fix
+backup still reproduces; each class refused and named with both digests;
+nothing granted — the real tree still passes, `coverage`/`registry` verdicts
+unchanged, and the run-038/057/066 gates plus preflight all still bite. Two
+functions added, **only `main()` changed** among pre-existing ones (a new
+subcommand legitimately changes it — bounded to 4 added lines, 3 naming the
+command, and exactly 1 reworded exit-code line), with
+`preflight`/`review_gate`/`fidelity_gate`/`verify_feed`/`feed_coverage`/
+`publish_local`/`push_to_remote`/`registry_audit`/`reconcile`/`deploy_drift`
+byte-identical. Additive: +272 lines, 1 distinct line retired.
+
+**Mutant sweep, because reverting to the backup is a weak proof here** — the
+pre-fix module has no `feed_sync` at all, so all 22 tests die on
+`AttributeError`, proving only that the file changed (run 054's lesson). 18
+single-fault mutants on the **new** structure: **18/18 caught**. The sweep
+earned its keep twice — **M10 exposed a real test gap** (a generator raising
+inside `main()` is a different branch from one raising at *import*, and the
+suite tested only the import path), fixed by splitting into four generator-
+failure tests; and **M16 was a bad mutant**, inserting only a comment, so its
+survival was correct and the mutant was repaired rather than the code.
+
+Tests `tests/test_feed_sync_audit.py` (25), suite **435 → 460**. One test
+failed first and was **my test's wrong semantics, not a code defect** (run
+029's rule): `_feed_diff_sample`'s `limit` bounds differing **runs**, not
+output lines — the counter is tested once per difflib opcode, so one giant
+replace run emits every line of it. Replaced with an interleaved-opcode case
+asserting the bound plus an explicit test that a single differing run is
+emitted in full. The helper is otherwise identical to the sibling's apart from
+a deliberate `new` → `newline` rename avoiding the shadowed builtin-ish name.
+
+**Docs (run 031's rule).** `ROBUST_PIPELINE.md` gained `feedsync` in both
+command blocks and a section explaining why each of the five existing audits is
+structurally unable to cover the class, and its **Tests** section was corrected
+from a stale **187 tests across ten modules** to 460 across twenty-six, with a
+note that a count in the doc is a snapshot and `unittest discover` is
+authoritative. The stale-doc grep returns only my own replacement prose.
+
+**Lesson.** Every audit here relates records to artifacts or artifacts to each
+other; this is the first that relates an artifact to its **producer**. When a
+deliverable is *generated*, ask what holds the generator's current output as the
+reference — a check whose expectations are read from the artifact under test can
+only ever prove self-consistency. The near-miss pattern generalizes too:
+`index_page` reads the fields it can *name* (`<title>`, hrefs, the number set)
+and is blind to a value only the generator knows, so "this file has a check"
+and "this file's content is pinned" are different claims.
+
+Audits after the fix: `coverage ok: true` (3/3), `registry ok: true`,
+`feedsync ok: true` (committed == regenerated, notes 3, site text 1),
+`verify ok: true` (0 issues / 29 checks), `verify --remote ok: true` (3 local /
+3 remote, both drift lists empty), live-vs-local `feed.xml` md5 identical
+(`9fc23235fcb49ca809059092da619b54`, unchanged all slice), `status healthy:
+true`, `py_compile` clean, suite 460/460. No feed byte moved; nothing published
+this run.
+
+Harnesses: `/opt/data/tmp/mm_feedsync_repro_run076.py` (43),
+`mm_feedsync_proof_run076.py` (76), `mm_feedsync_mutants_run076.py` (18).
+
 ## 2026-11-17T13:xxZ — run 071 (the syndication envelope had no reader)
 
 Both intake lanes empty (Summerize V4WXTY8M 0, Read DV6F4ILX 0; 18 items still

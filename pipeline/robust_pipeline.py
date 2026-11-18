@@ -13,6 +13,7 @@ import contextlib
 import email.utils
 import fnmatch
 import hashlib
+import io
 import json
 import os
 import platform
@@ -40,6 +41,7 @@ LEDGER_PATH = PIPELINE / "state.json"
 INVENTORY_PATH = PIPELINE / "inventory.json"
 LOCK_PATH = PIPELINE / ".pipeline.lock"
 MANIFEST_PATH = PIPELINE / "manifest.json"
+PUBLISH_FEED_PATH = PIPELINE / "publish_feed.py"
 FEED_BASE = "https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast"
 DEPLOY_REPO = "https://github.com/mrdavidgagnon/nih-sepa-genetics-podcast"
 DEPLOY_ENV_FILE = Path("/opt/data/.env")
@@ -4322,6 +4324,273 @@ def watchdog(max_render_minutes: int = 120,
     return report
 
 
+
+def _feed_diff_sample(committed: str, regenerated: str,
+                      window: int = 160, limit: int = 20) -> list[str]:
+    """Human-readable sample of where two feed documents diverge.
+
+    ``feed.xml`` writes each ``<item>`` on one very long line, so a unified
+    diff truncated to a fixed prefix reports two lines whose visible portions
+    are identical -- technically correct and operationally useless. For any
+    differing pair longer than the window this emits a focused slice centred
+    on the first differing character, which is what makes the changed value
+    (a rewritten notes sentence, a retitled episode) legible.
+    """
+    import difflib
+
+    sample: list[str] = []
+    clines = committed.splitlines()
+    rlines = regenerated.splitlines()
+    matcher = difflib.SequenceMatcher(None, clines, rlines, autojunk=False)
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        if tag == "equal":
+            continue
+        if len(sample) >= limit:
+            sample.append("... diff truncated ...")
+            break
+        if tag == "replace" and (i2 - i1) == 1 and (j2 - j1) == 1:
+            old, newline = clines[i1], rlines[j1]
+            if max(len(old), len(newline)) > window:
+                cut = next((k for k in range(min(len(old), len(newline)))
+                            if old[k] != newline[k]),
+                           min(len(old), len(newline)))
+                start = max(0, cut - window // 2)
+                sample.append(f"@@ line {i1 + 1} char {cut} @@")
+                sample.append("- ..." + old[start:start + window] + "...")
+                sample.append("+ ..." + newline[start:start + window] + "...")
+                continue
+        for k in range(i1, i2):
+            sample.append(f"- {clines[k][:400]}")
+        for k in range(j1, j2):
+            sample.append(f"+ {rlines[k][:400]}")
+    return sample
+
+
+# Text artifacts publish_feed.main() writes into feed-site/ that feed_sync()
+# compares byte-for-byte. .mp3 enclosures are excluded deliberately: they are
+# copies of the episode audio, already audited for presence and advertised
+# length by `coverage` and decoded by the run-058 duration check, and hashing
+# them on every audit would make the command unaffordable.
+SYNC_TEXT_SUFFIXES = {".html", ".json", ".svg", ".txt", ".xml"}
+
+
+def feed_sync(site: Path | None = None) -> dict[str, Any]:
+    """Audit that the committed feed-site bytes equal a fresh regeneration.
+
+    READ-ONLY. ``publish_feed.py`` builds every file in ``feed-site/`` from
+    the registries -- ``manifest.json`` (``title``, ``description``,
+    ``number``, ``kind``), ``read-episodes.json`` (``verified``, ``coverage``,
+    ``source_words``, ``citation``, ``title``) and ``state.json`` (the
+    production timestamps the ``<pubDate>`` is formatted from) -- plus the
+    on-disk enclosures and each episode's ``episode-notes.md``. Editing any of
+    those WITHOUT re-running publish leaves the committed bytes stale, and
+    every other audit in this tree still passes:
+
+    * ``coverage`` asks whether every published episode has a feed item and
+      whether each enclosure exists at its advertised length -- about the
+      committed feed only.
+    * ``registry`` asks whether ``state.json`` and ``manifest.json`` agree,
+      and never reads ``feed-site/`` at all.
+    * ``verify`` scores the committed document against itself and against
+      disk: it reads every advertised field, but its expectations come from
+      the same committed bytes, so a stale title is self-consistent.
+    * ``reconcile`` compares each ``episodes/NNN`` directory to its ledger
+      record and never reads the feed.
+    * ``drift`` compares the LIVE bytes to the LOCAL bytes -- so once a stale
+      commit is deployed, live equals local and the audit passes.
+
+    None of them asks whether the committed bytes still equal the *generated*
+    bytes, which is the one question that detects a registry edit that was
+    never republished. In the sibling tree that class was caught only by an
+    md5 diff against the live site, which needs network and only works after a
+    deploy; this answers the same question locally and before the push.
+
+    It audits every text artifact the generator writes -- ``feed.xml``, each
+    ``<base>-notes.md`` and ``index.html`` -- because a check that regenerates
+    a whole site and compares one output leaves the rest audited by nothing.
+    The notes files matter most: a notes-body edit leaves ``feed.xml``
+    byte-identical whenever the numbered citation entries are untouched, and
+    the notes are a published deliverable carrying the unabridged disclosure,
+    the evidence boundaries and every Zotero link.
+
+    It is **not** a publication gate: it grants nothing, writes nothing into
+    the pipeline, and does not replace ``preflight``/``review_gate``/
+    ``verify_feed``/the read lane's fidelity gate. It renders into a private
+    temporary directory, so ``feed-site/`` is never touched.
+
+    ``ok: false`` with a populated ``diff_sample`` means: run
+    ``publish --episode NNN`` to regenerate, inspect the diff, and deploy.
+    """
+    site_dir = Path(site) if site is not None else (ROOT / "feed-site")
+    report: dict[str, Any] = {
+        "ok": True,
+        "site": str(site_dir),
+        "committed_md5": None,
+        "regenerated_md5": None,
+        "committed_items": None,
+        "regenerated_items": None,
+        "diff_sample": [],
+        "notes_checked": 0,
+        "notes_stale": [],
+        "notes_missing": [],
+        "site_text_checked": 0,
+        "site_text_stale": [],
+        "site_text_missing": [],
+        "issues": [],
+    }
+    committed = site_dir / "feed.xml"
+    if not committed.is_file():
+        report["ok"] = False
+        report["issues"].append(f"no committed feed at {committed}")
+        return report
+
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location(
+        "_feedsync_publish_feed", PUBLISH_FEED_PATH)
+    if spec is None or spec.loader is None:
+        report["ok"] = False
+        report["issues"].append(f"cannot load {PUBLISH_FEED_PATH}")
+        return report
+    module = importlib.util.module_from_spec(spec)
+    try:
+        spec.loader.exec_module(module)
+    except Exception as exc:  # pragma: no cover - import-time failure
+        report["ok"] = False
+        report["issues"].append(f"publish_feed.py failed to import: {exc}")
+        return report
+
+    # Redirect the generator's output at its SITE global so the real
+    # feed-site/ is never written. publish_feed.main() copies enclosures and
+    # notes into SITE as well, which is why this needs a scratch directory
+    # rather than only capturing the returned XML.
+    scratch = Path(tempfile.mkdtemp(prefix="feedsync-"))
+    real_site = getattr(module, "SITE", None)
+    try:
+        module.SITE = scratch
+        try:
+            # publish_feed.main() prints a progress line; this command's
+            # stdout must stay parseable JSON, so swallow it.
+            with contextlib.redirect_stdout(io.StringIO()):
+                module.main()
+        except SystemExit as exc:
+            report["ok"] = False
+            report["issues"].append(f"publish_feed.main() refused to build: {exc}")
+            return report
+        except Exception as exc:
+            report["ok"] = False
+            report["issues"].append(
+                f"publish_feed.main() raised {type(exc).__name__}: {exc}")
+            return report
+        regenerated = scratch / "feed.xml"
+        if not regenerated.is_file():
+            report["ok"] = False
+            report["issues"].append("publish_feed.main() produced no feed.xml")
+            return report
+
+        committed_text = committed.read_text()
+        regenerated_text = regenerated.read_text()
+        report["committed_md5"] = hashlib.md5(committed_text.encode()).hexdigest()
+        report["regenerated_md5"] = hashlib.md5(regenerated_text.encode()).hexdigest()
+        try:
+            report["committed_items"] = len(
+                ET.fromstring(committed_text).findall("./channel/item"))
+            report["regenerated_items"] = len(
+                ET.fromstring(regenerated_text).findall("./channel/item"))
+        except ET.ParseError as exc:
+            report["issues"].append(
+                f"feed did not parse while counting items: {exc}")
+
+        # publish_feed.main() also copies every episode's episode-notes.md
+        # into SITE as "<base>-notes.md". Those are published deliverables --
+        # the feed links them (run 075) and they are fetched live -- but
+        # feed.xml stays byte-identical for a notes-body edit whenever the
+        # numbered citation entries are untouched. The scratch render already
+        # contains them, so this costs nothing extra.
+        for regen_notes in sorted(scratch.glob("*-notes.md")):
+            committed_notes = site_dir / regen_notes.name
+            report["notes_checked"] += 1
+            if not committed_notes.is_file():
+                report["ok"] = False
+                report["notes_missing"].append(regen_notes.name)
+                report["issues"].append(
+                    f"{regen_notes.name} is generated by publish_feed.py but "
+                    f"is not committed in {site_dir.name}/")
+                continue
+            regen_md5 = hashlib.md5(regen_notes.read_bytes()).hexdigest()
+            committed_md5 = hashlib.md5(committed_notes.read_bytes()).hexdigest()
+            if regen_md5 != committed_md5:
+                report["ok"] = False
+                report["notes_stale"].append({
+                    "file": regen_notes.name,
+                    "committed_md5": committed_md5,
+                    "regenerated_md5": regen_md5,
+                    "committed_bytes": committed_notes.stat().st_size,
+                    "regenerated_bytes": regen_notes.stat().st_size,
+                })
+                report["issues"].append(
+                    f"committed {regen_notes.name} differs from the episode's "
+                    f"current episode-notes.md; a notes edit was not republished")
+
+        # The third class: index.html, the site's only human entry point,
+        # built from the same derivation as the feed. verify_feed()'s
+        # index_page check reads its <title>/<h1>, its local hrefs and its
+        # episode-NNN number set -- so it catches an omitted episode and a
+        # wrong show name, but NOT a rewritten episode title inside a list
+        # entry, which is a value only the generator knows. Rather than
+        # naming index.html, audit everything textual the generator wrote
+        # except the two classes handled above, so a future artifact is
+        # covered the day it is added.
+        for regen in sorted(scratch.iterdir()):
+            if not regen.is_file() or regen.is_symlink():
+                continue
+            if regen.name == "feed.xml" or regen.name.endswith("-notes.md"):
+                continue
+            if regen.suffix.lower() not in SYNC_TEXT_SUFFIXES:
+                continue
+            committed_file = site_dir / regen.name
+            report["site_text_checked"] += 1
+            if not committed_file.is_file():
+                report["ok"] = False
+                report["site_text_missing"].append(regen.name)
+                report["issues"].append(
+                    f"{regen.name} is generated by publish_feed.py but is not "
+                    f"committed in {site_dir.name}/")
+                continue
+            regen_md5 = hashlib.md5(regen.read_bytes()).hexdigest()
+            committed_md5 = hashlib.md5(committed_file.read_bytes()).hexdigest()
+            if regen_md5 != committed_md5:
+                report["ok"] = False
+                report["site_text_stale"].append({
+                    "file": regen.name,
+                    "committed_md5": committed_md5,
+                    "regenerated_md5": regen_md5,
+                    "committed_bytes": committed_file.stat().st_size,
+                    "regenerated_bytes": regen.stat().st_size,
+                })
+                report["issues"].append(
+                    f"committed {regen.name} differs from what publish_feed.py "
+                    f"generates now; a registry edit was not republished")
+
+        if report["committed_md5"] != report["regenerated_md5"]:
+            report["ok"] = False
+            report["issues"].append(
+                "committed feed-site/feed.xml differs from what publish_feed.py "
+                "generates from the current registries; a registry was edited "
+                "without republishing")
+            # feed.xml puts each <item> on a single very long line, so a plain
+            # unified diff truncated per line shows only the identical prefix.
+            # Emit a window centred on the first divergence instead, so the
+            # changed value is actually visible.
+            report["diff_sample"] = _feed_diff_sample(
+                committed_text, regenerated_text)
+    finally:
+        if real_site is not None:
+            module.SITE = real_site
+        shutil.rmtree(scratch, ignore_errors=True)
+    return report
+
+
 def print_result(value: Any) -> None:
     print(json.dumps(value, indent=2, sort_keys=True))
 
@@ -4343,6 +4612,8 @@ def main(argv: list[str] | None = None) -> int:
     p = sub.add_parser("drift", help="audit the live site against local feed-site bytes")
     p.add_argument("--remote", default=None)
     p.add_argument("--text-only", action="store_true", dest="text_only")
+    p = sub.add_parser("feedsync",
+                       help="audit the committed feed against a fresh regeneration")
     p = sub.add_parser("watchdog"); p.add_argument("--max-render-minutes", type=int, default=120)
     p.add_argument("--stall-seconds", type=int, default=DEFAULT_STALL_SECONDS)
     p = sub.add_parser("unlock"); p.add_argument("--force", action="store_true")
@@ -4385,6 +4656,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "coverage": result = feed_coverage(args.feed)
         elif args.command == "registry": result = registry_audit()
         elif args.command == "drift": result = deploy_drift(args.remote, text_only=args.text_only)
+        elif args.command == "feedsync": result = feed_sync()
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)
         elif args.command == "unlock": unlock(args.force); result = {"unlocked": True}
         elif args.command == "attempt":
@@ -4400,7 +4672,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = {"ok": True, "attempts": attempts_report(load_ledger())}
         print_result(result)
-        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry", "drift"}:
+        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry", "drift", "feedsync"}:
             return 0 if result.get("ok", result.get("healthy", True)) else 1
         return 0
     except Exception as exc:

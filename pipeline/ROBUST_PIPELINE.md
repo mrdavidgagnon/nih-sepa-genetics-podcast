@@ -37,6 +37,7 @@ python3 pipeline/robust_pipeline.py publish --episode 007
 python3 pipeline/robust_pipeline.py verify pipeline/../feed-site/feed.xml
 python3 pipeline/robust_pipeline.py coverage
 python3 pipeline/robust_pipeline.py registry
+python3 pipeline/robust_pipeline.py feedsync
 python3 pipeline/robust_pipeline.py push --episode 007 --wait 240
 python3 pipeline/robust_pipeline.py status
 python3 pipeline/robust_pipeline.py watchdog
@@ -83,6 +84,59 @@ that stops early leaves them disagreeing with nothing to notice. **Run it
 alongside `coverage` as the opening audit of every slice.** It replaces the
 hand-rolled manifest-vs-ledger one-liner this document used to ask each run to
 paste.
+
+`feedsync` is the third read-only opening audit, and it asks the one question
+the other two cannot: does the **committed** `feed-site/` still equal what
+`publish_feed.py` **generates right now** from the current registries?
+
+Every file in `feed-site/` is derived -- `feed.xml`, each `<base>-notes.md` and
+`index.html` all come from `manifest.json` (`title`, `description`, `number`,
+`kind`), `read-episodes.json` (`verified`, `coverage`, `source_words`,
+`citation`, `title`), `state.json` (the production timestamps `<pubDate>` is
+formatted from) and each episode's `episode-notes.md`. Editing any of those
+without re-running publish leaves the committed bytes stale, and **every other
+audit still passes**, because none of them compares the commit to the
+generator:
+
+- `coverage` asks whether every published episode has a feed item and whether
+  each enclosure exists at its advertised length -- about the committed feed
+  only.
+- `registry` asks whether `state.json` and `manifest.json` agree, and never
+  reads `feed-site/` at all.
+- `verify` scores the committed document against itself and against disk. It
+  reads every advertised field, but its expectations come from those same
+  committed bytes, so a stale title is perfectly self-consistent.
+- `reconcile` compares each `episodes/NNN` directory to its ledger record and
+  never reads the feed.
+- `drift` compares the **live** bytes to the **local** bytes -- so once a
+  stale commit has been deployed, live equals local and the audit passes.
+
+Proven by perturbation against the real catalogue (run 076): a manifest title
+edit, a manifest description edit, a stale committed notes body and a rewritten
+episode title inside `index.html` each left `coverage`, `registry`, `verify`
+and `reconcile` at `ok: true` with **empty issue lists**. `verify_feed()`'s
+`index_page` check is the near miss worth knowing -- it reads the page's
+`<title>`/`<h1>`, its local hrefs and its `episode-NNN` number set, so it
+catches an **omitted** episode and a wrong show name, but not a rewritten
+episode title in a list entry, which is a value only the generator knows.
+
+The notes arm matters most: a notes-body edit leaves `feed.xml`
+**byte-identical** whenever the numbered citation entries are untouched, and
+the notes are a published deliverable carrying the unabridged disclosure, the
+evidence boundaries and every Zotero link.
+
+`.mp3` enclosures are excluded deliberately -- they are already audited for
+presence and advertised length by `coverage` and actually decoded by the
+run-058 duration check, and hashing them every run would make the command
+unaffordable.
+
+It renders into a private temporary directory, so `feed-site/` is never
+touched; it writes nothing, grants nothing, and is **not** a publication gate
+(`publish_local()` and `push_to_remote()` do not call it). `ok: false` with a
+populated `diff_sample` means: run `publish --episode NNN` to regenerate,
+inspect the diff, and deploy. Healthy state here is `ok: true` with
+`notes_checked: 3`, `site_text_checked: 1` and the committed and regenerated
+md5s equal.
 
 Three findings, ordered by severity:
 
@@ -476,19 +530,24 @@ python3 -m py_compile pipeline/*.py
 python3 -m unittest discover -s tests
 python3 pipeline/robust_pipeline.py coverage
 python3 pipeline/robust_pipeline.py registry
+python3 pipeline/robust_pipeline.py feedsync
 ```
 
-This tree **does** have a `tests/` directory -- **187 tests** across ten
-modules, run with `unittest` (there is no `pytest` in either venv). The older
+This tree **does** have a `tests/` directory -- **460 tests** across twenty-six
+modules, run with `unittest` (there is no `pytest` in either venv). The count
+grows with every gate; a figure in this document is a snapshot, so trust
+`unittest discover` over the number written here. The older
 note claiming no suite exists, and that `unittest discover` failing with
 *Start directory is not importable* is expected here, is **obsolete**: a real
 failure must be read as a real failure.
 
-Run `coverage` and `registry` as the opening audit of every slice. They are
-read-only and grant nothing; healthy state is `coverage` `ok: true` at 3 items /
-3 published, and `registry` `ok: true` with `ledger_episodes: 4,
-manifest_episodes: 3` -- the asymmetry is the 501 no-work ledger stub, correctly
-not demanded in the manifest because its status is outside the published family.
+Run `coverage`, `registry` and `feedsync` as the opening audit of every slice.
+All three are read-only and grant nothing; healthy state is `coverage`
+`ok: true` at 3 items / 3 published, `registry` `ok: true` with
+`ledger_episodes: 4, manifest_episodes: 3` -- the asymmetry is the 501 no-work
+ledger stub, correctly not demanded in the manifest because its status is
+outside the published family -- and `feedsync` `ok: true` with the committed
+and regenerated feed md5s equal, `notes_checked: 3` and `site_text_checked: 1`.
 
 Run `drift` alongside them whenever the last slice deployed. It is the
 read-only live-vs-local byte audit described under *Deploy drift* below;
