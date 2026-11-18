@@ -2227,13 +2227,38 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T19:15:31.234391Z"
+        },
+        {
+          "attempt_id": "501-1795045104",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-18T23:38:24.371273Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-18T23:45:15.480805Z",
+              "detail": "run079: no reader of the DEPLOYED file set; deploy_drift iterates local feed-site only and push never deletes -- orphan deployed files invisible",
+              "stage": "defect_selected"
+            },
+            {
+              "at": "2026-11-18T23:55:44.087683Z",
+              "detail": "run079: list_remote_tree+remote_only_paths ported & retargeted; repro 33/33, proof 67/67, mutants 12/12, suite 508",
+              "stage": "orphan_gate_fixed"
+            }
+          ],
+          "deadline_at": "2026-11-19T00:03:24.371273Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-18T23:38:24.371273Z"
         }
       ],
-      "attempts": 73,
+      "attempts": 74,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T19:37:05Z"
+  "updated_at": "2026-11-18T23:56:01Z"
 }

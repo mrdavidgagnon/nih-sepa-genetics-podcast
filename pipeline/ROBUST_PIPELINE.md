@@ -520,6 +520,71 @@ files only: a non-ignored file missing from the live site is still an issue.
 This is run 053's rule again -- read the sibling's **assumptions** against this
 tree's behaviour, not just its code.
 
+### The converse sweep: what is DEPLOYED that we no longer produce (run 079)
+
+Everything above compares a **local** file to its deployed copy. Every remote
+probe in `verify_feed()` does the same: it iterates files that exist here and
+asks whether the remote has them. Nothing asked the opposite question -- what
+does the remote HAVE that this tree no longer produces?
+
+`push_to_remote()` copies `feed-site/*` into the clone and stages with
+`git add -A`, which records additions and modifications and **can never delete
+a path the local tree stopped producing**. So anything ever deployed stays
+deployed, served to subscribers, forever. Proved on real code against the
+unmodified module: a retired episode's enclosure and notes, a stale
+alternate-name `feed-old.xml`, a retired `episodes/004/script.md`, a stray
+`pipeline/old_publish_feed.py`, and a root page naming the **sibling show** all
+returned `ok: true` with an **empty issue list** -- a verdict byte-identical to
+a clean deploy, and the verdict `push_to_remote()`'s wait loop breaks on to
+declare a deploy live.
+
+`drift` now enumerates the deploy branch with `list_remote_tree()` (git tree
+API, not an HTTP crawl -- an orphan is by definition a file no local listing
+and no feed reference will ever name, so there is nothing to crawl from) and
+reports anything unaccounted under **`remote_only`**, one issue each, plus
+`remote_blobs` and an `orphan_audit` status.
+
+**The retarget that matters, if you ever port from the sibling tree.** The
+sibling's repo contains only its feed-site payload, so it accounts for a
+deployed path by flat basename against `feed-site/`. **This** repo deploys the
+whole project -- `episodes/`, `pipeline/`, `tests/`, `README.md`,
+`style_guide.md`, `production-log.md`: 77 blobs, 63 of them nested. Copying
+that predicate verbatim reports 67 legitimate paths as orphans and makes
+`push` permanently red. Here a deployed path is accounted for when the local
+tree has that **exact repo-relative path**, or when it is a **flat** path that
+`feed-site/` produces (push copies those into the clone root, so they arrive
+without their directory). Keyed on the full path and never the basename alone,
+so a stale `stale/feed.xml` is not excused by the real flat one. Run 053's
+rule again: read the sibling's assumptions against *this* tree's behaviour,
+not its code.
+
+`DRIFT_ALLOWED_REMOTE_ONLY` is **empty**, and that emptiness is the finding:
+every one of the 77 deployed blobs is a file this tree still produces. Add an
+entry only with a reason -- an exemption is a gate with the sign flipped
+(run 036). An **un-enumerable** remote is an issue, never a pass. The sweep is
+attempted only when the remote is the deploy site, since the site-to-repo
+mapping is unknown for any other host; `orphans=True/False` overrides that.
+
+Healthy state here: `remote_blobs: 77`, `remote_only: []`,
+`orphan_audit: "completed"`.
+
+**Lesson.** When an audit relates local artifacts to deployed ones, ask which
+side it ITERATES. A check that iterates the local set can never see a deployed
+file the local set omits -- and a deploy mechanism that only ever adds makes
+that blind spot permanent rather than transient. This is run 041's
+"a check that validates what is present cannot validate what is absent" with
+the direction reversed: here the extra element is on the *remote*, so no local
+enumeration can reach it.
+
+Covered by 20 tests in `tests/test_remote_orphan_gate.py`. Reverting to the
+pre-fix backup is a **weak** proof for this one (the old module has no
+`remote_only_paths` attribute, so all 20 error and that proves only that the
+file changed) -- the real proof is a single-fault mutant sweep on the new
+structure, 12/12 caught. One mutant initially **survived**: every sweep test
+passed `orphans=True`, so hardcoding `attempt = False` left the sweep dead on
+the exact path `push` uses while the suite stayed green. Test the
+**auto-detect** branch, not only the explicit one.
+
 Covered by 22 tests in `tests/test_deploy_drift.py`, including that neither
 `publish_local()` nor `verify_feed()` calls it (it must stay a non-gate).
 

@@ -4757,3 +4757,121 @@ Final: `coverage` 3/3, `registry ok`, `verify` local ok (30 checks),
 `preflight` 001–003 ok, 3× `reconcile --write` 0/0/0, `status healthy: true`,
 suite **488/488**, `feed-site/feed.xml` md5 unchanged **and equal to live**
 (`9fc23235fcb49ca809059092da619b54`), 3 feed items. Nothing published.
+
+## Run 079 — 2026-11-18 — the DEPLOYED file set had zero readers
+
+**Intake.** Summerize `V4WXTY8M` 0 items, Read `DV6F4ILX` 0 items, Produced
+`6P2KVFKQ` 10. The 18 items sitting directly in `YF84AUZK` are unchanged and
+remain David's standing lane call — not re-raised. No production unit, so the
+slice went to a durable defect per the skill. Stale lock from run 078 (pid
+570115 dead, advisory lock free) cleared with `unlock --force`: normal steady
+state.
+
+**Opening audits.** `coverage` 3/3, `registry ok` (ledger 4 / manifest 3),
+`feedsync ok` (committed md5 == regenerated), `status healthy: true`,
+suite 488/488.
+
+**The defect.** Every byte audit in this tree — `deploy_drift()` and every
+remote probe in `verify_feed()` — iterates files that exist **locally** and
+asks whether the remote has them. Nothing asked the converse: what does the
+remote HAVE that this tree no longer produces? `push_to_remote()` copies
+`feed-site/*` into the clone and stages with `git add -A`, which records
+additions and modifications and **can never delete** a path the local tree
+stopped producing. So anything ever deployed stays deployed and served,
+permanently.
+
+Found by the run-053 move: re-check the sibling's **subcommand and function**
+surface rather than re-diffing line counts. `list_remote_tree()` and
+`remote_only_paths()` exist there (its run 491-era work) and were absent here;
+this tree had no `remote_only`, no `orphan_audit`, and the word "orphan"
+appeared nowhere in the module.
+
+**Blast radius, proved on the unmodified module (repro 33/33).** Six classes
+all returned `ok: true` with an **empty issue list**, a verdict
+*indistinguishable* from a clean deploy: a retired episode's enclosure
+(`episode-004.mp3`) and its notes, a stale alternate-name `feed-old.xml`, a
+retired `episodes/004/script.md`, a stray `pipeline/old_publish_feed.py`, and
+— the hard bug — a root page naming the **sibling show**, served at HTTP 200
+with `Human in the Loop` in its body while `FORBIDDEN_SHOW_TITLES` sat in the
+module and would have refused that exact text. That verdict is what
+`push_to_remote()`'s wait loop breaks on to declare a deploy live.
+
+**Fix.** `list_remote_tree()` (git tree API — an orphan is by definition a
+file no local listing and no feed reference will ever name, so there is nothing
+to crawl from; a truncated listing **raises**), `remote_only_paths()`, the
+`DRIFT_ALLOWED_REMOTE_ONLY` constant (**empty**), and a converse sweep at the
+end of `deploy_drift()` reporting `remote_only` / `remote_blobs` /
+`orphan_audit`. An un-enumerable remote is an **issue, never a pass** (run
+036). Attempted only when the remote is the deploy site, since the
+site-to-repo mapping is unknown for any other host.
+
+**The retarget that mattered.** The sibling's repo holds only its feed-site
+payload, so it accounts for a deployed path by flat basename against
+`feed-site/`. This repo deploys the **whole project** — 77 blobs, 63 nested.
+Copying that predicate verbatim reports 67 legitimate paths as orphans and
+makes `push` permanently red. Here a path is accounted for by **exact
+repo-relative path**, or as a **flat** path `feed-site/` produces (push copies
+those into the clone root). Keyed on the full path, never the basename, so
+`stale/feed.xml` is not excused by the real flat one. Run 053's rule: read the
+sibling's assumptions against this tree's behaviour, not its code.
+
+**Proof 67/67.** Pre-fix backup still reproduces; all six classes refused *and
+named*, each explaining that `git add -A` cannot delete. **Nothing granted** —
+clean deploy still green, real nested project paths not orphans, flat payload
+accounted via `feed-site/`, basename does not excuse a nested path, enumeration
+failure an issue, non-deploy host skipped *with its byte comparison still
+running*, `orphans=False` honoured, and the pre-existing drift classes all
+still bite (rewritten `feed.xml` by md5, truncated enclosure by size,
+undeployed local file). Blast radius: exactly **one** pre-existing function
+changed (`deploy_drift`), with `preflight` / `review_gate` / `fidelity_gate` /
+`feed_coverage` / `publish_local` / `push_to_remote` / `verify_feed` /
+`feed_sync` / `registry_audit` / `reconcile` / `status` byte-identical, 66
+shared functions byte-identical, `publish_feed.py` untouched. Additive
+**+135 / −0**.
+
+**Tests `tests/test_remote_orphan_gate.py` 20, suite 488 → 508.** Reverting to
+the backup is a **weak** proof here — the old module lacks
+`remote_only_paths` entirely, so all 20 error and that proves only that the
+file changed. A single-fault **mutant sweep on the new structure** is the real
+proof: **12/12 caught**, and one initially **survived** — every sweep test
+passed `orphans=True`, so hardcoding `attempt = False` left the sweep dead on
+the exact path `push` uses while the suite stayed green. Two tests added for
+the **auto-detect** branch closed it.
+
+**Live.** `drift` against the real site now enumerates **77 blobs** and
+reports `remote_only: []`, `orphan_audit: "completed"`, `ok: true` — so the
+deployed tree is genuinely clean, which no command in this repo could
+previously establish.
+
+**Lessons.**
+
+1. **When an audit relates local artifacts to deployed ones, ask which side it
+   ITERATES.** A check that iterates the local set can never see a deployed
+   file the local set omits. This is run 041's "a check that validates what is
+   present cannot validate what is absent" with the direction reversed: the
+   extra element is on the *remote*, so no local enumeration can reach it.
+2. **A deploy mechanism that only ever ADDS makes a blind spot permanent.**
+   `git add -A` over copied files is monotonic; a transient mistake becomes a
+   fact of the published site. Audit the deletion path of any deploy, not just
+   the write path.
+3. **A port census closes as of a date, not forever (run 053, re-confirmed).**
+   Run 010 declared it exhausted and run 053 re-opened it; the sibling has
+   since gained two more functions. Re-check the sibling's **function and
+   subcommand surface**, not file line counts.
+4. **Harness/guard false alarms were all mine, not the code's (run 029's
+   rule, three times).** The write guard fired on my own deliberate signature
+   rewording (whitelisted explicitly, never relaxed); a cross-show assertion
+   fired on the module's *own* `FORBIDDEN_ADVERTISED_SUBSTRINGS` constant
+   (scoped to the lines I added); a loose `timeout: float = 15.0)` count
+   false-failed on untouched `verify_feed`; and the non-deploy-host case used
+   a dead port, so `fetch_bytes` raised before the sweep (serve the same bytes
+   on a second port — only the base *string* should differ).
+
+**Final.** `coverage` 3/3, `registry ok`, `feedsync ok`, `verify` local ok (30
+checks, 0 issues), `preflight` 001–003 ok, 3× `reconcile --write` 0/0/0,
+`status healthy: true`, `drift ok` with 0 orphans, suite **508/508**,
+`feed-site/feed.xml` md5 unchanged at `9fc23235fcb49ca809059092da619b54` and
+equal to the tree-root copy, 3 feed items. Harnesses
+`/opt/data/tmp/mm_remote_orphan_repro_run079.py` (33),
+`mm_remote_orphan_proof_run079.py` (67),
+`mm_orphan_mutants_run079.py` (12/12). Nothing published.

@@ -705,6 +705,14 @@ DRIFT_TEXT_SUFFIXES = (".xml", ".md", ".svg", ".txt", ".html", ".json")
 # the git query exists to avoid.
 DRIFT_SKIP_PATTERNS = ("*.bak-*", "*.tmp")
 
+# Deployed repo-relative paths that legitimately have no local counterpart.
+# Empty here, and that emptiness is the finding: every one of the 77 blobs on
+# the deploy branch is a file this tree still produces, so ANY unaccounted path
+# is either a retired deliverable still being served or a file that was never
+# ours. Add an entry only with a reason -- an exemption is a gate with the sign
+# flipped (run 036).
+DRIFT_ALLOWED_REMOTE_ONLY: tuple[str, ...] = ()
+
 
 def _deployable_site_files(site_dir: Path) -> tuple[list[Path], list[str]]:
     """The feed-site files a deploy would actually publish, plus those skipped.
@@ -746,8 +754,86 @@ def _deployable_site_files(site_dir: Path) -> tuple[list[Path], list[str]]:
     return keep, sorted(skipped)
 
 
+def list_remote_tree(repo: str | None = None, branch: str = "main",
+                     token: str | None = None,
+                     timeout: float = 30.0) -> list[str]:
+    """Every blob path on the deploy branch, as repo-root-relative strings.
+
+    The second network seam of :func:`deploy_drift`, kept module level so a
+    test can replace it with ``mock.patch.object`` and exercise every orphan
+    class offline.
+
+    Uses the git tree API rather than crawling HTTP because the question is
+    "what is deployed?", and an orphan is by definition a file that no local
+    listing and no feed reference will ever name -- so there is nothing to
+    crawl from. Raises on any failure: an un-enumerable remote is reported as
+    an issue by the caller, never as a pass.
+    """
+    import urllib.request
+
+    target = (repo or DEPLOY_REPO).removeprefix("https://github.com/").strip("/")
+    auth = token or load_deploy_token()
+    headers = {
+        "Authorization": f"Bearer {auth}",
+        "Accept": "application/vnd.github+json",
+        "User-Agent": "moral-machines-drift",
+    }
+
+    def api(url: str) -> dict[str, Any]:
+        request = urllib.request.Request(url, headers=headers)
+        with urllib.request.urlopen(request, timeout=timeout) as response:
+            return json.loads(response.read().decode())
+
+    head = api(f"https://api.github.com/repos/{target}/branches/{branch}")
+    tree_sha = head["commit"]["commit"]["tree"]["sha"]
+    tree = api(
+        f"https://api.github.com/repos/{target}/git/trees/{tree_sha}?recursive=1")
+    if tree.get("truncated"):
+        raise ValueError(
+            "remote tree listing was truncated; orphan audit would be incomplete")
+    return [entry["path"] for entry in tree.get("tree", [])
+            if entry.get("type") == "blob"]
+
+
+def remote_only_paths(remote_paths: list[str], root_dir: Path | str,
+                      site_dir: Path | str,
+                      allowed: tuple[str, ...] = DRIFT_ALLOWED_REMOTE_ONLY) -> list[str]:
+    """Deployed paths that nothing in this local tree accounts for.
+
+    RETARGETED from the sibling show, which accounts for a deployed path by
+    flat basename against feed-site/ because its repo holds only that payload.
+    This repo deploys the WHOLE project -- episodes/, pipeline/, tests/ and the
+    repo docs are all tracked and served -- so the sibling predicate would
+    report every nested path as an orphan and make `push` permanently red.
+
+    A deployed path is accounted for when either:
+      * the local tree has that exact repo-relative path, or
+      * it is a FLAT path that feed-site/ produces (push copies feed-site/*
+        into the clone root, so those arrive without their directory).
+
+    Keyed on the full repo-relative path, never the basename alone: a stale
+    ``episodes/004/script.md`` must not be excused by an unrelated local file
+    of the same name, and a nested path can never collide with the flat
+    feed-site namespace.
+    """
+    root = Path(root_dir)
+    site = Path(site_dir)
+    allow = set(allowed)
+    orphans = []
+    for path in remote_paths:
+        if path in allow:
+            continue
+        if (root / path).exists():
+            continue
+        if "/" not in path and (site / path).exists():
+            continue
+        orphans.append(path)
+    return sorted(orphans)
+
+
 def deploy_drift(remote: str | None = None, site: Path | None = None,
-                 text_only: bool = False, timeout: float = 15.0) -> dict[str, Any]:
+                 text_only: bool = False, timeout: float = 15.0,
+                 orphans: bool | None = None) -> dict[str, Any]:
     """Audit that the deployed site is byte-identical to the local feed-site.
 
     READ-ONLY, and the cheapest full-stack proof that a deploy is complete.
@@ -775,6 +861,25 @@ def deploy_drift(remote: str | None = None, site: Path | None = None,
     md5 over a full GET. Binaries are compared by deployed byte length from a
     one-byte range probe. ``text_only`` skips the binaries entirely, which is
     the right mode for a doc-only or manifest-only change.
+
+    CONVERSE SWEEP (run 079). Everything above -- and every remote probe in
+    :func:`verify_feed` -- iterates files that exist LOCALLY and asks whether
+    the remote has them. Nothing asked the opposite question: what does the
+    remote HAVE that we no longer intend? ``push_to_remote()`` copies
+    feed-site/* into the clone and runs ``git add -A``, which stages additions
+    and modifications and can never DELETE a path the local tree stopped
+    producing. So any file ever deployed stays deployed, served to subscribers,
+    with every audit green: a retired episode's enclosure and notes, a stale
+    alternate-name feed copy, or a file naming the SIBLING SHOW at the deploy
+    root all returned ok: true with an EMPTY issue list -- a verdict
+    indistinguishable from a clean deploy, and the verdict
+    ``push_to_remote()``'s wait loop breaks on to declare a deploy live.
+
+    This is the only audit in the project that can see an orphan at all. It is
+    attempted only when the remote IS the deploy site, because the
+    site-to-repo mapping is unknown for any other host. An enumeration failure
+    is an ISSUE, never a pass (run 036: a waiver is a gate with the sign
+    flipped).
     """
     base = (remote or FEED_BASE).rstrip("/")
     site_dir = Path(site) if site is not None else (ROOT / "feed-site")
@@ -790,6 +895,8 @@ def deploy_drift(remote: str | None = None, site: Path | None = None,
         "missing_remote": [],
         "unverifiable": [],
         "not_deployed_by_design": [],
+        "remote_only": [],
+        "orphan_audit": "not attempted",
         "issues": [],
     }
     if not site_dir.is_dir():
@@ -847,6 +954,34 @@ def deploy_drift(remote: str | None = None, site: Path | None = None,
                 "remote_bytes": total})
             report["issues"].append(
                 f"{local.name} differs: local {local_bytes} bytes vs live {total}")
+
+    # Converse sweep: anything DEPLOYED that this tree no longer produces.
+    # See the docstring -- this is the only audit in the project that can see
+    # an orphan at all.
+    attempt = orphans
+    if attempt is None:
+        attempt = base == FEED_BASE.rstrip("/")
+        if not attempt:
+            report["orphan_audit"] = (
+                "not attempted: remote is not the deploy site, so the "
+                "site-to-repo mapping is unknown")
+    if attempt:
+        try:
+            remote_paths = list_remote_tree(timeout=max(timeout, 30.0))
+        except Exception as exc:  # enumerate failed -> issue, never a pass
+            report["orphan_audit"] = f"failed: {type(exc).__name__}: {exc}"
+            report["issues"].append(
+                f"deployed file listing could not be enumerated: {exc}")
+        else:
+            extra = remote_only_paths(remote_paths, ROOT, site_dir)
+            report["remote_blobs"] = len(remote_paths)
+            report["remote_only"] = extra
+            report["orphan_audit"] = "completed"
+            for path in extra:
+                report["issues"].append(
+                    f"{path} is deployed but this tree no longer produces it; "
+                    f"push stages with `git add -A` and can never delete a "
+                    f"retired path, so it is still served to subscribers")
 
     report["ok"] = not report["issues"]
     return report
