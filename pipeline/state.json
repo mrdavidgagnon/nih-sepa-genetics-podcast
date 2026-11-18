@@ -2249,7 +2249,9 @@
             }
           ],
           "deadline_at": "2026-11-19T00:03:24.371273Z",
-          "outcome": null,
+          "detail": "run079: both intake lanes empty (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Defect: the DEPLOYED file set had ZERO readers -- deploy_drift and every verify_feed remote probe iterate LOCAL files and ask if the remote has them; nothing asked what the remote HAS that we no longer produce. push stages with git add -A, which can never delete a retired path",
+          "finished_at": "2026-11-18T23:58:23.328418Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T23:38:24.371273Z"
         }
@@ -2260,5 +2262,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T23:56:01Z"
+  "updated_at": "2026-11-18T23:58:23Z"
 }
