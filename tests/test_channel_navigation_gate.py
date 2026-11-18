@@ -54,14 +54,38 @@ below writes ``other.png`` to disk first.
 import json
 import shutil
 import subprocess
+import struct
 import sys
 import tempfile
 import unittest
 from pathlib import Path
 
+import zlib
+
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "pipeline"))
 
 import robust_pipeline as rp  # noqa: E402
+
+def _make_fixture_png(width: int = 1400, height: int = 1400) -> bytes:
+    """A real, decodable, square PNG so the run-074 cover gate can decode it.
+
+    Run 074 made cover_art DECODE the artwork rather than merely measure it,
+    the same way run 058 made <itunes:duration> prove an enclosure is real
+    audio. The old fixture cover (``PNG signature + b"art" * 32``) has no
+    IHDR, IDAT, IEND or chunk CRCs -- a file no real export can produce -- so
+    it is completed here rather than the gate being relaxed. Stdlib only, to
+    match the gate.
+    """
+    def chunk(ctype: bytes, body: bytes) -> bytes:
+        return (struct.pack(">I", len(body)) + ctype + body
+                + struct.pack(">I", zlib.crc32(ctype + body) & 0xFFFFFFFF))
+
+    raw = b"".join(b"\x00" + b"\x00\x00\x00" * width for _ in range(height))
+    return (b"\x89PNG\r\n\x1a\n"
+            + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0))
+            + chunk(b"IDAT", zlib.compress(raw, 9))
+            + chunk(b"IEND", b""))
+
 
 BASE = "https://mrdavidgagnon.github.io/nih-sepa-genetics-podcast"
 
@@ -107,7 +131,7 @@ class ChannelNavigationGateTests(unittest.TestCase):
         self.addCleanup(shutil.rmtree, self.dir, ignore_errors=True)
         self.site = self.dir / "feed-site"
         self.site.mkdir()
-        cover = b"\x89PNG\r\n\x1a\n" + b"art" * 64
+        cover = _make_fixture_png()
         for name in ("cover.png", "other.png"):
             (self.site / name).write_bytes(cover)
             (self.dir / name).write_bytes(cover)

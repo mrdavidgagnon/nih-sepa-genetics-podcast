@@ -4556,3 +4556,97 @@ silent" case was already caught incidentally by run 057's existence probe; and a
 `cover_art.advertised == []` assertion ignored the `<image><url>` fallback that
 repopulates the union. Harnesses `/opt/data/tmp/mm_item_artwork_repro_run072.py`
 and `mm_item_artwork_proof_run072.py`.
+
+## Run 074 — 2026-11-17 — cover art is DECODED, not merely measured
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items in `YF84AUZK` remain David's standing lane call and are not
+re-raised). No production unit, so the slice went to a durable defect.
+
+**Defect.** `verify_feed()`'s `cover_art` check — the only reader of the
+artwork, wired by run 057 — was an **existence** check on all four arms:
+present, non-empty, tree-root copy equal to the deployed copy, remote 200.
+Every one is satisfied by garbage of the right length, and the check recorded
+no format, width or height at all. Run 058 had already established the general
+question one asset over ("enclosures are verified by byte length, which garbage
+at the right size satisfies") and closed it for **audio** by decoding the mp3;
+the artwork stayed on the measured-but-never-decoded side of that line for
+seventeen runs.
+
+Five single-fault covers each shipped `ok: true` with an **empty issue list**
+against the unmodified module — the verdict `publish_local()` refuses on and
+`push_to_remote()`'s wait loop breaks on to call a deploy live — and an intact
+cover was *indistinguishable* from all five: NUL-fill at exactly the right
+length (where `site_sha256 == root_sha256` precisely **because both copies are
+garbage**), a truncated PNG with its signature intact, a CRC-corrupt PNG at
+*identical byte length* with IHDR/IDAT/IEND all present, a JPEG saved as
+`cover.png`, and a valid 200x120 PNG.
+
+**Why no other audit covered it**, scoped by control: `feed_coverage()` audits
+enclosures, `registry_audit()` relates ledger to manifest, `deploy_drift()`
+compares local bytes to remote bytes so identical garbage on both sides is "no
+drift", and `publish_feed.py` has **no copy site for the cover** — which is
+exactly why a bad export lands in both hand-kept copies at once and the digest
+pair agrees. An *empty* file is the control that bounds the claim: run 057's
+size arm already refused that one, so the unread classes are all **right size,
+wrong bytes**.
+
+**Fix.** `decode_png()` plus a decode arm in `cover_art`. A real decode:
+signature, every chunk walked at its declared length, **each chunk's CRC-32
+verified**, IHDR's width/height/bit-depth/colour-type read, IDAT required, IEND
+required, IDAT payload zlib-decompressed. Never raises (a bad cover must become
+an issue, not crash the audit) and **names the container it found**. Square plus
+the 1400–3000 range enforced. No legacy waiver (run 036). **Stdlib only** —
+this interpreter is 3.14 where `imghdr` was removed and PIL is not a dependency,
+so it is a `zlib`+`struct` walk adding no install surface, pinned by test.
+
+**Proof.** repro 38/38 against the unmodified module; proof 59/59 (pre-fix still
+reproduces; each class refused and named; **nothing granted** — the real live
+feed's verdict identical pre/post, the 1400/2048/3000 boundary sizes still pass,
+an absent root copy still waives, run 057's missing/empty/drift arms plus
+066/073/058/038 all still bite; exactly **one** pre-existing function changed
+with 65 byte-identical incl. `preflight`/`review_gate`/`fidelity_gate`/
+`feed_coverage`/`publish_local`/`push_to_remote`/`deploy_drift`;
+`publish_feed.py` untouched; 3× `verify_feed` mutates zero bytes). Additive
++186/−0. Tests `tests/test_cover_decode_gate.py` 24, suite 395 → **419**,
+load-bearing: 29 failures/errors against the pre-fix module (module restored
+md5-identical afterwards).
+
+**Nine harness/fixture bugs, none a code defect** (run 029's rule — decide which
+side is wrong before touching either):
+
+- Seven proof failures were harness errors. Two were the run-066 **ROOT trap**
+  (a module loaded without repointing `ROOT` resolves it from its own location,
+  dies at the first manifest read and returns a *truncated* 7-check list that
+  reads exactly like "the fix added five checks" — a `C0` assertion now pins
+  both sides at 26 checks). One was a scan matching its **own explanatory
+  comment** ("PIL is not a dependency"); the guard was reworded to test import
+  *lines*, never relaxed. Four were mutant-sweep **scope** errors where the
+  fixture tripped a second arm too.
+- The sweep then produced a real finding about my own code: two arms decide the
+  **message** rather than the verdict — the chunk walk refuses a JPEG with or
+  without the signature check, and `zlib.decompress(b"")` raises, so the IDAT
+  arm refuses a pixel-less file either way. Both earn their place by making the
+  issue actionable instead of a zlib errno.
+- 27 suite failures were **fixture incompleteness, not a gate finding**: twelve
+  pre-existing suites wrote a cover of `PNG signature + filler`, a file no real
+  export can produce (no IHDR, IDAT, IEND or CRCs). They gained a real
+  `_make_fixture_png()`, the direct analogue of run 058's `_make_fixture_mp3()`,
+  added for the same reason. Completing a fixture is not relaxing a gate
+  (058/070's trap).
+- My own fixture helper then caused 142 errors twice over: the suites did not
+  import `zlib`/`struct`, and a bare `import imageio_ffmpeg` raises because the
+  vendored bundle is not on `sys.path` — swallowing that in a `try/except`
+  turned a path bug into a misleading "no ffmpeg available" **skip**. Use the
+  sibling suite's `_ffmpeg()` form, which inserts the vendor path explicitly.
+
+**Lessons.** (1) **Run 058's question had one asset left.** When a fix answers a
+general question in one place, sweep every artifact that question reaches — the
+census axis here is not the field level (071) nor per-element-vs-aggregate (072)
+but **measured vs decoded**. (2) A check that proves an asset *exists* says
+nothing about whether it is *usable*; ask what the check would say about bytes
+of the right length that are not the thing they claim to be.
+
+Final: `coverage` 3/3, `registry ok`, `verify` local ok, `preflight` 001–003 ok,
+3× `reconcile` 0/0/0, `status healthy`, suite 419/419, `feed.xml` md5 unchanged
+and equal to live.

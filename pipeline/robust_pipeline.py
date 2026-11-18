@@ -19,10 +19,12 @@ import platform
 import re
 import shutil
 import socket
+import struct
 import subprocess
 import sys
 import tempfile
 import time
+import zlib
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -1499,6 +1501,112 @@ def _produced_in_pipeline(number: str, rec: dict[str, Any]) -> bool:
     return (ROOT / "episodes" / str(number) / "script.md").exists()
 
 
+def decode_png(data: bytes) -> dict[str, Any]:
+    """Decode a PNG far enough to prove a client can render it. Stdlib only.
+
+    Returns ``{"ok": bool, "format": str|None, "width": int|None,
+    "height": int|None, "error": str|None}``. Never raises: a caller inside
+    verify_feed() must report a bad cover as an issue, not crash the audit.
+
+    The walk is a real decode, not a sniff. It verifies the 8-byte signature,
+    walks every chunk honouring its declared length, checks each chunk's
+    CRC-32 against the stored value, reads width/height/bit-depth/colour-type
+    out of IHDR, requires IDAT to be present, requires the stream to end with
+    IEND, and zlib-decompresses the concatenated IDAT payload. Truncation,
+    NUL-fill, a wrong container and silent corruption are each caught by a
+    different arm, which is why the arms are kept separate.
+    """
+    out: dict[str, Any] = {"ok": False, "format": None, "width": None,
+                           "height": None, "error": None}
+    if not data:
+        out["error"] = "file is empty"
+        return out
+    if not data.startswith(PNG_SIGNATURE):
+        # Name the container we actually got, so the issue is actionable
+        # rather than "not a PNG". A JPEG saved as cover.png is the real
+        # operator mistake this arm exists for.
+        if data[:3] == b"\xff\xd8\xff":
+            out["format"] = "jpeg"
+        elif data[:6] in (b"GIF87a", b"GIF89a"):
+            out["format"] = "gif"
+        elif data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+            out["format"] = "webp"
+        elif data[:2] == b"BM":
+            out["format"] = "bmp"
+        elif data.lstrip()[:5] == b"<?xml" or b"<svg" in data[:512]:
+            out["format"] = "svg"
+        out["error"] = (f"file is a {out['format']}, not a PNG"
+                        if out["format"] else
+                        "file does not start with the PNG signature")
+        return out
+    out["format"] = "png"
+    pos = len(PNG_SIGNATURE)
+    seen_ihdr = False
+    seen_iend = False
+    idat = bytearray()
+    while pos < len(data):
+        if pos + 8 > len(data):
+            out["error"] = (f"file is truncated: {len(data) - pos} trailing "
+                            f"bytes cannot hold a chunk header")
+            return out
+        (length,) = struct.unpack(">I", data[pos:pos + 4])
+        ctype = data[pos + 4:pos + 8]
+        body_at = pos + 8
+        if body_at + length + 4 > len(data):
+            out["error"] = (f"file is truncated inside the "
+                            f"{ctype.decode('latin-1')} chunk: it declares "
+                            f"{length} bytes but only "
+                            f"{max(0, len(data) - body_at)} remain")
+            return out
+        body = data[body_at:body_at + length]
+        (stored_crc,) = struct.unpack(">I", data[body_at + length:body_at + length + 4])
+        if zlib.crc32(ctype + body) & 0xFFFFFFFF != stored_crc:
+            out["error"] = (f"the {ctype.decode('latin-1')} chunk fails its "
+                            f"CRC-32, so the file is corrupt")
+            return out
+        if ctype == b"IHDR":
+            if length < 13:
+                out["error"] = "the IHDR chunk is too short to hold a size"
+                return out
+            w, h, depth, colour = struct.unpack(">IIBB", body[:10])
+            out["width"], out["height"] = int(w), int(h)
+            if w == 0 or h == 0:
+                out["error"] = f"the image declares a zero dimension {w}x{h}"
+                return out
+            if depth not in (1, 2, 4, 8, 16):
+                out["error"] = f"the image declares an invalid bit depth {depth}"
+                return out
+            if colour not in (0, 2, 3, 4, 6):
+                out["error"] = f"the image declares an invalid colour type {colour}"
+                return out
+            seen_ihdr = True
+        elif ctype == b"IDAT":
+            idat += body
+        elif ctype == b"IEND":
+            seen_iend = True
+        pos = body_at + length + 4
+        if seen_iend:
+            break
+    if not seen_ihdr:
+        out["error"] = "the file carries no IHDR chunk, so it declares no size"
+        return out
+    if not idat:
+        out["error"] = "the file carries no IDAT chunk, so it holds no pixels"
+        return out
+    if not seen_iend:
+        out["error"] = "the file never reaches its IEND chunk, so it is truncated"
+        return out
+    try:
+        if not zlib.decompress(bytes(idat)):
+            out["error"] = "the image data decompresses to nothing"
+            return out
+    except zlib.error as exc:
+        out["error"] = f"the image data will not decompress: {exc}"
+        return out
+    out["ok"] = True
+    return out
+
+
 def _legacy_episode_numbers() -> set[str]:
     """Episodes that predate this pipeline, per the durable ledger plus disk.
 
@@ -1935,6 +2043,49 @@ REQUIRED_ITUNES_CATEGORY = "Education"
 REQUIRED_ITUNES_EXPLICIT = "false"
 ALLOWED_ITUNES_EXPLICIT = ("true", "false")
 
+# ---------------------------------------------------------------------------
+# COVER ART INTEGRITY. Run 057 wired the first reader for the artwork and
+# stopped at EXISTENCE: present, non-empty, the tree-root copy equal to the
+# feed-site copy, remote HTTP 200. Run 058 found the identical shape one
+# asset over -- "enclosures are verified by byte length, which garbage at the
+# right size satisfies", closed for audio by making <itunes:duration> the one
+# check that proves an enclosure is real, playable audio -- and the artwork
+# stayed on the measured-but-never-decoded side of that line.
+#
+# Proved against the unmodified module (run 074): four single-fault covers
+# each returned ok: true with an EMPTY issue list, and an intact cover was
+# INDISTINGUISHABLE from all four.
+#
+#   * a file of pure NUL bytes at exactly the right length -- local_bytes
+#     reports healthy, site_sha256 == root_sha256 because BOTH copies are
+#     garbage, and no podcast client can render it
+#   * a TRUNCATED PNG, which keeps the \x89PNG signature, so any magic-byte
+#     sniff passes and only a real decode catches it
+#   * a JPEG saved as cover.png -- decodes fine, so a decode-only check is
+#     not enough; the FORMAT must be read, since all five slots advertise .png
+#   * a valid, decodable 200x120 PNG -- Apple rejects the whole show for a
+#     non-square or undersized cover, and nothing here read width or height
+#
+# Why no other audit covers it (scoped by control, run 073's rule):
+# feed_coverage() audits enclosures; registry_audit() relates ledger to
+# manifest; deploy_drift() compares LOCAL bytes to REMOTE bytes, so identical
+# garbage on both sides is "no drift"; and publish_feed.py has no copy site
+# for the cover, which is exactly why a bad export lands in both copies at
+# once. That verdict is publish_local()'s gate and push_to_remote()'s success
+# criterion, so the show shipped unrenderable artwork and reported itself live.
+#
+# Stdlib only, deliberately: this tree's interpreter is 3.14, where `imghdr`
+# was REMOVED, and PIL is not a dependency. A zlib+struct chunk walk is the
+# whole of the format we advertise, so the gate adds no install surface.
+#
+# No legacy waiver (run 036): an advertised asset a client cannot render is a
+# defect for an import too.
+COVER_REQUIRED_FORMAT = "png"
+# Apple Podcasts: square, 1400x1400 minimum, 3000x3000 maximum.
+COVER_MIN_PIXELS = 1400
+COVER_MAX_PIXELS = 3000
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+
 
 # The three mutually exclusive disclosure texts publish_feed.py can place in an
 # item's <content:encoded>, keyed by the lane each one is legitimate for.
@@ -2339,6 +2490,41 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                                 f"{root_digest[:12]} vs deployed "
                                 f"{site_digest[:12]}); they are hand-kept in "
                                 f"sync, so edit both")
+                    # DECODE it. See COVER_REQUIRED_FORMAT above: every
+                    # arm below was proved to ship ok: true with an empty
+                    # issue list against the unmodified module, because run
+                    # 057 stopped at existence and run 058 closed this exact
+                    # axis for audio only. Dimensions are reported even when
+                    # the decode fails, so a bad cover's issue is actionable.
+                    if local_cover.suffix.lower() == ".png":
+                        decoded = decode_png(local_cover.read_bytes())
+                        cover_check["decoded"] = decoded["ok"]
+                        cover_check["format"] = decoded["format"]
+                        cover_check["width"] = decoded["width"]
+                        cover_check["height"] = decoded["height"]
+                        if not decoded["ok"]:
+                            result["issues"].append(
+                                f"cover art {name} is not renderable: "
+                                f"{decoded['error']}; every podcast client "
+                                f"shows this show with broken artwork")
+                        else:
+                            w = decoded["width"] or 0
+                            h = decoded["height"] or 0
+                            if w != h:
+                                result["issues"].append(
+                                    f"cover art {name} is {w}x{h}, which is "
+                                    f"not square; podcast artwork must be "
+                                    f"square or a directory rejects the show")
+                            if min(w, h) < COVER_MIN_PIXELS:
+                                result["issues"].append(
+                                    f"cover art {name} is {w}x{h}, below the "
+                                    f"{COVER_MIN_PIXELS}x{COVER_MIN_PIXELS} "
+                                    f"minimum a podcast directory requires")
+                            elif max(w, h) > COVER_MAX_PIXELS:
+                                result["issues"].append(
+                                    f"cover art {name} is {w}x{h}, above the "
+                                    f"{COVER_MAX_PIXELS}x{COVER_MAX_PIXELS} "
+                                    f"maximum a podcast directory accepts")
             if remote:
                 cover_url = remote.rstrip("/") + "/" + name
                 try:

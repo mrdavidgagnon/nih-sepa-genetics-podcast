@@ -1549,6 +1549,99 @@ shipping and its `ok` flag is `push_to_remote()`'s success criterion, so a
 deploy whose artwork never landed reported itself live while every podcast
 client showed a broken image.
 
+### ...and it is now DECODED, not merely measured (run 074)
+
+Run 057's four refusals above are all **existence** refusals: present,
+non-empty, root copy equal to the deployed copy, remote 200. Every one of them
+is satisfied by garbage of the right length. Run 058 found the identical shape
+one asset over -- "enclosures are verified by byte length, which garbage at the
+right size satisfies" -- and closed it for **audio** by decoding the mp3. The
+artwork stayed on the measured-but-never-decoded side of that line, and
+`cover_art` recorded no format, width or height at all.
+
+Proved against the unmodified module: **five single-fault covers each shipped
+`ok: true` with an EMPTY issue list**, and an intact cover was
+*indistinguishable* from all five.
+
+- a file of pure NUL bytes at exactly the right length -- `local_bytes` reports
+  healthy and `site_sha256 == root_sha256` **because both copies are garbage**
+- a **truncated** PNG, which keeps the `\x89PNG` signature, so any magic-byte
+  sniff passes and only a real decode catches it
+- a **CRC-corrupt** PNG at *identical byte length* with signature, IHDR, IDAT
+  and IEND all intact -- the case neither a sniff nor a size comparison can
+  structurally see
+- a **JPEG** saved as `cover.png`, which decodes fine, so a decode-only check
+  is not enough: all five slots advertise a `.png`, so the **format** must be
+  read
+- a valid, decodable **200x120** PNG -- a directory rejects the whole show for
+  a non-square or undersized cover, and nothing here read width or height
+
+`decode_png()` is a real decode: signature, every chunk walked at its declared
+length, **each chunk's CRC-32 verified**, IHDR's width/height/bit-depth/colour
+type read, IDAT required, IEND required, and the concatenated IDAT payload
+zlib-decompressed. It never raises -- a bad cover must become an issue, not
+crash the audit -- and it **names the container it actually found** (`file is a
+jpeg, not a PNG`), which is what makes the issue actionable.
+
+New refusals, no waiver (run 036 again -- an asset a client cannot render is a
+defect for an import too):
+
+- `cover art <name> is not renderable: <reason>`
+- `cover art <name> is WxH, which is not square`
+- `cover art <name> is WxH, below the 1400x1400 minimum`
+- `cover art <name> is WxH, above the 3000x3000 maximum`
+
+`checks.cover_art` now also reports `decoded`, `format`, `width` and `height`.
+Dimensions are reported **even when the decode fails**, so the issue carries
+what the operator needs.
+
+**Stdlib only, deliberately.** This tree's interpreter is 3.14, where `imghdr`
+was *removed*, and PIL is not a dependency -- so the gate is a `zlib`+`struct`
+chunk walk and adds no install surface. A test pins that no PIL/imghdr import
+appears.
+
+Why no other audit covered it (scoped by control, run 073's rule):
+`feed_coverage()` audits enclosures; `registry_audit()` relates ledger to
+manifest; `deploy_drift()` compares **local bytes to remote bytes**, so
+identical garbage on both sides is "no drift"; and `publish_feed.py` has no
+copy site for the cover, which is *exactly why* a bad export lands in both
+copies at once and the root/deployed digest pair agrees. An **empty** file is
+the control that bounds the claim: run 057's size arm already refused that one,
+so the unread classes are all **right size, wrong bytes**.
+
+Two lessons:
+
+- **Run 058's question had one asset left.** 058 established that a probe must
+  *decode* rather than *measure*, and applied it to audio only. When a fix
+  answers a general question in one place, sweep every artifact the same
+  question reaches -- the census axis here is not the field level (071) or
+  per-element-vs-aggregate (072) but **measured vs decoded**.
+- **Completing a fixture is not relaxing a gate.** Twelve pre-existing suites
+  wrote a cover of `PNG signature + filler` -- a file `publish_feed.py` and any
+  real export are incapable of producing, with no IHDR, IDAT, IEND or CRCs.
+  They were asserting on feeds that cannot exist, so they gained a real
+  `_make_fixture_png()` (the direct analogue of run 058's `_make_fixture_mp3()`,
+  added for the same reason). 27 failures were fixture incompleteness, not a
+  gate finding.
+
+Harnesses `/opt/data/tmp/mm_cover_decode_repro_run074.py` (38/38 against the
+**unmodified** module) and `mm_cover_decode_proof_run074.py` (59/59: pre-fix
+still reproduces; each class refused and named; **nothing granted** -- the real
+live feed's verdict is byte-identical pre/post, the 1400/2048/3000 boundary
+sizes still pass, an absent root copy still waives, and run 057's
+missing/empty/drift arms plus 066/073/058/038 all still bite; exactly one
+pre-existing function changed with 65 byte-identical incl.
+`preflight`/`review_gate`/`fidelity_gate`/`feed_coverage`/`publish_local`/
+`push_to_remote`/`deploy_drift`; 3x `verify_feed` mutates zero bytes). A
+**mutant sweep** on the new decoder (run 054's rule: reverting to a backup is a
+weak proof -- mutate the new structure to test the tests) found two arms decide
+the **message** rather than the verdict: the chunk walk refuses a JPEG with or
+without the signature check, and `zlib.decompress(b"")` raises, so the IDAT arm
+refuses a pixel-less file either way. Both were first read as surviving
+mutants; both are naming arms, which is a finding about the arms rather than a
+weakness. Tests `tests/test_cover_decode_gate.py` (24), suite 395 -> **419**,
+load-bearing: 29 failures/errors against the pre-fix module.
+
 ## The advertised `<itunes:duration>` is gated (run 058)
 
 `verify_feed()` checks the duration every item advertises against the **decoded**
@@ -1590,7 +1683,10 @@ then found the enumeration had been scoped to *items* the whole time -- the
 **channel's own identity**, the show's name, was unread in all four slots.
 **Enumerate every field the artifact advertises and confirm each is probed --
 then ask whether the probe reads the whole value, and whether the enumeration
-covered the channel as well as the items.**
+covered the channel as well as the items
+Run 074 adds the axis that closes 058's own question: ask whether the probe
+**decodes** the asset or merely **measures** it -- the cover art was existence-
+checked from 057 to 074 while every byte of it could be garbage.**
 
 
 ## The advertised `<pubDate>` is gated (run 062)
