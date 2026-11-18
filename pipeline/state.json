@@ -2141,7 +2141,9 @@
             }
           ],
           "deadline_at": "2026-11-18T06:37:25.312077Z",
-          "outcome": null,
+          "detail": "run075: show_notes_link gate added to verify_feed (href VALUE had no reader; 3 classes shipped ok:true/empty issues). Repro 34/34, proof 48/48, suite 419->435 load-bearing, +121/-0, 1 fn changed/61 identical. Fixture debt paid in 12 suites. Committed 7acd218, pushed. No production unit: both intake lanes empty; feed md5 unchanged, nothing published.",
+          "finished_at": "2026-11-18T06:30:53.269877Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T06:12:25.312077Z"
         }
@@ -2152,5 +2154,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T06:20:48Z"
+  "updated_at": "2026-11-18T06:30:53Z"
 }
