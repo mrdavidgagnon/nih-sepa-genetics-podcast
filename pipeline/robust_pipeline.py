@@ -2139,6 +2139,70 @@ ALLOWED_ITUNES_EXPLICIT = ("true", "false")
 #
 # No legacy waiver (run 036): an advertised asset a client cannot render is a
 # defect for an import too.
+# ---------------------------------------------------------------------------
+# THE TREE-ROOT MIRROR OF EVERY DEPLOYED DELIVERABLE.
+#
+# GitHub Pages for this repo serves the REPOSITORY ROOT, and push_to_remote()
+# copies `feed-site/*` into the clone's root -- so the root IS the live site.
+# This tree additionally keeps a second, git-TRACKED copy of every deployed
+# artifact at its own root: feed.xml, index.html, each episode-NNN.mp3, each
+# episode-NNN-notes.md, cover.png and cover.svg.
+#
+# publish_feed.py writes SITE/ only. It has NO copy site for the root, so the
+# two sets are HAND-KEPT IN SYNC -- the exact situation run 057 documented for
+# the cover art and closed with a root-vs-deployed sha256 arm. Run 057 closed
+# it for cover.png and cover.svg ONLY; `ROOT / name` is still the module's one
+# and only generic root reader, and it is reached solely from inside the
+# cover_art loop over cover filenames. The other EIGHT root copies had zero
+# readers.
+#
+# Proved against the unmodified module (run 078), each returning ok: true with
+# an EMPTY issue list and a verdict byte-identical to the clean tree's:
+#
+#   * the root feed.xml with an entire <item> stripped -- an episode gone from
+#     what Pages would serve
+#   * the root index.html rewritten to name the SIBLING show (the documented
+#     hard bug, which run 066's show_identity reads out of the feed and run
+#     063's advertised_base cannot reach in a root-copy file at all)
+#   * a root episode-NNN-notes.md truncated -- a published deliverable
+#     carrying the unabridged disclosure, the evidence boundaries and every
+#     numbered citation
+#   * a root episode-001.mp3 holding episode 002's bytes -- the run-042/045
+#     wrong-paper-audio class, with preflight() still ok: true
+#
+# Why no existing audit covers it (scoped by control, run 073's rule):
+# verify_feed()'s local arms resolve every asset relative to the FEED'S OWN
+# directory (`feed_path.parent`), which is feed-site/; feed_coverage() does
+# the same; feed_sync() compares the COMMITTED feed-site against a fresh
+# regeneration; deploy_drift() compares LIVE bytes to feed-site bytes, so the
+# local root is outside its scope on both sides; and registry_audit() relates
+# the ledger to the manifest. The cover CONTROL proves the detector works and
+# the FILE SET was the whole difference: the identical perturbation on
+# cover.png is refused by run 057's arm.
+#
+# Reachability is not hypothetical. This skill's own documented docs-only
+# deploy path is a plain `git add -A && git commit && git push` with the token
+# in the URL (used when robust_pipeline.py push is the wrong tool because the
+# slice must not touch feed-site/). That path commits the LOCAL root copies
+# verbatim, with no gate between a drifted root copy and the live site.
+#
+# Form matched to the field (runs 066/068/070/071): these are BYTE MIRRORS of
+# a generated artifact, so they are compared by digest, not parsed -- the
+# feed-site copy is already gated field-by-field by every check above, and a
+# second parse would only re-ask a question already answered. The deployed
+# copy is authoritative; the root copy must equal it.
+#
+# An ABSENT root copy is NOT an issue, exactly as run 057 ruled for the cover:
+# the feed references feed-site/, publish_feed.py never writes the root, and a
+# tree that simply does not keep a mirror is not a deploy defect. Only
+# present-and-different refuses. No legacy waiver (run 036): a drifted mirror
+# of an imported episode is served to subscribers just the same.
+ROOT_MIRROR_SUFFIXES = (".xml", ".html", ".mp3", ".png", ".svg", ".md")
+# Repo documentation that lives at the root by design and is NOT a mirror of
+# anything in feed-site/. Matched exactly, so a notes file can never land here.
+ROOT_MIRROR_EXEMPT_NAMES = ("README.md", "production-log.md", "style_guide.md")
+
+
 COVER_REQUIRED_FORMAT = "png"
 # Apple Podcasts: square, 1400x1400 minimum, 3000x3000 maximum.
 COVER_MIN_PIXELS = 1400
@@ -3787,6 +3851,60 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                     result["issues"].append(
                         f"remote landing page check failed for {index_url}: {exc}")
             result["checks"].append(index_check)
+
+        # ------------------------------------------------------------------
+        # The TREE-ROOT MIRROR of every deployed deliverable. See
+        # ROOT_MIRROR_SUFFIXES above for why eight of the ten root copies had
+        # zero readers, why run 057's cover arm does not reach them, and why
+        # the root is what GitHub Pages actually serves.
+        #
+        # Compared by digest against the feed-site copy, which is the
+        # authoritative one and is already gated field-by-field above. An
+        # absent root copy waives (run 057's ruling); only present-and-
+        # different refuses. No legacy waiver (run 036).
+        # ------------------------------------------------------------------
+        if feed_path:
+            site_dir = feed_path.parent
+            mirror_check: dict[str, Any] = {"name": "root_mirror",
+                                            "root": str(ROOT)}
+            mirrored: list[str] = []
+            absent: list[str] = []
+            # Scoped to THIS tree's deployed directory. The mirror
+            # relationship holds between ROOT and ROOT/"feed-site" -- the pair
+            # publish_local() and push_to_remote() always use -- so comparing
+            # an arbitrary caller-supplied feed-site against this tree's root
+            # copies would report unrelated files as drift.
+            expected_site = (ROOT / "feed-site").resolve()
+            if site_dir.is_dir() and site_dir.resolve() == expected_site:
+                for deployed in sorted(site_dir.iterdir()):
+                    if not deployed.is_file():
+                        continue
+                    name = deployed.name
+                    if name in ROOT_MIRROR_EXEMPT_NAMES:
+                        continue
+                    if deployed.suffix.lower() not in ROOT_MIRROR_SUFFIXES:
+                        continue
+                    root_copy = ROOT / name
+                    if not (root_copy.exists() and root_copy.is_file()):
+                        absent.append(name)
+                        continue
+                    site_digest = sha256(deployed)
+                    root_digest = sha256(root_copy)
+                    if site_digest == root_digest:
+                        mirrored.append(name)
+                    else:
+                        result["issues"].append(
+                            f"deployed deliverable {name} differs between the "
+                            f"tree root and {site_dir.name}/ (root "
+                            f"{root_digest[:12]} / {root_copy.stat().st_size} "
+                            f"bytes vs deployed {site_digest[:12]} / "
+                            f"{deployed.stat().st_size} bytes); publish_feed.py "
+                            f"writes only {site_dir.name}/, so the two copies "
+                            f"are hand-kept in sync and GitHub Pages serves "
+                            f"the root -- re-copy it")
+            mirror_check["mirrored"] = mirrored
+            mirror_check["no_root_copy"] = absent
+            result["checks"].append(mirror_check)
 
     except Exception as exc:
         result["issues"].append(f"feed parse/check failed: {exc}")

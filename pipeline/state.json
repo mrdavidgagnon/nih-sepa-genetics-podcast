@@ -2205,13 +2205,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T15:01:28.449137Z"
+        },
+        {
+          "attempt_id": "501-1795029331",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-18T19:15:31.234391Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-18T19:36:13.161259Z",
+              "detail": "run078: root_mirror check added to verify_feed; repro 46/46, proof 41/41, suite 473->488 load-bearing 10/15",
+              "stage": "root_mirror_gate"
+            }
+          ],
+          "deadline_at": "2026-11-18T19:40:31.234391Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-18T19:15:31.234391Z"
         }
       ],
-      "attempts": 72,
+      "attempts": 73,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T15:13:56Z"
+  "updated_at": "2026-11-18T19:36:13Z"
 }

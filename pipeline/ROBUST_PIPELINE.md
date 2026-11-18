@@ -2727,3 +2727,21 @@ Note what this does *not* duplicate: the older probe asks whether the file the
 href names **exists** (locally, and HTTP 200 live). That arm is unchanged and
 still catches a nonexistent target. Existence was never evidence of
 **correctness** — the wrong episode's notes file exists too.
+
+## The tree-root mirror of every deployed deliverable (run 078)
+
+GitHub Pages serves the **repository root**, and `push` copies `feed-site/*`
+into the clone's root — so the root *is* the live site. This tree also keeps a
+second, **git-tracked** copy of every deployed deliverable at its own root
+(`feed.xml`, `index.html`, each `episode-NNN.mp3`, each
+`episode-NNN-notes.md`, `cover.png`, `cover.svg`). `publish_feed.py` writes
+`feed-site/` only and has **no copy site for the root**, so the two sets are
+**hand-kept in sync — edit both.**
+
+`verify_feed()`'s `root_mirror` check enforces that rule for every deliverable,
+by digest. Run 057 had closed it for the two cover files only. An **absent**
+root copy waives (the feed references `feed-site/`); only present-and-different
+refuses. `README.md`, `production-log.md` and `style_guide.md` are exempt by
+exact name.
+
+Healthy state here is ten mirrored files with an empty `no_root_copy`.

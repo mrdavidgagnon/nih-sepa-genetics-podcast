@@ -4650,3 +4650,110 @@ of the right length that are not the thing they claim to be.
 Final: `coverage` 3/3, `registry ok`, `verify` local ok, `preflight` 001–003 ok,
 3× `reconcile` 0/0/0, `status healthy`, suite 419/419, `feed.xml` md5 unchanged
 and equal to live.
+
+## Run 078 — 2026-11-18 — the tree-root mirror of every deliverable had no reader
+
+**No production unit.** Summerize (`V4WXTY8M`) and Read (`DV6F4ILX`) both
+returned **0 top items** against a live Zotero read; the 18 on-topic items in
+the parent `YF84AUZK` still sit unfiled, which is David's standing lane call and
+is not re-raised. Opening audits all green before selecting work: `coverage`
+3/3, `registry ok` (4 ledger / 3 manifest, the 501 stub asymmetry), `feedsync`
+committed md5 == regenerated. Stale lock from run 077's `attempt finish` with a
+dead owner pid (443382) and a free `flock` — the documented steady state.
+
+**Defect.** GitHub Pages for this repo serves the **repository root**, and
+`push_to_remote()` copies `feed-site/*` into the clone's root — so the root *is*
+the live site. This tree additionally keeps a second, **git-tracked** copy of
+every deployed deliverable at its own root: `feed.xml`, `index.html`, three
+`episode-NNN.mp3`, three `episode-NNN-notes.md`, `cover.png`, `cover.svg`.
+`publish_feed.py` writes `SITE/` only and has **no copy site for the root**, so
+the two sets are hand-kept in sync — the exact situation run 057 documented for
+the cover art. Run 057 closed it for `cover.png`/`cover.svg` **only**:
+`ROOT / name` is the module's one generic root reader and it is reached solely
+from inside `cover_art`'s loop over cover filenames. The other **eight** root
+copies had **zero readers**.
+
+Four classes shipped `ok: true` with an **empty issue list**, each verdict
+byte-identical to the clean tree's: the root `feed.xml` with an entire `<item>`
+stripped; the root `index.html` rewritten to name the **sibling show** (the
+documented hard bug — run 066's `show_identity` reads the *feed*, and run 063's
+`advertised_base` iterates XML attributes and `url`/`link` element text, so
+neither can reach a root-copy file); a root `episode-NNN-notes.md` truncated (a
+published deliverable carrying the unabridged disclosure, the evidence
+boundaries and every numbered citation); and the root `episode-001.mp3` holding
+**002's bytes** — the run-042/045 wrong-paper-audio class — with
+`preflight 001` still `ok: true`.
+
+**Why no existing audit covers it** (scoped by control, run 073's rule): every
+local arm in `verify_feed()` resolves assets relative to the **feed's own**
+directory (`feed_path.parent` = `feed-site/`), as does `feed_coverage()`;
+`feed_sync()` compares the committed `feed-site` against a fresh regeneration;
+`deploy_drift()` compares **live** bytes to `feed-site` bytes, so the local root
+is outside its scope on *both* sides; `registry_audit()` relates ledger to
+manifest. The **cover control** is what makes this a finding rather than a
+guess: the identical perturbation on `cover.png` *is* refused by run 057's arm,
+proving the detector works and the **file set** was the whole difference.
+
+Reachability is not hypothetical — this show's own documented docs-only deploy
+path is a plain `git add -A && git commit && git push` with the token in the URL
+(used when `push` is the wrong tool because the slice must not touch
+`feed-site/`). That path commits the **local root copies verbatim**.
+
+**Fix.** `ROOT_MIRROR_SUFFIXES` / `ROOT_MIRROR_EXEMPT_NAMES` plus a
+`root_mirror` check at the end of `verify_feed()`, generalizing run 057's arm
+from two cover filenames to every deployed deliverable. Compared by **digest**,
+not parsed — form matched to the field (runs 066/068/070/071): these are byte
+mirrors of a generated artifact, and the `feed-site` copy is already gated
+field-by-field by all 29 preceding checks, so a second parse would re-ask an
+answered question. An **absent** root copy waives, exactly as run 057 ruled for
+the cover; only present-and-different refuses. `README.md`,
+`production-log.md` and `style_guide.md` are exempt by **exact name** (repo docs
+that live at the root by design), so a notes file can never land in the
+exemption. No legacy waiver (run 036).
+
+**Proof.** Repro **46/46** against the unmodified module (all four classes
+ok:true with verdicts identical to baseline, `preflight` green on the swapped
+audio, `drift` green, plus the cover control and the `push_to_remote`
+reachability reads; every perturbed copy restored md5-identical). Proof
+**41/41**: pre-fix backup still reproduces; seven classes each refused *and
+named* with both digests and both byte counts; **nothing granted** — clean tree
+green, all ten mirrors verified, every root copy absent still `ok: true` with
+all ten reported under `no_root_copy`, the exempt docs not demanded, a stray
+root file ignored, and the run-038 / 066 / 074 / 036 / 060 gates all still
+biting. Blast radius: exactly **one** pre-existing function changed
+(`verify_feed`), with `preflight` / `review_gate` / `fidelity_gate` /
+`feed_coverage` / `publish_local` / `push_to_remote` / `deploy_drift` /
+`feed_sync` / `registry_audit` / `reconcile` / `status` byte-identical and
+`publish_feed.py` untouched. Additive **+118 / −0**. Tests
+`tests/test_root_mirror_gate.py` 15, suite 473 → **488**, load-bearing:
+**10 of 15** fail against the pre-fix module (restored md5-identical).
+
+**A scoping flaw found by the suite, not by either harness.** Two pre-existing
+`test_channel_attribution_gate` tests failed on first write. Not fixture debt
+and not a gate finding — a real flaw in my own check: `verify_feed()` accepts an
+arbitrary feed path, and twelve suites pass a scratch `feed-site` while leaving
+`rp.ROOT` on the real tree, so the check compared an **unrelated** scratch
+directory against this tree's root copies. The mirror relationship is only
+defined between `ROOT` and `ROOT/"feed-site"` — the pair `publish_local()` and
+`push_to_remote()` always use — so it is now scoped to exactly that, losing
+nothing on the shipping path. Run 029's rule held in a **third** direction: the
+failing side was neither the fixture nor the old code but the **new** code.
+
+**Lessons.**
+
+1. **Run 057's question had eight assets left.** Run 074 swept the
+   measured-vs-decoded axis across the cover; this is the *same run-057 arm*
+   swept across the **file set** it was never generalized to. When a fix answers
+   a general question for one filename, ask which other files the question
+   reaches — a guard written inside a loop over one artifact's names cannot see
+   any artifact outside that loop, however general its logic is.
+2. **Ask which directory a check calls "the deployed site."** Every audit here
+   treats `feed-site/` as the deployable set because that is what `push`
+   *reads*; none asked what the deploy *writes to*, which is the repo root, nor
+   what a non-`push` deploy would commit. When an artifact exists in two
+   locations and only one is generated, the hand-kept copy is the unguarded one.
+
+Final: `coverage` 3/3, `registry ok`, `verify` local ok (30 checks),
+`preflight` 001–003 ok, 3× `reconcile --write` 0/0/0, `status healthy: true`,
+suite **488/488**, `feed-site/feed.xml` md5 unchanged **and equal to live**
+(`9fc23235fcb49ca809059092da619b54`), 3 feed items. Nothing published.
