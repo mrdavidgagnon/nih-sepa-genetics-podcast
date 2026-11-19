@@ -2293,13 +2293,79 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-19T08:11:17.050228Z"
+        },
+        {
+          "attempt_id": "501-1795091496",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-19T12:31:36.494054Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-19T12:31:36.968285Z",
+              "detail": "run082: reconciliation only, no production unit. Live Summerize 0, Read 0 (both intake lanes empty, LMV 10744); no half-built/pending episode on disk or in any registry (001-003 published_and_moved; read-episodes.json empty; no 004/502+ dir). 18 unfiled in YF84AUZK = David's standing lane call, unchanged, NOT re-raised (run 081 already raised it). In-tree docs re-audited clean: run-029/031/059 sta",
+              "stage": "reconciliation"
+            }
+          ],
+          "deadline_at": "2026-11-19T12:56:36.494054Z",
+          "detail": "run082: no production unit (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, unchanged, not re-raised). Reconciliation-only slice; pipeline healthy and ready for the next filed item. No code/feed/doc/gate change, no commit, no push. Audits green, live==local md5 9fc23235.",
+          "finished_at": "2026-11-19T12:31:37.434556Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-19T12:31:36.494054Z"
+        },
+        {
+          "attempt_id": "501-1795106114",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-19T16:35:14.397852Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-19T16:35:25.322043Z",
+              "detail": "run083: Summerize 0, Read 0, 18 unfiled in YF84AUZK (unchanged since run082; standing lane call = David's). Opening audits green: coverage 3/3, registry 4/3, feedsync ok, live==local md5 9fc23235. Stale lock (dead pid) = normal. No production unit; no mutation.",
+              "stage": "reconciled"
+            }
+          ],
+          "deadline_at": "2026-11-19T17:00:14.397852Z",
+          "detail": "run083: no production unit (Summerize 0, Read 0; 18 unfiled in YF84AUZK unchanged since run082, not re-raised). Reconciliation-only; audits green, live==local md5 9fc23235. No mutation, no commit, no push.",
+          "finished_at": "2026-11-19T16:35:48.707812Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-19T16:35:14.397852Z"
+        },
+        {
+          "attempt_id": "501-1795121107",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-19T20:45:07.224508Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-19T20:45:07.712745Z",
+              "detail": "Summerize 0, Read 0 (fresh, list version 10744); 18 items with YF84AUZK membership unchanged since run082; 7 parent-list items verified unfilled (collections: []) via live item reads; blocker not re-raised",
+              "stage": "reconciliation"
+            }
+          ],
+          "deadline_at": "2026-11-19T21:10:07.224508Z",
+          "detail": "run084: no production unit (Summerize 0, Read 0); 18 with YF84AUZK membership unchanged, 7 verified unfilled by David via live reads; audits green, live==local md5 9fc23235; committed run082/083 ledger+log debt",
+          "finished_at": "2026-11-19T20:45:33.128689Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-19T20:45:07.224508Z"
         }
       ],
-      "attempts": 76,
+      "attempts": 79,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-19T08:22:44Z"
+  "updated_at": "2026-11-19T20:45:33Z"
 }

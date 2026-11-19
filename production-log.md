@@ -4967,3 +4967,42 @@ Audits: `coverage ok: true` (3/3), `registry ok: true` (4 ledger / 3 manifest),
 `reconcile --write ok: true` (0 issues), `status healthy: true`, live-vs-local
 `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`, unchanged all
 slice). No feed byte moved; nothing published this run.
+
+## Run 083 — 2026-11-19 (reconciliation-only, no production unit)
+
+Reconciled live Zotero against durable state: Summerize (V4WXTY8M) **0** items,
+Read (DV6F4ILX) **0** items, 18 unfiled items still sitting directly in
+YF84AUZK with no subcollection — unchanged since run 082, so the standing
+lane-choice blocker is not re-raised. Lock file present with dead owner pid
+and free advisory lock = normal steady state.
+
+Opening audits all green: `coverage ok: true` (3/3), `registry ok: true`
+(4 ledger / 3 manifest), `feedsync ok: true` (3/3, md5 `9fc23235…` ==
+live==local). No new work possible, no mutation: no code, feed, doc or gate
+change, no commit, no push. Pipeline remains healthy and ready for the next
+filed item; `build` needs nothing but the lane move for a Read item.
+
+## Run 084 — 2026-11-19 (reconciliation-only, no production unit)
+
+Reconciled live Zotero against durable state: Summerize (V4WXTY8M) **0** items
+and Read (DV6F4ILX) **0** items, both lists fresh (collection-list version
+10744, the library head at the time of the call). 18 items carry
+`YF84AUZK` membership directly with no subcollection — unchanged since run
+082, so the standing lane-choice blocker is not re-raised.
+
+New this run: the parent collection's item list shows 25 entries, of which **7
+have empty `collections`** — David unfilled them (e.g. `AHZ2WGIV`, `7ZGGBUCV`,
+verified by live `items/<key>` reads; the 18-member count was spot-verified
+the same way, `E9AB42GC` still carrying `YF84AUZK`). Unfiling is the
+documented queue-clearing signal, so those 7 are recorded as deliberate, not
+held as open questions. The 18 with membership remain the unfiled set.
+
+Stale lock present (owner pid dead, advisory lock free) — normal steady
+state, left untouched.
+
+Opening audits all green: `coverage ok: true` (3/3), `registry ok: true`
+(4 ledger / 3 manifest), `feedsync ok: true` (md5 `9fc23235…` committed ==
+regenerated), live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca8090590
+92da619b54`). No production unit, no gate or feed change, no feed push.
+Committed the ledger/log entries owed by runs 082/083 (they left the tree
+dirty) alongside this run's.
