@@ -2288,7 +2288,9 @@
             }
           ],
           "deadline_at": "2026-11-19T08:36:17.050228Z",
-          "outcome": null,
+          "detail": "run081: no production unit (Summerize 0, Read 0; 18 unfiled in YF84AUZK = David's standing lane call, not re-raised). Durable defect closed: item <title>/<description> VALUE had no reader (run 038 gated emptiness only; channel field of same name guarded since 067 = run 072 granularity axis). Placeholder-token arm added, no name/content/exact arm (sibling name is this show's subject). Repro 27/27 w",
+          "finished_at": "2026-11-19T08:22:44.413650Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-19T08:11:17.050228Z"
         }
@@ -2299,5 +2301,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-19T08:21:30Z"
+  "updated_at": "2026-11-19T08:22:44Z"
 }
