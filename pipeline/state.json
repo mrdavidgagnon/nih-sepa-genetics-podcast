@@ -2254,13 +2254,50 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-18T23:38:24.371273Z"
+        },
+        {
+          "attempt_id": "501-1795061222",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-19T04:07:02.946659Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-19T04:32:02.946659Z",
+          "detail": "run080: reconciliation only. Live Summerize 0, Read 0 (both intake lanes empty); 18 unfiled in YF84AUZK = David's standing lane call (raised, not re-raised). Audits green: coverage 3/3 ok, registry ok (4 ledger/3 manifest, asymmetry=501 stub), status healthy, feed md5 unchanged. No production unit, no logged deferred defect; prior run 079 closed deploy-drift with clean state. No advance this slice",
+          "finished_at": "2026-11-19T04:07:03.428496Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-19T04:07:02.946659Z"
+        },
+        {
+          "attempt_id": "501-1795075877",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-19T08:11:17.050228Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-19T08:21:30.501127Z",
+              "detail": "run081: item <title>/<description> VALUE gate (placeholder tokens); repro 27/27, proof 57/57, tests +15 suite 523, load-bearing 23 pre-fix failures",
+              "stage": "gate_hardened"
+            }
+          ],
+          "deadline_at": "2026-11-19T08:36:17.050228Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-19T08:11:17.050228Z"
         }
       ],
-      "attempts": 74,
+      "attempts": 76,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-18T23:58:23Z"
+  "updated_at": "2026-11-19T08:21:30Z"
 }

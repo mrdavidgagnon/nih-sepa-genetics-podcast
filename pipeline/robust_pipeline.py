@@ -3599,9 +3599,65 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
             # waiver is a gate with the sign flipped (run 036).
             number = _feed_item_number(item) or "?"
             for field in ("title", "description"):
-                if not (item.findtext(field) or "").strip():
+                field_value = (item.findtext(field) or "").strip()
+                if not field_value:
                     result["issues"].append(
                         f"feed item for episode {number} has an empty <{field}>")
+                    continue
+                # ------------------------------------------------------
+                # The field's VALUE, not merely its presence.
+                #
+                # Run 038 gated these two fields for EMPTINESS and nothing
+                # ever read what they say. The channel <description> of the
+                # SAME NAME is scored against PLACEHOLDER_DESCRIPTION_TOKENS
+                # (run 067), so the asymmetry is channel-vs-item on one field
+                # name -- run 072's granularity axis, where a field is gated
+                # at one level and unread at the other.
+                #
+                # Unfilled boilerplate is the reachable defect. publish_feed.py
+                # reads an interview item's title and description straight off
+                # pipeline/manifest.json, so a stub value written at
+                # registration ("TBD", "TODO") ships verbatim to every
+                # subscriber as the episode's name and blurb -- the two fields
+                # a listener reads FIRST, and the only two a podcast client
+                # renders before any audio is fetched.
+                #
+                # No other audit can see it, because each reads its
+                # expectations from the artifact under test:
+                #   * run 038's arm is satisfied -- a placeholder is non-empty.
+                #   * feedsync (076) regenerates feed.xml and index.html from
+                #     the registries and compares bytes, so a bad registry
+                #     INPUT regenerates IDENTICALLY forever and committed ==
+                #     regenerated. It detects a hand-edit, never a bad input.
+                #   * registry (053) compares ledger-vs-manifest membership
+                #     and status, never a manifest field's editorial content.
+                #   * coverage (005) relates published records to feed items
+                #     and enclosure byte lengths.
+                #
+                # Form matched to the field (run 066). These are editorial
+                # prose that is legitimately reworded, so there is NO
+                # exact-match arm and deliberately NO required-content arm --
+                # that would mandate content rather than detect a defect, the
+                # mistake run 067 caught in its own draft. And deliberately NO
+                # sibling-NAME arm: "human in the loop" is this show's
+                # ordinary subject matter (episode 003 is about exactly that),
+                # so a name guard here would refuse correct editorial copy.
+                # What is tested is only what is WRONG: text that was never
+                # written for this episode at all.
+                #
+                # No legacy waiver (run 036 -- a waiver is a gate with the
+                # sign flipped): a placeholder title is wrong for an import
+                # too.
+                low = field_value.lower()
+                for token in PLACEHOLDER_DESCRIPTION_TOKENS:
+                    if token in low:
+                        result["issues"].append(
+                            f"feed item for episode {number} advertises the "
+                            f"<{field}> {field_value!r}, which still carries "
+                            f"the placeholder token {token!r}; it was never "
+                            f"written for this episode and ships to every "
+                            f"subscriber as the episode's "
+                            f"{'name' if field == 'title' else 'blurb'}")
             # ----------------------------------------------------------
             # The advertised publication date.
             #

@@ -639,7 +639,7 @@ python3 pipeline/robust_pipeline.py registry
 python3 pipeline/robust_pipeline.py feedsync
 ```
 
-This tree **does** have a `tests/` directory -- **473 tests** across twenty-seven
+This tree **does** have a `tests/` directory -- **523 tests** across twenty-nine
 modules, run with `unittest` (there is no `pytest` in either venv). The count
 grows with every gate; a figure in this document is a snapshot, so trust
 `unittest discover` over the number written here. The older

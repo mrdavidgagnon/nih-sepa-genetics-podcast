@@ -4875,3 +4875,95 @@ equal to the tree-root copy, 3 feed items. Harnesses
 `/opt/data/tmp/mm_remote_orphan_repro_run079.py` (33),
 `mm_remote_orphan_proof_run079.py` (67),
 `mm_orphan_mutants_run079.py` (12/12). Nothing published.
+
+## Run 081 — the item `<title>`/`<description>` VALUE had no reader (fixed)
+
+Both intake lanes empty (live Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items in `YF84AUZK` remain David's standing lane call, already raised
+and not re-raised). No production unit, so the slice went to a durable defect.
+
+**Defect.** Run 038 gated each feed item's `<title>` and `<description>` for
+EMPTINESS — `if not (item.findtext(field) or "").strip()` — and nothing ever
+read what those fields SAY. The channel `<description>` of the **same field
+name** has been scored against `PLACEHOLDER_DESCRIPTION_TOKENS` since run 067.
+So the asymmetry is channel-vs-item on one field name: run 072's granularity
+axis, where a field is gated at one level and unread at the other.
+
+Reachable by an ordinary registration, not a contrived edit. `publish_feed.py`
+reads an interview item's title and description straight off
+`pipeline/manifest.json`, so an unfilled stub written at registration ("TBD",
+"TODO") ships verbatim to every subscriber as the episode's **name and blurb** —
+the two fields a podcast client renders before any audio is fetched, and the
+only two a directory listing shows.
+
+**Why no existing audit covers it.** Each reads its expectations from the
+artifact under test:
+
+- run 038's arm is *satisfied* — a placeholder is non-empty.
+- `feedsync` (076) regenerates `feed.xml`/notes/`index.html` from the
+  registries and compares bytes, so a bad registry **input** regenerates
+  IDENTICALLY forever and committed == regenerated. It detects a hand-edit,
+  never a bad input. Proved: `ok: true` with an empty diff sample on a
+  placeholder.
+- `registry` (053) compares ledger-vs-manifest membership and status, never a
+  manifest field's editorial content.
+- `coverage` (005) relates published records to feed items and enclosure byte
+  lengths.
+- `show_identity` (066) and the channel-blurb arms (067) are scoped to the
+  `<channel>` element.
+
+**Fix.** The run-038 block now reads `field_value`, keeps the emptiness refusal
+with a `continue`, and scores the value against
+`PLACEHOLDER_DESCRIPTION_TOKENS`, naming the episode, the field, the token, and
+whether the slot is the episode's name or its blurb. No legacy waiver (run 036).
+
+Form matched to the field (run 066). These are editorial prose that is
+legitimately reworded, so there is **no exact-match arm** and deliberately **no
+required-content arm** — that would mandate content rather than detect a defect,
+the mistake run 067 caught in its own draft. And deliberately **no sibling-NAME
+arm**: "human in the loop" is this show's ordinary subject matter (episode 003
+is about exactly that, and the phrase is in its script), so a name guard on an
+item field would refuse correct editorial copy. Only what is WRONG is tested.
+
+**Proof.** Repro 27/27 against the unmodified module: the placeholder reaches
+the feed verbatim, `verify_feed` returns `ok: true` with an EMPTY issue list on
+both a placeholder description and a placeholder title, and `feedsync`,
+`registry` and `coverage` are all green alongside it. **Control:** the identical
+token in the CHANNEL description IS refused and names the token — proving the
+detector works and only the LEVEL differed.
+
+Proof 57/57: pre-fix backup still reproduces; each class refused and named; all
+seven declared tokens refused in both fields, case-insensitively; both fields
+scored independently. Nothing granted — the real feed's verdict is IDENTICAL
+pre/post with the same check count, run 038's emptiness arm still bites on each
+field, and the 058/063/066/067/075 guards all still refuse. Sibling-show wording
+as domain prose stays legal, a short genuine title stays legal, and a word merely
+containing a token prefix ("Toddler") stays legal. Exactly one pre-existing
+function changed (`verify_feed`), 66 byte-identical including `preflight`,
+`fidelity_gate`, `review_gate`, `feed_coverage`, `publish_local`,
+`push_to_remote`, `registry_audit`, `reconcile`, `feed_sync` and `status`.
+Additive: one line removed (the reworded emptiness test).
+
+**Tests.** `tests/test_item_placeholder_gate.py` (15), suite **508 -> 523**.
+
+*A test that cannot fail proves nothing.* The first version of this suite scored
+items through a helper that **re-implemented** the gate's logic, so only 1 of 14
+tests failed against the pre-fix module — the helper carried the fix with it.
+Rewritten to mutate a scratch `feed-site` copy and call the real
+`rp.verify_feed()`: **23 failures** against the pre-fix module, 15/15 green
+post-fix, module restored byte-identical.
+
+Harness trap, re-confirmed: `importlib.util.spec_from_file_location` returns
+`None` for a `.bak-runNNN` suffix, so a backup must be copied to a `.py` temp
+name before loading. That presents as
+`AttributeError: 'NoneType' object has no attribute 'loader'`.
+
+Harnesses `/opt/data/tmp/mm_item_placeholder_repro_run081.py` and
+`mm_item_placeholder_proof_run081.py`; fix script `mm_item_placeholder_fix_run081.py`.
+
+Audits: `coverage ok: true` (3/3), `registry ok: true` (4 ledger / 3 manifest),
+`feedsync ok: true`, `verify ok: true` (0 issues / 30 checks),
+`verify --remote ok: true` (3 local / 3 remote, both drift lists empty),
+`reconcile --write ok: true` (0 issues), `status healthy: true`, live-vs-local
+`feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`, unchanged all
+slice). No feed byte moved; nothing published this run.
