@@ -2403,13 +2403,33 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-20T04:54:08.315877Z"
+        },
+        {
+          "attempt_id": "501-1795165176",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-20T08:59:36.102515Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-20T13:21:03.035574Z",
+              "detail": "uncommitted run-087 label arm iterates feed items only; reverse direction (entry labelled an episode the feed does not carry) unexamined; controls: nonexistent target already refused, in-entry label/href disagreement already refused",
+              "stage": "run087_label_arm_probe"
+            }
+          ],
+          "deadline_at": "2026-11-20T09:24:36.102515Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-20T08:59:36.102515Z"
         }
       ],
-      "attempts": 81,
+      "attempts": 82,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-20T04:54:20Z"
+  "updated_at": "2026-11-20T13:21:03Z"
 }

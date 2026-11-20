@@ -5025,3 +5025,74 @@ dead owner pid and free advisory lock — normal steady state, left untouched.
 Live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`).
 No production unit, no gate, feed or code change; nothing published. Pipeline
 remains healthy and ready for the next filed item.
+
+
+## Run 087 — 2026-11-20 (landing-page entries: the label must resolve to its own item)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; 18 items
+still unfiled directly in `YF84AUZK` — David's standing lane call, not
+re-raised). No production unit; this slice completed run 087's uncommitted gate,
+proved it, found its second half, paid the suite's fixture debt and committed it.
+
+**Forward arm (committed here).** The landing page's episode list was gated in
+AGGREGATE only: the existence arm asks whether each linked file is deployed, and
+the catalogue arm compares the SET of episode numbers found in the page's hrefs
+with the SET the feed carries. Neither relates an entry's visible label — the text
+a listener clicks — to the file that entry points at. `Episode 001` could resolve
+to `episode-002.mp3`: the existence arm is satisfied because that file is a real
+deployed deliverable, and a symmetric swap leaves the set unchanged. The listener
+clicks one paper and gets another paper's audio, citations, evidence boundaries
+and Zotero links — run 075's right-shape/wrong-target class in the second place
+this show advertises the same routes. The kind label is gated too: `Reading`
+promises a verbatim reading and `Episode` the dramatized interview, and the two
+lanes name their deliverables differently (`episode-NNN-reading.mp3` vs
+`episode-NNN.mp3`). A mislabel changes nothing either aggregate arm can see.
+Scoped by control (run 073): an entry naming a file that does not exist was
+already refused, so the open classes are right-shape/wrong-target, absence of an
+entry, a wrong kind label and a duplicate. No legacy waiver (run 036).
+
+**Second half, found this run.** The forward arm iterates the FEED items and looks
+each one up in the page's labelled entries; nothing iterates the entries in the
+other direction, so an entry whose label names an episode no feed item carries is
+**read but never scored** — and the aggregate arm cannot see it either, because it
+derives numbers from the HREF text rather than the label. A page listing an episode
+the feed does not carry, pointing at another episode's real, deployed files,
+shipped `ok: true` with an empty issue list
+(`/opt/data/tmp/r087_probe2.py`, case B). Control: the identical entry naming a
+nonexistent file IS refused, which scopes the class to the label. Reverse arm
+added.
+
+**Lesson:** a per-element agreement test is only as complete as the direction it
+iterates. Run 072's "one field name gated at one granularity and unread at the
+other" has a third shape — the same agreement read from one side only. When an arm
+iterates artifacts and looks up records, ask what an unmatched record says.
+
+**Fixture debt paid (run 075's rule).** Seven suite failures were fixture
+incompleteness, not findings: three suites hand-wrote landing-page entries with no
+episode label, and the disclosure suite's template hardcoded `Episode {num}` for a
+reading. The gate is consistent with what `publish_feed.py` generates — the real
+page passes and now reports its entries.
+
+**Proof.** New module `tests/test_index_entry_agreement_gate.py` (15 tests),
+load-bearing: **12 fail against the committed HEAD** (no entry arm at all) and
+**3 fail against the forward-arm-only backup** — exactly the reverse-arm cases.
+Nothing granted: the generator-shaped page still passes, the existence arm still
+refuses a nonexistent target, run 075's cross-show guard still refuses a
+cross-show show-notes href (the entry arm cannot reach it — it collapses the href
+to a filename), and an absent page is still refused. Real-artifact proof: a copy of
+the real `feed-site/` passes with its three entries reported; repointing episode
+001's entry at episode 002's audio is refused; an entry labelled 040 is refused;
+the restored page is byte-identical.
+
+**Harness bug, guard correct (run 029's rule).** The write-guard's "no original
+non-blank line may be lost" assertion held; the failures were my own fixtures —
+`build()` wrote files only for interview numbers, so a reading's targets were not
+deployed, and the reading fixture used the interview disclosure block. Code was
+right, harness wrong; fixed the fixtures, not the gate.
+
+Audits: `coverage ok` (3/3), `registry ok` (4 ledger / 3 manifest), `feedsync ok`
+(committed md5 == regenerated), `verify ok` 0 issues, `verify --remote ok` (3
+local / 3 remote, both drift lists empty), live-vs-local `feed.xml` md5 identical
+(`9fc23235fcb49ca809059092da619b54`), `status healthy: true`, suite 523 -> 538.
+Stale lock present with a dead owner pid and a free advisory lock — normal steady
+state, left untouched. No feed byte moved; nothing published.

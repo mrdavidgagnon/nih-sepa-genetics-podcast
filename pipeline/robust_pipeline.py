@@ -4029,6 +4029,122 @@ def verify_feed(feed: Path | str, remote: str | None = None, timeout: float = 15
                         result["issues"].append(
                             f"landing page index.html advertises episode "
                             f"{number}, which the feed does not carry")
+                    # ----------------------------------------------------
+                    # PER-ENTRY AGREEMENT (run 087).
+                    #
+                    # Everything above is aggregate: the existence arm asks
+                    # whether each linked file exists, the catalogue arm
+                    # compares the SET of episode numbers in the page's hrefs
+                    # with the SET the feed carries. Neither can relate an
+                    # entry's visible label -- the text a listener clicks -- to
+                    # the file that entry points at. So the page can advertise
+                    # "Episode 001" while its audio href resolves to
+                    # episode-002.mp3: the existence arm is satisfied because
+                    # episode-002.mp3 is a real deployed deliverable, and the
+                    # set arm is satisfied because a swap between two episodes
+                    # leaves the set unchanged. The listener who clicks the entry
+                    # for one paper hears another paper's audio, and the notes
+                    # link sends them to another paper's citations, evidence
+                    # boundaries and Zotero links -- run 075's
+                    # right-shape/wrong-target class in the second place this
+                    # show advertises the same routes.
+                    #
+                    # The kind label is gated too: "Reading" promises a verbatim
+                    # reading and "Episode" the dramatized interview, and the two
+                    # lanes name their deliverables differently. A mislabel
+                    # changes nothing either aggregate arm can see.
+                    #
+                    # Scored against the item that CARRIES the episode: the audio
+                    # target must equal that item's own enclosure basename and
+                    # the notes target must be that episode's own notes file
+                    # (both lane spellings accepted, as run 075 does). Entries
+                    # with no episode label -- the RSS-feed link, a home link --
+                    # are not episode entries and stay with the existing arms.
+                    # No legacy waiver (run 036).
+                    entry_rows = []
+                    for raw in re.findall(r"<li>(.*?)</li>", index_text,
+                                          flags=re.IGNORECASE | re.DOTALL):
+                        label = re.search(r"\b(episode|reading)\b\s+(\d+)",
+                                          raw, flags=re.IGNORECASE)
+                        if label is None:
+                            continue
+                        entry_rows.append((label.group(1).lower(), label.group(2),
+                                           [Path(urllib.parse.urlparse(h).path).name
+                                            for h in re.findall(r'href="([^"]+)"',
+                                                                raw,
+                                                                flags=re.IGNORECASE)]))
+                    index_check["entries"] = [{"kind": k, "episode": n,
+                                               "targets": sorted(t)}
+                                              for k, n, t in entry_rows]
+                    by_number = {}
+                    for kind, num, targets in entry_rows:
+                        by_number.setdefault(num, []).append((kind, targets))
+                    for item in items:
+                        number = _feed_item_number(item)
+                        if not number:
+                            continue
+                        is_read = "reading" in (item.findtext("guid") or "").lower()
+                        expected_kind = "reading" if is_read else "episode"
+                        enc = item.find("enclosure")
+                        enc_name = (Path(urllib.parse.urlparse(
+                            enc.get("url") or "").path).name
+                            if enc is not None else "")
+                        expected_audio = enc_name or (
+                            f"episode-{number}-reading.mp3" if is_read
+                            else f"episode-{number}.mp3")
+                        expected_notes = {f"episode-{number}-notes.md",
+                                          f"episode-{number}-reading-notes.md"}
+                        mine = by_number.get(number, [])
+                        if not mine:
+                            result["issues"].append(
+                                f"landing page index.html has no entry labelled "
+                                f"{expected_kind} {number}, so the label a "
+                                f"listener clicks resolves to a different item")
+                            continue
+                        if len(mine) > 1:
+                            result["issues"].append(
+                                f"landing page index.html lists episode {number} "
+                                f"{len(mine)} times with different targets")
+                        for kind, targets in mine:
+                            if kind != expected_kind:
+                                result["issues"].append(
+                                    f"landing page entry for episode {number} is "
+                                    f"labelled {kind.capitalize()}, but the feed "
+                                    f"item is a {expected_kind}: a Reading label "
+                                    f"promises a verbatim reading and an Episode "
+                                    f"label the dramatized interview")
+                            for name in targets:
+                                if name.endswith(".mp3") and name != expected_audio:
+                                    result["issues"].append(
+                                        f"landing page entry for episode {number} "
+                                        f"links {name}, another episode's audio; "
+                                        f"this item's own enclosure is "
+                                        f"{expected_audio}")
+                                elif name.endswith(".md") and name not in expected_notes:
+                                    result["issues"].append(
+                                        f"landing page entry for episode {number} "
+                                        f"links {name}, another episode's show "
+                                        f"notes; this episode's own notes are "
+                                        f"{sorted(expected_notes)[0]}")
+                    # REVERSE DIRECTION (run 087). The loop above iterates
+                    # the feed items and looks each up in the page's labelled
+                    # entries, so an entry whose LABEL names an episode no feed
+                    # item carries is read but never scored -- and the aggregate
+                    # catalogue arm cannot see it either, because it derives
+                    # numbers from the HREF text, not from the label: an entry
+                    # labelled 004 pointing at another episode's real, deployed
+                    # files leaves both sets equal. Scoped by control -- the same
+                    # entry naming a nonexistent file was already refused by the
+                    # existence arm, so the open class is right-shape/wrong-number
+                    # in the label, and it needs the entry's own agreement with
+                    # the feed. No legacy waiver (run 036).
+                    for kind, num, targets in entry_rows:
+                        if num not in feed_numbers:
+                            result["issues"].append(
+                                f"landing page index.html has an entry labelled "
+                                f"{kind} {num}, which the feed does not carry; "
+                                f"its targets belong to "
+                                f"{', '.join(sorted(targets))}")
             if remote:
                 index_url = remote.rstrip("/") + "/index.html"
                 try:

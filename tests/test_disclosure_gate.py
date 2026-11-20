@@ -101,8 +101,8 @@ INDEX_HTML = (
     '<title>Moral Machines</title></head><body>'
     '<h1>Moral Machines</h1>'
     '<p><a href="feed.xml">RSS feed</a></p><h2>Episodes</h2><ul>'
-    '<li><a href="episode-{num}.mp3">Episode {num}</a></li>'
-    '</ul></body></html>'
+    '<li><a href="episode-{num}.mp3">{kind} {num}</a> &middot; '
+    '<a href="episode-{num}-notes.md">notes</a></li></ul></body></html>'
 )
 
 
@@ -152,7 +152,8 @@ class DisclosureGateTests(unittest.TestCase):
         mp3 = self.site / f"episode-{num}.mp3"
         mp3.write_bytes(_FIXTURE_MP3)
         (self.site / f"episode-{num}-notes.md").write_text("# notes\n")
-        (self.site / "index.html").write_text(INDEX_HTML.format(num=num))
+        kind = "Reading" if int(num) >= 501 else "Episode"
+        (self.site / "index.html").write_text(INDEX_HTML.format(num=num, kind=kind))
         # publish_feed.py's notes_html() and read_notes_html() BOTH
         # emit a show-notes link on every item, so a disclosure block
         # without one is a block no generator can produce (run 075).

@@ -98,7 +98,7 @@ class SyndicationEnvelopeTests(unittest.TestCase):
         (self.site / "index.html").write_text(
             "<html><head><title>Moral Machines</title></head>"
             "<body><h1>Moral Machines</h1><ol><li>"
-            '<a href="episode-001.mp3">Ep One</a></li></ol></body></html>')
+            '<a href="episode-001.mp3">Episode 001</a> &middot; <a href="episode-001-notes.md">notes</a></li></ol></body></html>')
         self.feed = self.site / "feed.xml"
         self.length = audio.stat().st_size
         self.feed.write_text(FEED.format(base=BASE, length=self.length))
