@@ -5006,3 +5006,22 @@ regenerated), live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca8090590
 92da619b54`). No production unit, no gate or feed change, no feed push.
 Committed the ledger/log entries owed by runs 082/083 (they left the tree
 dirty) alongside this run's.
+
+## Run 086 — 2026-11-19 (reconciliation-only, no production unit)
+
+Reconciled live Zotero against durable state: Summerize (V4WXTY8M) **0** items
+and Read (DV6F4ILX) **0** items, both lists fresh. Parent YF84AUZK still shows
+25 entries with **18** direct-membership items unfiled — unchanged since run
+082, so the standing lane-choice blocker is not re-raised. Run 085 closed its
+attempt with no log entry and left `pipeline/state.json` dirty; its ledger
+write is committed alongside this entry.
+
+Opening audits all green: `coverage ok: true` (3/3), `registry ok: true`
+(4 ledger / 3 manifest), `feedsync ok: true` (committed md5 == regenerated),
+`status healthy: true`, 523-test suite OK, subcommand census identical to the
+sibling tree (`register` remains HITL-only by design). Stale lock present with
+dead owner pid and free advisory lock — normal steady state, left untouched.
+
+Live-vs-local `feed.xml` md5 identical (`9fc23235fcb49ca809059092da619b54`).
+No production unit, no gate, feed or code change; nothing published. Pipeline
+remains healthy and ready for the next filed item.

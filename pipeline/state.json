@@ -2359,13 +2359,57 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-19T20:45:07.224508Z"
+        },
+        {
+          "attempt_id": "501-1795135930",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-20T00:52:10.913625Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-20T00:52:11.374424Z",
+              "detail": "run085: fresh Zotero checks Summerize V4WXTY8M=0 and Read DV6F4ILX=0; opening audits coverage registry feedsync status verify all green; parent YF84AUZK items remain unfiled and no lane assignment made",
+              "stage": "reconciliation"
+            }
+          ],
+          "deadline_at": "2026-11-20T01:17:10.913625Z",
+          "detail": "run085: no production unit; both intake lanes empty; no mutation to episodes, feed, code or docs",
+          "finished_at": "2026-11-20T00:52:11.848755Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-20T00:52:10.913625Z"
+        },
+        {
+          "attempt_id": "501-1795150448",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-20T04:54:08.315877Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-20T04:54:08.775086Z",
+              "detail": "run086: live Zotero fresh read \u2014 Summerize V4WXTY8M=0, Read DV6F4ILX=0, parent YF84AUZK 25 items / 18 direct-membership unfiled (unchanged since run082; lane choice is David's, blocker not re-raised). Opening audits green: coverage 3/3, registry 4/3, feedsync ok, status healthy, suite 523 OK. Stale lock dead-pid/free = normal steady state. Live==local feed md5 9fc23235fcb49ca809059092da619b54. Run",
+              "stage": "reconciliation"
+            }
+          ],
+          "deadline_at": "2026-11-20T05:19:08.315877Z",
+          "detail": "run086: reconciliation-only, no production unit; both intake lanes empty (fresh live read); no mutation to episodes, feed, code or gates; committed run085 pending ledger write + this log entry",
+          "finished_at": "2026-11-20T04:54:20.968094Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-20T04:54:08.315877Z"
         }
       ],
-      "attempts": 79,
+      "attempts": 81,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-19T20:45:33Z"
+  "updated_at": "2026-11-20T04:54:20Z"
 }
