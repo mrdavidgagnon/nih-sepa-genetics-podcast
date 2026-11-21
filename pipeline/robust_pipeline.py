@@ -1458,6 +1458,43 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
                     f"audio does not match the digest recorded at render time "
                     f"(recorded {recorded[:12]}..., on disk {digest[:12]}...); "
                     f"the mp3 was replaced after it was rendered and gated")
+            # Bind the audio to the SCRIPT it was rendered from. Run 088 wired the
+            # read gate to the digests of the artifacts it scores; the interview
+            # render_episode() only after ffmpeg succeeds -- has exactly one
+            # reader, the run-032 render-cache guard, and none on the publication
+            # path. The comparison above proves the mp3 on disk IS the bytes that
+            # were rendered; it cannot prove those bytes were rendered from the
+            # script.md that is being published. Episode 001 is the live instance:
+            # run 047 corrected a quotation in script.md (the source prints "was
+            # considered a good algorithm for other people to have") without
+            # re-rendering, so the shipped audio speaks the pre-correction text
+            # while script.md and the passed panel hold the corrected text, and
+            # preflight passed with an empty issue list. A present plan that
+            # disagrees with the current script is refused; a missing or unreadable
+            # plan is refused too (run 036: a waiver is a gate with the sign
+            # flipped), because a pipeline render always writes its plan -- audio
+            # without a plan is audio the pipeline did not generate.
+            plan_path = directory / "parts-robust" / "render-plan.json"
+            plan = None
+            if plan_path.exists():
+                try:
+                    plan = json.loads(plan_path.read_text())
+                except (ValueError, OSError):
+                    plan = None
+            script_digest = sha256(script)
+            result["checks"]["audio"]["script_sha256"] = script_digest
+            result["checks"]["audio"]["render_plan_script_sha256"] = (
+                plan.get("script_sha256") if isinstance(plan, dict) else None)
+            if not isinstance(plan, dict) or not plan.get("script_sha256"):
+                result["issues"].append(
+                    "audio present but no readable render plan records which "
+                    "script it was synthesized from; re-run render to restore "
+                    "provenance")
+            elif plan["script_sha256"] != script_digest:
+                result["issues"].append(
+                    f"audio was rendered from a different script.md "
+                    f"(plan records {plan['script_sha256'][:12]}..., current script "
+                    f"is {script_digest[:12]}...); re-run render before publishing")
     result["ok"] = not result["issues"]
     return result
 
