@@ -712,3 +712,37 @@ issues / 29 checks), `verify --remote ok: true` (3 local / 3 remote, both drift
 lists empty), live-vs-local `feed.xml` md5 identical
 (`9fc23235fcb49ca809059092da619b54`, unchanged all slice), `status healthy:
 true`. No feed byte moved; nothing published this run.
+
+
+## Run 088 — the read fidelity verdict was bound to the audio but not to the two artifacts it scored
+
+Run 040 stored `audio_sha256` beside a reading's verdict and run 042 wired
+`fidelity_gate()` to read it. The two files the gate actually **scores** —
+`script.md` and `source.txt` — were required to *exist* and never compared.
+`read_lane.py` hashes `script.md` into `parts-read/render-plan.json`, but that hash
+has exactly one reader (run 032's render-cache guard), so the publication gate never
+consulted it. An operator who corrects `script.md` after `verify` — drops a sentence,
+or re-extracts `source.txt` — keeps `verified: true` and the stored coverage figure,
+so `fidelity_gate()` grants publication for a deliverable the gate itself would now
+fail, and the published show notes keep asserting a fidelity claim that no longer
+holds. Run 030/032's provenance class in the verdict half of the lane.
+
+**Fix.** `read_lane.verify()` now returns `artifact_digests` (sha256 of the exact
+bytes it scored), `record_verdict()` persists them beside the verdict, and
+`fidelity_gate()` re-hashes both files and refuses on mismatch naming both digests.
+A **missing** digest is a refusal, not a waiver (runs 036/042): a pre-run-088 entry
+must be re-verified. `verify()` the function stays side-effect free.
+
+**Proof.** Load-bearing: 6 of the 8 tests in `tests/test_verdict_artifact_binding.py`
+fail against the pre-fix backups (`pipeline/*.bak-run088`) — the post-verdict script
+edit, the post-verdict source re-extraction, the missing-digest refusal and the
+persist test each return `ok: true` / no digest pre-fix; the two no-weakening tests
+(`verify` side-effect free, gate grants nothing it already granted) pass on **both**
+sides. Full suite **546 tests OK**. Additive: 0 removed lines outside the ledger's own
+writer. Exactly three functions changed — `verify`, `record_verdict`, `fidelity_gate`
+(32 + 75 functions, the rest byte-identical).
+
+**Audits.** `coverage ok: true` (3/3), `registry ok: true` (4 ledger / 3 manifest —
+the 501 no-work stub), `feedsync ok: true` (committed md5 == regenerated,
+`9fc23235fcb49ca809059092da619b54`), `status healthy: true`. Live Summerize V4WXTY8M
+and Read DV6F4ILX both empty against durable state; nothing published this run.

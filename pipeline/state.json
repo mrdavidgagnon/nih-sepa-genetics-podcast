@@ -2420,16 +2420,55 @@
             }
           ],
           "deadline_at": "2026-11-20T09:24:36.102515Z",
-          "outcome": null,
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-20T17:41:02.070055Z",
+          "outcome": "stopped",
           "run_id": "",
           "started_at": "2026-11-20T08:59:36.102515Z"
+        },
+        {
+          "attempt_id": "501-1795196462",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-20T17:41:02.070055Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-20T18:06:02.070055Z",
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-20T21:52:16.720896Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-20T17:41:02.070055Z"
+        },
+        {
+          "attempt_id": "501-1795211536",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-20T21:52:16.720896Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-20T21:52:28.450855Z",
+              "detail": "read verdict bound to audio (run 042) but not to the two artifacts it scored; script_sha256 exists only in render-plan.json with no gate reader",
+              "stage": "defect_selected"
+            }
+          ],
+          "deadline_at": "2026-11-20T22:17:16.720896Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-20T21:52:16.720896Z"
         }
       ],
-      "attempts": 82,
+      "attempts": 84,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-20T13:21:03Z"
+  "updated_at": "2026-11-20T21:52:28Z"
 }

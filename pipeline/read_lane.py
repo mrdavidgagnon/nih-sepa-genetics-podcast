@@ -566,9 +566,20 @@ def verify(number: str) -> dict:
     else:
         issues.append("no audio rendered yet")
 
+    # The verdict is earned on specific bytes. Run 040 recorded the AUDIO digest
+    # because the gate could not tell which paper the audio came from; the same
+    # blindness applies to the two files the gate actually scores -- a later edit
+    # to either leaves `verified: true` next to artifacts the gate never saw.
+    digests = {}
+    for name, field in (("script.md", "script_sha256"), ("source.txt", "source_sha256")):
+        path = directory / name
+        if path.exists():
+            digests[field] = sha256(path)
+
     return {
         "ok": not issues,
         "episode": number,
+        "artifact_digests": digests,
         "source_words": len(source_words),
         "spoken_words": len(spoken_words),
         "audio_words": audio_words,
@@ -876,6 +887,9 @@ def record_verdict(number: str, verification: dict) -> dict:
     record["audio_seconds"] = verification.get("audio_seconds")
     record["gate_issues"] = list(verification.get("issues") or [])
     record["verified_at"] = datetime.now(timezone.utc).isoformat()
+    for field in ("script_sha256", "source_sha256"):
+        if verification.get("artifact_digests", {}).get(field):
+            record[field] = verification["artifact_digests"][field]
     # Provenance the gate itself never inspects: verify() compares script.md
     # against source.txt, so it cannot tell which paper the audio came from.
     # Recording the rendered bytes' digest beside the verdict makes a later

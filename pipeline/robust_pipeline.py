@@ -1072,6 +1072,33 @@ def fidelity_gate(episode: str) -> dict[str, Any]:
     for name in ("source.txt", "script.md"):
         if not (directory / name).exists():
             result["issues"].append(f"missing {name}; the fidelity verdict is not reproducible")
+    # Existence is not identity. This gate already binds the verdict to the AUDIO it
+    # was earned on (run 042); the two files it actually SCORED were bound to nothing.
+    # read_lane.py stores a hash of script.md in parts-read/render-plan.json, but that
+    # hash has exactly one reader -- render_episode()'s cache guard -- so the
+    # publication gate never consulted it. An operator who corrects script.md after
+    # `verify` (drops a sentence, or re-extracts source.txt) keeps `verified: true` and
+    # the coverage figure, so this gate grants publication for a deliverable the gate
+    # itself would now fail, and the published show notes keep asserting a fidelity
+    # claim that no longer holds. A missing digest is a refusal, not a waiver
+    # (runs 036/042): an entry predating run 088 must be re-verified.
+    artifact_digests = {}
+    for name, field in (("script.md", "script_sha256"), ("source.txt", "source_sha256")):
+        recorded = record.get(field)
+        artifact_digests[field] = recorded
+        path = directory / name
+        if not path.exists():
+            continue
+        if not isinstance(recorded, str) or not recorded:
+            result["issues"].append(
+                f"registry records no {field}; re-run read_lane.py verify so the verdict "
+                f"is bound to the {name} it scored")
+        elif sha256(path) != recorded:
+            result["issues"].append(
+                f"{name} does not match the verified {name} "
+                f"(recorded {recorded[:12]}..., on disk {sha256(path)[:12]}...); "
+                f"re-run read_lane.py verify")
+    result["artifacts"] = artifact_digests
     # Bind the verdict to the AUDIO it was earned on.
     #
     # verify() compares script.md against source.txt, so it is structurally
