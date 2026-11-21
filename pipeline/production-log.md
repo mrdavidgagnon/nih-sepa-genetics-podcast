@@ -746,3 +746,35 @@ writer. Exactly three functions changed — `verify`, `record_verdict`, `fidelit
 the 501 no-work stub), `feedsync ok: true` (committed md5 == regenerated,
 `9fc23235fcb49ca809059092da619b54`), `status healthy: true`. Live Summerize V4WXTY8M
 and Read DV6F4ILX both empty against durable state; nothing published this run.
+
+
+## Run 091 — run 090's gate fix committed and the corrected episode 001 audio deployed live
+
+Run 090 added the render-plan reader to the interview publication gate (run 088's class in
+the interview lane: the render plan's `script_sha256` had only the run-032 render-cache reader,
+nothing on the publish path) and re-rendered episode 001 from the corrected script, but died
+before deploying. Its gate change and `tests/test_render_plan_provenance.py` were still
+uncommitted at the start of this slice; committed as run 090 after re-verifying that
+`preflight 001 --audio` is `ok: true` with the plan digest matching the current script
+(27f3fa638d9b) and the on-disk mp3 matching the stored `audio_sha256`.
+
+**Deployed.** `push --episode 001 --wait 240` -> `pushed: true`, `ok: true`, 11673574 bytes
+staged. Live `feed.xml` md5 now identical to local (`3570d744126e2d3ac136ce275443ad29`); the
+live item carries `length="11657900"` and `duration 00:12:09` for the re-rendered audio, which
+is what the shipped script actually speaks. Byte-range 206 on `episode-001.mp3`, 200 on
+`episode-001-notes.md`.
+
+**Notes defect fixed in the same pass.** `episodes/001/episode-notes.md` asserted
+"Approximately fifteen minutes" for an episode that measures **12:09** (728.5 s by ffprobe) —
+a published deliverable stating a duration no artifact supports. Reworded to the measured
+runtime, and the tree-root mirror re-synced (the gate refuses root-vs-`feed-site/` drift, and
+Pages serves the root). Live notes now carry the measured figure.
+
+**Ledger.** 001 restored to `published_and_moved` on evidence; no Zotero write was needed —
+live `items/<key>` reads show all five source parents (4UDPRQZR, FFGWMS4C, BGWWIUWC, BW34V8PX,
+QNHR6NPF) in Produced (6P2KVFKQ) with no intake membership left.
+
+**Audits.** `coverage ok: true` (3/3, every enclosure length == on-disk size),
+`registry ok: true` (4 ledger / 3 manifest — the 501 no-work stub), `feedsync ok: true`
+(committed md5 == regenerated), `verify --remote ok: true`, suite **552 tests OK**. Read
+DV6F4ILX and Summerize V4WXTY8M both empty against durable state.

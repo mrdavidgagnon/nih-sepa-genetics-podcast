@@ -1,6 +1,6 @@
 # Episode 001 — Should the Crowd Program the Car?
 
-Approximately fifteen minutes. A playful interviewer-style synthesis with Dr. Rowan Field, a fictional composite research correspondent. Rowan is not an author, no cited author was interviewed, and the dialogue is paraphrase rather than author testimony.
+Twelve minutes nine seconds (measured from the rendered audio, 728.5 s, run 091). A playful interviewer-style synthesis with Dr. Rowan Field, a fictional composite research correspondent. Rowan is not an author, no cited author was interviewed, and the dialogue is paraphrase rather than author testimony.
 
 **AI-summary warning:** This episode is an AI-generated summary. It may contain errors and is an orientation, not a substitute for reading the sources.
 

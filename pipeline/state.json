@@ -2,14 +2,57 @@
   "episodes": {
     "001": {
       "artifacts": {
-        "audio": [
-          "episodes/001/episode-001.mp3"
-        ],
-        "audio_bytes": 11639084,
-        "audio_sha256": "3911eb020b1e4e993e92181586b8655ff4766fbf227cbc6b74deb2bcb82c6ac9",
-        "notes": "episodes/001/episode-notes.md"
+        "audio": "episodes/001/episode-001.mp3",
+        "audio_sha256": "e8c10533a33ed591b67853185381fcaa344931de1bb9c17820322e5cf9dec836",
+        "turns": 43
       },
-      "attempts": 1,
+      "attempt_log": [
+        {
+          "attempt_id": "001-1795256619",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-21T10:23:39.533898Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-21T10:23:39.993123Z",
+              "detail": "live audio/script divergence: render-plan script_sha256 has no gate reader; run047 quote fix never re-rendered",
+              "stage": "selected"
+            }
+          ],
+          "deadline_at": "2026-11-21T10:48:39.533898Z",
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-21T14:33:05.621737Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-21T10:23:39.533898Z"
+        },
+        {
+          "attempt_id": "001-1795271585",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-21T14:33:05.621737Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-21T14:33:06.089495Z",
+              "detail": "run 091: finish run 090's pending deploy \u2014 001 re-rendered from corrected script (run047 quote), gate now proves provenance; notes duration claim stale",
+              "stage": "selected"
+            }
+          ],
+          "deadline_at": "2026-11-21T14:58:05.621737Z",
+          "detail": "run 091: run090 gate fix committed; corrected 001 audio deployed live (pushed:true, live md5 == local, 206/200); stale notes duration claim fixed; ledger restored to published_and_moved on evidence",
+          "finished_at": "2026-11-21T14:35:27.553666Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-21T14:33:05.621737Z"
+        }
+      ],
+      "attempts": 4,
       "checks": {
         "review_gate": {
           "episode": "001",
@@ -70,6 +113,42 @@
         {
           "at": "2026-11-12T14:07:37Z",
           "reason": "run043 backfill: restored audio_sha256 destroyed by reconcile()'s artifact replacement. Evidence: in-pipeline render transition, episode-dir and feed-site audio byte-identical at the advertised enclosure length (11639084), local feed byte-identical to live, preflight --audio ok with a matching digest. No status change.",
+          "to": "published_and_moved"
+        },
+        {
+          "at": "2026-11-21T10:38:30Z",
+          "from": "published_and_moved",
+          "reason": "run 090: preflight now refuses 001 because parts-robust/render-plan.json records script_sha256 21f47532f931 but script.md hashes 27f3fa638d9b (run 047 quote correction, never re-rendered). Manual transition outside TRANSITIONS (published_and_moved is not a state) to make the gate's own remedy reachable; render will re-synthesize all 43 turns from the corrected script.",
+          "to": "rendering"
+        },
+        {
+          "at": "2026-11-21T10:26:01Z",
+          "from": "rendering",
+          "reason": "render started",
+          "to": "rendering"
+        },
+        {
+          "at": "2026-11-21T10:27:00Z",
+          "from": "rendering",
+          "reason": "atomic render complete",
+          "to": "rendered"
+        },
+        {
+          "at": "2026-11-21T10:29:21Z",
+          "from": "rendered",
+          "reason": "local feed checks passed",
+          "to": "verified"
+        },
+        {
+          "at": "2026-11-21T10:29:21Z",
+          "from": "verified",
+          "reason": "local feed built and verified; remote push remains manual",
+          "to": "published"
+        },
+        {
+          "at": "2026-11-21T14:40:00Z",
+          "from": "published",
+          "reason": "run 091: re-rendered audio deployed live. Evidence: push --episode 001 pushed:true ok:true (staged 11673574 bytes); live feed.xml md5 identical to local (3570d744126e2d3ac136ce275443ad29) with enclosure length 11657900 == on-disk size; byte-range 206 on episode-001.mp3; episode-001-notes.md 200 live with the corrected measured duration. No Zotero write needed: live items read show all five source parents in Produced (6P2KVFKQ) with no intake membership left. Manual transition outside TRANSITIONS, as in run 090.",
           "to": "published_and_moved"
         }
       ]
@@ -2464,13 +2543,28 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-20T21:52:16.720896Z"
+        },
+        {
+          "attempt_id": "501-1795241899",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-21T06:18:19.797459Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-21T06:43:19.797459Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-21T06:18:19.797459Z"
         }
       ],
-      "attempts": 84,
+      "attempts": 85,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-21T02:14:41Z"
+  "updated_at": "2026-11-21T14:35:27Z"
 }
