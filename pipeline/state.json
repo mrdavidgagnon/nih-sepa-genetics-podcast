@@ -2555,16 +2555,33 @@
             }
           ],
           "deadline_at": "2026-11-21T06:43:19.797459Z",
-          "outcome": null,
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-21T18:43:39.401923Z",
+          "outcome": "stopped",
           "run_id": "",
           "started_at": "2026-11-21T06:18:19.797459Z"
+        },
+        {
+          "attempt_id": "501-1795286619",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-21T18:43:39.401923Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-21T19:08:39.401923Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-21T18:43:39.401923Z"
         }
       ],
-      "attempts": 85,
+      "attempts": 86,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-21T14:35:27Z"
+  "updated_at": "2026-11-21T18:43:39Z"
 }

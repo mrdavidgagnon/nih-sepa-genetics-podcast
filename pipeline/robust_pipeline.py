@@ -1034,6 +1034,28 @@ def parse_reading_turns(script: Path) -> list[str]:
     return turns
 
 
+def _read_copy_source(episode: str, record: dict[str, Any]) -> Path | None:
+    """Resolve a reading's shipped audio through publish_feed's own helper.
+
+    Read from the copy step's single source of truth rather than re-implemented
+    here, so this gate cannot hash a file different from the one
+    `publish_feed.main()` puts in feed-site/ (run 092). A module that cannot be
+    imported falls back to the identical expression -- never to a waiver.
+    """
+    try:
+        try:
+            from .publish_feed import read_copy_source
+        except ImportError:
+            sys.path.insert(0, str(Path(__file__).resolve().parent))
+            from publish_feed import read_copy_source
+        return read_copy_source(episode, record, ROOT)
+    except Exception:
+        value = record.get("audio") or f"episode-{episode}.mp3"
+        if not isinstance(value, str):
+            return None
+        return ROOT / "episodes" / str(episode) / value
+
+
 def fidelity_gate(episode: str) -> dict[str, Any]:
     """Read-lane publication gate: the recorded automated word-fidelity result.
 
@@ -1121,9 +1143,24 @@ def fidelity_gate(episode: str) -> dict[str, Any]:
     # audio must exist and match byte-for-byte.
     recorded_digest = record.get("audio_sha256")
     recorded_bytes = record.get("audio_bytes")
-    audio = directory / f"episode-{episode}.mp3"
-    result["audio"] = {"recorded_sha256": recorded_digest, "recorded_bytes": recorded_bytes}
-    if not audio.exists():
+    # Run 092: hash the file the publish path will ACTUALLY ship. The `audio`
+    # registry field decides the delivered bytes and had no reader anywhere in
+    # the pipeline, so a record pointing at another episode's mp3 shipped those
+    # bytes through a green gate that hashed the path it merely assumed.
+    audio = _read_copy_source(episode, record)
+    result["audio"] = {"recorded_sha256": recorded_digest,
+                       "recorded_bytes": recorded_bytes,
+                       "shipped_from": str(audio) if audio is not None else None}
+    if audio is None:
+        result["issues"].append(
+            "the `audio` field in read-episodes.json is not a usable filename, so "
+            "the copy step cannot resolve which file to ship")
+    elif not audio.resolve().is_relative_to(directory.resolve()):
+        result["issues"].append(
+            f"the `audio` field resolves outside episodes/{episode}/ ({audio}); "
+            f"the copy step would ship another episode's bytes instead of the "
+            f"verified audio")
+    elif not audio.exists():
         result["issues"].append(
             f"missing {audio.name}; the verified audio is not on disk")
     elif not isinstance(recorded_digest, str) or not recorded_digest:

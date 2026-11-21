@@ -59,6 +59,30 @@ LEGACY_PUB_DATE = 'Wed, 26 Aug 2026 03:45:00 +0000'
 
 EP = interview_episodes()
 
+def read_copy_source(num, rec, root=None):
+    """The file on disk a reading's audio is copied from -- single source of truth.
+
+    `read_episodes()` tests this path for existence and `main()` copies it into
+    feed-site/, so this registry field decides the bytes a listener downloads.
+    Before run 092 it was open-coded twice in this file and read by no gate at
+    all, while `robust_pipeline.fidelity_gate()` hashed the path it merely
+    ASSUMED (`episode-NNN.mp3`): an entry pointing at another episode's mp3
+    shipped those bytes through a green gate, because the gate's reader and the
+    copy step never looked at the same file.
+
+    Returns None for a field that is not a usable filename, so the gate refuses
+    instead of the publish path crashing on a Path join.
+
+    `root` defaults to this module's tree; `robust_pipeline.fidelity_gate()`
+    passes its own ROOT so the path it hashes is the directory it is auditing.
+    The rule -- field, default, anchor -- lives only here.
+    """
+    value = rec.get('audio') or f'episode-{num}.mp3'
+    if not isinstance(value, str):
+        return None
+    return Path(root or ROOT) / 'episodes' / str(num) / value
+
+
 def read_episodes():
     """Read-lane episodes (verbatim single-voice readings, numbered 501+).
 
@@ -73,8 +97,8 @@ def read_episodes():
     for num, rec in sorted(manifest.get('episodes', {}).items()):
         if not rec.get('verified'):
             continue
-        audio = ROOT/'episodes'/num/rec.get('audio', f'episode-{num}.mp3')
-        if not audio.exists():
+        audio = read_copy_source(num, rec)
+        if audio is None or not audio.exists():
             continue
         out.append((num, rec))
     return out
@@ -210,7 +234,10 @@ def main():
         src=ROOT/'episodes'/num/fn; dst=SITE/(base+'.mp3'); atomic_copy(src,dst); atomic_copy(ROOT/'episodes'/num/'episode-notes.md',SITE/(base+'-notes.md'))
     for num, rec in read_episodes():
         base = f"episode-{num}-reading"
-        atomic_copy(ROOT/'episodes'/num/rec.get('audio', f'episode-{num}.mp3'), SITE/(base+'.mp3'))
+        src = read_copy_source(num, rec)
+        if src is None:
+            raise SystemExit(f"reading {num} has no usable `audio` field")
+        atomic_copy(src, SITE/(base+'.mp3'))
         atomic_copy(ROOT/'episodes'/num/'episode-notes.md', SITE/(base+'-notes.md'))
     items=[]
     # Preserve the existing pilot entry verbatim enough for stable GUID and links.

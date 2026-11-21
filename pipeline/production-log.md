@@ -778,3 +778,52 @@ QNHR6NPF) in Produced (6P2KVFKQ) with no intake membership left.
 `registry ok: true` (4 ledger / 3 manifest — the 501 no-work stub), `feedsync ok: true`
 (committed md5 == regenerated), `verify --remote ok: true`, suite **552 tests OK**. Read
 DV6F4ILX and Summerize V4WXTY8M both empty against durable state.
+
+
+## Run 092 — the read lane's `audio` field decided the delivered bytes and had no reader
+
+`publish_feed.py` open-coded `ROOT/episodes/<num>/<rec['audio']>` twice: once in
+`read_episodes()` to test existence, once in `main()` to copy the file into
+`feed-site/`. No gate ever compared that registry field to anything. The read
+fidelity gate hashed the path it merely **assumed** — `episode-NNN.mp3` — and
+reported the digest of that assumed file against the digest recorded by
+`read_lane.verify()`, which is the digest of the file `render_episode()` wrote
+under the canonical name. So the gate blessed the verified audio while the copy
+step obeyed the field, and the two never looked at the same file.
+
+Repro (scratch tree, stub mp3s, no TTS spend, real `main()` and real
+`publish_local()`): a registry entry for reading 991 whose `audio` field is
+`../990/episode-990.mp3` passes `fidelity_gate` with an **empty issue list** —
+the gate hashed 991's own canonical file, which matched its recorded digest —
+and the mandated publish command accepted it and wrote episode **990**'s bytes
+into `feed-site/episode-991-reading.mp3`. `verify_feed` (existence + length +
+digest-vs-registry), `feed_coverage` (GUID + enclosure + title) and
+`registry_audit` all reported ok on the resulting feed: each checks the field it
+was written to check, and none checks *which file the field names*. The control
+shows the detector is not broken — the same wrong bytes reached through the path
+the gate does read (canonical field, swapped file) are refused with the digest
+mismatch. The defect was the unread field, not a weak hash.
+
+A non-string field was worse in a different way: the copy step had no validation
+at all, so `Path / int` crashed `main()` mid-publish rather than refusing.
+
+**Fix.** One resolver, `publish_feed.read_copy_source(num, rec, root=None)`, used
+by both call sites and by the gate; `root` lets the gate anchor the path to the
+directory it is auditing while the rule (field, default, anchor) stays in one
+place. `fidelity_gate` now hashes the file the copy step will actually ship and
+refuses a field that escapes `episodes/<num>/` or is not a usable filename, and
+reports `shipped_from` in its audio check. `main()` refuses instead of crashing.
+
+**Nothing granted.** The canonical case still passes with an empty issue list;
+missing digest, coverage below the 99.5% floor and missing `source.txt` still
+refuse; every resolved path still stays inside its own episode directory. Proof:
+8 checks on the pre-fix copies (defect reproduced), 15 on the fixed modules
+(refused, wrong bytes never reach `feed-site/`, canonical reading still
+publishes with its own bytes), `tests/test_read_copy_source_gate.py` 7 tests —
+4 fail against `pipeline/*.bak-run092` and pass on the fixed tree. Full suite
+559 tests OK. Function census: `fidelity_gate` changed, `_read_copy_source` and
+`read_copy_source` added, 74 of 75 `robust_pipeline` functions byte-identical.
+
+The repro opened attempt `501-1795286619` (superseding attempt 85, marked
+`stopped`); that ledger write is committed with this run. No live feed change:
+no reading was re-rendered or redeployed.
