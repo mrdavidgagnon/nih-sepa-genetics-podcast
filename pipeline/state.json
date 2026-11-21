@@ -2459,7 +2459,9 @@
             }
           ],
           "deadline_at": "2026-11-20T22:17:16.720896Z",
-          "outcome": null,
+          "detail": "run 088 closed: verdict bound to script.md/source.txt digests; 6/8 tests load-bearing against pre-fix backup; suite 546 OK; audits green; nothing published",
+          "finished_at": "2026-11-21T02:14:41.658342Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-20T21:52:16.720896Z"
         }
@@ -2470,5 +2472,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-20T21:52:28Z"
+  "updated_at": "2026-11-21T02:14:41Z"
 }
