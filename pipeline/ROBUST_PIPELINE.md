@@ -2810,3 +2810,31 @@ refuses. `README.md`, `production-log.md` and `style_guide.md` are exempt by
 exact name.
 
 Healthy state here is ten mirrored files with an empty `no_root_copy`.
+## The show notes' Production record states claims, and now has a reader (run 093)
+
+The record is a statement about this pipeline's own behaviour, so it is only honest
+when it is written from what actually happened:
+
+- the gate line states the verdict the gate **returned** at write time, not a passed
+  result. `verify()` can report word coverage with `ok: false` because no audio exists
+  yet, and the record must say so;
+- the render line is stated from the render plan the render itself wrote
+  (`parts-read/render-plan.json`), which exists only after a successful render. Before
+  a render the record says "not rendered yet"; it never names a voice or a date from the
+  module constants;
+- `refresh_notes_record()` is an explicit operator command, not a side effect of
+  `verify()`. It rewrites **only** the two claim lines, leaves every other line
+  byte-identical (run 040's protected build-time facts), and refuses to invent a notes
+  file `build()` never wrote.
+
+`fidelity_gate()` now reads the parsed record and refuses where its claims disagree with
+the registry (figure, verdict) or with the render provenance (date, voice, missing plan).
+This is the first comparison between the record and the sources it states: `feed_sync`
+compares the notes file against its own published copy, so it can only prove
+self-consistency — a claim inside the file can never disagree with the registry there.
+
+The render-plan path is resolved from the lane the record belongs to
+(`render_plan_for_lane()`), used by both `preflight()` and `fidelity_gate()`. Before run
+093 both read the interview lane's `parts-robust`, so a genuine reading with a correct
+plan in `parts-read` was refused at publish and the plan the read lane wrote was read by
+nothing on the publish path. A missing or unreadable plan remains a refusal, not a waiver.

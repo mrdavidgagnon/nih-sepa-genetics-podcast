@@ -827,3 +827,65 @@ publishes with its own bytes), `tests/test_read_copy_source_gate.py` 7 tests —
 The repro opened attempt `501-1795286619` (superseding attempt 85, marked
 `stopped`); that ledger write is committed with this run. No live feed change:
 no reading was re-rendered or redeployed.
+
+## Run 093 — the show notes stated a production record that nothing compared to the sources it states
+
+`write_notes()` has exactly one call site, `build()`, which necessarily runs before
+any audio exists. It printed, into a published deliverable, two claims about this
+pipeline's own behaviour:
+
+- `Fidelity gate: {coverage} of extracted words present ...` — stated as a gate
+  result, while the same call had returned `ok=False` with "no audio rendered yet";
+- `Rendered: {rendered} ({voice})` — a date and a voice for an event that had not
+  happened, taken from the module constants `VOICE` / `RENDER_TEXT_VERSION` rather
+  than from any record of the render.
+
+Nothing read those claims. `record_verdict()` (run 040) persists the real verdict but
+must not silently rewrite a published deliverable, so it never touched the notes;
+`feed_sync` "regenerates" the notes by copying the very file it audits, so it can only
+prove byte-identity with its own copy — a claim inside the record can never disagree
+with the registry. The record was the only place in the read lane where a claim about
+the pipeline's behaviour was published with no reader.
+
+Repro (scratch tree, real functions, silent `ffmpeg anullsrc` audio, no TTS spend):
+18 checks on the pre-fix copies — single call site proven by AST, the record written
+before any render, the gate figure asserted as a result while the same call had
+refused, a render date naming a voice for an event that had not occurred,
+`record_verdict()` not rewriting the notes, `feed_sync` reporting ok on a record whose
+figure was hand-edited to disagree with the registry, and the published copy carrying
+the contradicted figure.
+
+The same family produced a second, independent refusal: `preflight()`'s render-plan
+provenance check read the **interview** lane's directory (`parts-robust`) for both
+lanes, so a genuine reading with a correct plan in `parts-read` was refused at publish,
+while the plan the read lane actually wrote was read by nothing on the publish path.
+
+**Fix.** Two halves. (1) The writer states the verdict the gate actually returned
+("gate NOT PASSED at write time") and does not claim a render before one exists; after
+a render the two claim lines are brought into agreement by `refresh_notes_record()`,
+which reads the render plan — the only record of the event — touches only those two
+lines, leaves run 040's protected build-time facts byte-identical, and refuses to
+invent a notes file `build()` never wrote. It is an explicit operator command, not a
+side effect of `verify()`. (2) `fidelity_gate()` — the single read verdict with one
+owner — now reads the parsed record and refuses where its claims disagree with the
+registry (figure, verdict) or with the render provenance (date, voice, missing plan).
+It grants nothing. `render_plan_for_lane()` resolves the plan path from the lane the
+record belongs to and is used by both `preflight()` and `fidelity_gate()`.
+
+**Nothing granted.** The canonical case still passes with an empty issue list; a
+record that claims a render with no plan, a figure that disagrees with the registry, a
+verdict that disagrees, a render date that predates the plan, a voice that disagrees,
+or a record that states no verdict, is refused. Existing refusals still bite: missing
+digest, coverage below the 99.5% floor, missing `source.txt`, script digest mismatch.
+
+Proof: 18 checks on the pre-fix copies (defect reproduced);
+`tests/test_notes_production_record_gate.py` — 17 tests, all pass on the fixed tree,
+3 fail and 14 error against `pipeline/*.bak-run093`. Full suite 576 tests OK.
+Function census: `read_lane.py` 35 functions — `write_notes`, `main` changed, 4 added
+(`refresh_notes_record`, `render_claim`, `render_plan_for_read`, `voice_claim`), 31
+byte-identical; `robust_pipeline.py` 70 — `fidelity_gate`, `preflight` changed, 2 added
+(`notes_production_record`, `render_plan_for_lane`), 68 byte-identical.
+
+Attempt `501-1795303437` (superseding attempt 86, marked `stopped`) was closed
+`completed` with detail "defect slice"; no render and no publish for 501. No live feed
+change: no reading was re-rendered or redeployed.

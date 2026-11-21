@@ -2572,16 +2572,35 @@
             }
           ],
           "deadline_at": "2026-11-21T19:08:39.401923Z",
-          "outcome": null,
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-21T23:23:57.917952Z",
+          "outcome": "stopped",
           "run_id": "",
           "started_at": "2026-11-21T18:43:39.401923Z"
+        },
+        {
+          "attempt_id": "501-1795303437",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-21T23:23:57.917952Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-21T23:48:57.917952Z",
+          "detail": "defect slice: show-notes production record had no reader (run 093); honest writer + record reader + render-plan lane fix; no render or publish for 501",
+          "finished_at": "2026-11-21T23:48:39.583967Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-21T23:23:57.917952Z"
         }
       ],
-      "attempts": 86,
+      "attempts": 87,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-21T18:43:39Z"
+  "updated_at": "2026-11-21T23:48:39Z"
 }

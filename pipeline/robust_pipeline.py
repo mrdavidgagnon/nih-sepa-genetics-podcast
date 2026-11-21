@@ -1056,6 +1056,36 @@ def _read_copy_source(episode: str, record: dict[str, Any]) -> Path | None:
         return ROOT / "episodes" / str(episode) / value
 
 
+def render_plan_for_lane(directory: Path, lane: str) -> dict[str, Any] | None:
+    """The render plan as the render itself wrote it, read from the directory the
+    lane that produced the audio actually uses (run 093)."""
+    path = directory / lane / "render-plan.json"
+    if not path.exists():
+        return None
+    try:
+        plan = json.loads(path.read_text())
+    except (ValueError, OSError):
+        return None
+    return plan if isinstance(plan, dict) else None
+
+
+def notes_production_record(text: str) -> dict[str, Any] | None:
+    """Parse the show notes' '## Production record' block into the claims it makes."""
+    if "## Production record" not in text:
+        return None
+    block = text.split("## Production record", 1)[1]
+    claims: dict[str, Any] = {}
+    match = re.search(r"Fidelity gate:\s*(\d+(?:\.\d+)?)%.*?\(([^)]*)\)", block)
+    if match:
+        claims["coverage_pct"] = float(match.group(1))
+        claims["verdict"] = match.group(2).strip()
+    match = re.search(r"Rendered:\s*(\S[^\n(]*)\s*\(([^)]*)\)", block)
+    if match:
+        claims["rendered"] = match.group(1).strip()
+        claims["voice"] = match.group(2).strip()
+    return claims
+
+
 def fidelity_gate(episode: str) -> dict[str, Any]:
     """Read-lane publication gate: the recorded automated word-fidelity result.
 
@@ -1180,6 +1210,65 @@ def fidelity_gate(episode: str) -> dict[str, Any]:
             result["issues"].append(
                 f"{audio.name} is {actual_bytes} bytes but the verdict recorded "
                 f"{recorded_bytes}; re-run read_lane.py verify")
+    # The show notes are a published deliverable that states claims about this
+    # pipeline's own behaviour, and until run 093 nothing read them.
+    # write_notes() has exactly one call site -- build() -- which is necessarily
+    # before any audio exists, so the record it wrote asserted a render date and a
+    # voice for an event that had not happened, and printed the coverage figure as
+    # a gate result when the same call had returned ok=False. record_verdict()
+    # persists the real verdict but never rewrites the notes, and feed_sync
+    # "regenerates" the notes by copying the very file it audits, so it can only
+    # prove self-consistency: a claim inside the file can never disagree with the
+    # registry or with the render provenance.
+    #
+    # Grants nothing. A record that disagrees with the registry or the render plan
+    # is a refusal, and a render claim with no plan behind it is a refusal. A
+    # missing notes file is refused by preflight, not here.
+    notes_path = directory / "episode-notes.md"
+    if notes_path.exists():
+        claims = notes_production_record(notes_path.read_text())
+        result["notes_record"] = claims
+        if claims is None:
+            # A notes file with no Production record makes no claims, so there is
+            # nothing here to contradict; its presence is preflight's job.
+            pass
+        else:
+            recorded_coverage = record.get("coverage")
+            if "coverage_pct" not in claims or recorded_coverage is None or abs(
+                    claims["coverage_pct"] - round(float(recorded_coverage) * 100, 3)) > 0.0005:
+                result["issues"].append(
+                    "the show notes' Production record states a fidelity figure that does "
+                    "not match the coverage recorded in read-episodes.json")
+            if "verdict" not in claims:
+                result["issues"].append(
+                    f"the show notes state no gate verdict; re-run read_lane.py notes "
+                    f"--episode {episode}")
+            elif (claims["verdict"] == "gate PASSED") != bool(record.get("verified")):
+                result["issues"].append(
+                    "the show notes' Production record states a gate verdict that does not "
+                    "match the verdict recorded in read-episodes.json")
+            plan = render_plan_for_lane(directory, "parts-read")
+            claimed_render = claims.get("rendered")
+            if claimed_render is None:
+                result["issues"].append(
+                    f"the show notes state no render; re-run read_lane.py notes --episode {episode}")
+            elif claimed_render == "not rendered yet":
+                if plan is not None:
+                    result["issues"].append(
+                        f"the show notes say the reading was never rendered but a render plan "
+                        f"exists; re-run read_lane.py notes --episode {episode}")
+            elif plan is None:
+                result["issues"].append(
+                    "the show notes claim a render that no render plan records")
+            else:
+                if claimed_render != plan.get("rendered_at"):
+                    result["issues"].append(
+                        f"the show notes' render date does not match the render the plan records "
+                        f"(notes {claimed_render}, plan {plan.get('rendered_at')})")
+                if claims.get("voice") != plan.get("voice"):
+                    result["issues"].append(
+                        f"the show notes name a voice the render plan does not record "
+                        f"(notes {claims.get('voice')}, plan {plan.get('voice')})")
     result["ok"] = not result["issues"]
     return result
 
@@ -1511,7 +1600,11 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
             # plan is refused too (run 036: a waiver is a gate with the sign
             # flipped), because a pipeline render always writes its plan -- audio
             # without a plan is audio the pipeline did not generate.
-            plan_path = directory / "parts-robust" / "render-plan.json"
+            # Lane-aware (run 093): the read lane writes its plan to parts-read/,
+            # the interview lane to parts-robust/. Reading only the interview
+            # directory refused every genuine reading -- a correct plan on disk,
+            # "no readable render plan", and the plan itself read by nothing.
+            plan_path = directory / ("parts-read" if is_read else "parts-robust") / "render-plan.json"
             plan = None
             if plan_path.exists():
                 try:

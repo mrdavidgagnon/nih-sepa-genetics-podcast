@@ -480,6 +480,9 @@ async def render_episode(number: str, force: bool = False) -> dict:
     )
     # Written only after ffmpeg succeeds, so a crashed render leaves no plan and
     # the next run re-synthesizes rather than trusting a half-built cache.
+    # The plan is also the only record of WHEN the render happened; the show notes
+    # now state the render date from here instead of from the write time (run 093).
+    plan["rendered_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
     plan_file.write_text(json.dumps(plan, indent=1, sort_keys=True))
     return {"episode": number, "parts": len(files), "audio": str(output),
             "bytes": output.stat().st_size}
@@ -629,9 +632,79 @@ when you have been granted access.
 - Zotero item key: `{item_key}`
 - Source PDF SHA-256: `{sha}`
 - Extracted body text: {source_words} words from {pages} PDF pages
-- Fidelity gate: {coverage} of extracted words present in the reading, in order
+- Fidelity gate: {coverage} of extracted words present in the reading, in order ({verdict})
 - Rendered: {rendered} ({voice})
 """
+
+
+def render_plan_for_read(number: str) -> dict | None:
+    """The plan the render itself wrote (run 032): it exists only after a
+    successful render, so it is the only record of which voice and which moment
+    produced the audio. The show notes must state what THIS says -- not what the
+    module constants say at the moment the notes were written (run 093)."""
+    path = EPISODES / number / "parts-read" / "render-plan.json"
+    if not path.exists():
+        return None
+    try:
+        plan = json.loads(path.read_text())
+    except (ValueError, OSError):
+        return None
+    return plan if isinstance(plan, dict) else None
+
+
+def render_claim(number: str) -> str:
+    plan = render_plan_for_read(number)
+    if plan and plan.get("rendered_at"):
+        return str(plan["rendered_at"])
+    return "not rendered yet"
+
+
+def voice_claim(number: str) -> str:
+    plan = render_plan_for_read(number)
+    if plan and plan.get("voice"):
+        return str(plan["voice"])
+    return VOICE
+
+
+def refresh_notes_record(number: str) -> dict:
+    """Rewrite ONLY the two lines of the show notes' Production record that state
+    claims about events happening after build(): the gate verdict and the render.
+
+    Run 040 established that the word-count line is a build-time fact that
+    `verify` must not silently overwrite, so this leaves every other line exactly
+    as build() wrote it. It is an explicit operator command, not a side effect of
+    verify(), and it will not invent a notes file build() never wrote.
+    """
+    path = EPISODES / number / "episode-notes.md"
+    if not path.exists():
+        raise SystemExit(f"reading {number} has no episode-notes.md; run read_lane.py build first")
+    record = (load_read_manifest().get("episodes") or {}).get(number)
+    if not isinstance(record, dict):
+        raise SystemExit(f"reading {number} has no read-episodes.json entry; run read_lane.py build first")
+    plan = render_plan_for_read(number)
+    verdict = "gate PASSED" if record.get("verified") else "gate NOT PASSED"
+    lines = path.read_text().splitlines()
+    out, changed = [], []
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("- Fidelity gate:"):
+            head = stripped.split("(", 1)[0].rstrip().rstrip("%").rstrip()
+            new = f"{head}% ({verdict})"
+            changed.append((stripped, new)); line = new
+        elif stripped.startswith("- Rendered:"):
+            new = f"- Rendered: {render_claim(number)} ({voice_claim(number)})"
+            changed.append((stripped, new)); line = new
+        out.append(line)
+    if not changed:
+        raise SystemExit(f"show notes for reading {number} have no Production record lines to refresh")
+    tmp = path.with_suffix(".md.tmp-run093")
+    tmp.write_text("\n".join(out) + "\n")
+    with tmp.open("r+") as f:
+        f.flush(); os.fsync(f.fileno())
+    os.replace(tmp, path)
+    return {"episode": number, "notes": str(path), "verdict": verdict,
+            "rendered": render_claim(number), "voice": voice_claim(number),
+            "lines": len(changed)}
 
 
 def write_notes(number: str, item: dict, citation: str, extraction: dict,
@@ -651,8 +724,16 @@ def write_notes(number: str, item: dict, citation: str, extraction: dict,
         source_words=extraction["words"],
         pages=extraction["pages"],
         coverage=f"{verification.get('coverage', 0):.3%}",
-        rendered=datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC"),
-        voice=VOICE,
+        # The verdict the gate ACTUALLY returned at the moment these notes were
+        # written (run 093): build() calls write_notes before any audio exists,
+        # so the figure was printed as if it were a passed gate while the same
+        # call returned ok=False with "no audio rendered yet".
+        verdict=("gate PASSED" if verification.get("ok")
+                 else "gate NOT PASSED at write time"),
+        # And the render is stated from the render plan, the only record of the
+        # event -- not from the module constants at write time.
+        rendered=render_claim(number),
+        voice=voice_claim(number),
     )
     path = EPISODES / number / "episode-notes.md"
     path.write_text(notes)
@@ -1113,6 +1194,9 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--episode", required=True)
 
     sub.add_parser("zotero-read")
+    p = sub.add_parser("notes")
+    p.add_argument("--episode", required=True)
+
     sub.add_parser("next-number")
 
     args = parser.parse_args(argv)
@@ -1141,6 +1225,8 @@ def main(argv: list[str] | None = None) -> int:
         for item in read_collection_items():
             data = item["data"]
             print(item["key"], data.get("itemType"), "|", full_citation(item))
+    elif args.cmd == "notes":
+        print(json.dumps(refresh_notes_record(args.episode), indent=1))
     elif args.cmd == "next-number":
         print(next_number())
     return 0
