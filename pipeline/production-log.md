@@ -889,3 +889,25 @@ byte-identical; `robust_pipeline.py` 70 — `fidelity_gate`, `preflight` changed
 Attempt `501-1795303437` (superseding attempt 86, marked `stopped`) was closed
 `completed` with detail "defect slice"; no render and no publish for 501. No live feed
 change: no reading was re-rendered or redeployed.
+
+## Run 095 — the published citation surface had no reader (defect slice)
+
+Both intake lanes empty (Summerize V4WXTY8M, Read DV6F4ILX); 18 on-topic items still
+sit unfiled directly in parent YF84AUZK — lane choice is David's call, unchanged blocker.
+
+Defect closed: `preflight()` scored `episode-notes.md`'s numbered citation entry, but a
+reading's published citation comes from `read-episodes.json`'s `citation` field —
+`read_notes_html()` prints it verbatim into `<content:encoded>` and `<description>` is
+synthesized from it. One reader (the publisher), no gate. Proved on the unmodified
+module with scratch reading 990: empty `citation` and a `citation` naming a different
+paper both left preflight, `verify_feed`, `coverage` and `registry` green.
+Wired an agreement reader in `preflight()` (non-empty + exact prefix of the scored
+numbered entry). New tests `tests/test_published_citation_surface_gate.py` (7; 5 fail
+against `pipeline/robust_pipeline.py.bak-run095`). Suite 576 -> 583 OK. `coverage`,
+`registry`, `feedsync` green; `feed-site/feed.xml` md5 unchanged
+(3570d744126e2d3ac136ce275443ad29). Harnesses
+`/opt/data/tmp/mm_citation_surface_repro_run095.py`,
+`mm_citation_surface_proof_run095b.py`; doc section in `pipeline/ROBUST_PIPELINE.md`.
+Harness bugs, not code defects: `Path.mkdir(exist=True)`, a dict-of-tuples unpacked as
+two strings, and a scratch tree that resolved ROOT to the shared parent instead of its
+own pipeline dir (run 066).

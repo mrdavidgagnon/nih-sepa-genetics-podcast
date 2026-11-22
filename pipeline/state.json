@@ -2594,13 +2594,57 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-21T23:23:57.917952Z"
+        },
+        {
+          "attempt_id": "501-1795320430",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-22T04:07:10.146762Z",
+              "detail": "",
+              "stage": "live_reconcile_clean_no_unit"
+            }
+          ],
+          "deadline_at": "2026-11-22T04:32:10.146762Z",
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-22T08:56:54.106453Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-22T04:07:10.146762Z"
+        },
+        {
+          "attempt_id": "501-1795337814",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-22T08:56:54.106453Z",
+              "detail": "",
+              "stage": "defect_slice_read_citation_surface"
+            },
+            {
+              "at": "2026-11-22T09:02:28.118023Z",
+              "detail": "read-episodes.json citation field has one reader (publish_feed) and no gate; preflight/verify_feed/coverage/registry all green on an empty and a wrong-paper published citation",
+              "stage": "repro_proved"
+            },
+            {
+              "at": "2026-11-22T09:11:37.278756Z",
+              "detail": "preflight now reads read-episodes.json citation (the published surface); 7 tests, 5 load-bearing; suite 576->583; coverage/registry/feedsync green, feed.xml md5 unchanged",
+              "stage": "gate_wired_and_proven"
+            }
+          ],
+          "deadline_at": "2026-11-22T09:21:54.106453Z",
+          "detail": "read lane's published citation surface had no reader: preflight scored episode-notes.md while publish_feed prints read-episodes.json citation into <description>/<content:encoded>; wired an agreement reader, 7 tests (5 load-bearing), suite 583 OK",
+          "finished_at": "2026-11-22T09:11:41.287849Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-22T08:56:54.106453Z"
         }
       ],
-      "attempts": 87,
+      "attempts": 89,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-21T23:48:39Z"
+  "updated_at": "2026-11-22T09:11:41Z"
 }

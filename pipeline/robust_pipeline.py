@@ -1441,6 +1441,54 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
             result["issues"].append(f"source {key} citation is too short for author/title/venue metadata")
         if not re.search(r"zotero\.org|zotero://", entry, re.I):
             result["issues"].append(f"source {key} citation has no direct Zotero link")
+        if is_read:
+            # THE PUBLISHED CITATION SURFACE (run 095).
+            #
+            # Every check above scores episode-notes.md. For an interview that IS
+            # the published surface: notes_html() builds the feed item's
+            # <content:encoded> from the numbered lines of that same file. For a
+            # reading it is not. publish_feed.read_notes_html() prints
+            # read-episodes.json's `citation` field verbatim into
+            # <content:encoded>, and the item <description> is synthesized from
+            # the same field -- so the gate scored one copy of the citation while
+            # the feed shipped another. `citation` has exactly one reader in this
+            # pipeline (the publisher) and had no gate: grep -rn citation
+            # pipeline/*.py shows robust_pipeline.py touching it only as comments
+            # plus this notes-file loop.
+            #
+            # Two reachable defects, both proved on the unmodified module with a
+            # scratch reading: an entry with an empty `citation` publishes
+            # "reading of the body text of  Not an interview..." with an empty
+            # citation list while the show notes still carry a complete, gated
+            # citation; and an entry whose citation names a DIFFERENT paper
+            # publishes that paper's citation under a reading of this one, sending
+            # listeners to the wrong Zotero item. Run 038's non-empty-<description>
+            # gate cannot see the first, because the sentence wrapped around the
+            # blank slot is still non-empty; run 075's show-notes-link gate cannot
+            # see either, because it scores the href and not the citation text.
+            # coverage, registry and preflight were all green on both.
+            #
+            # The fix is one reader, not a second standard: the string that gets
+            # printed must be the string this gate already scored. The key / year /
+            # metadata-length / Zotero-link requirements transfer to the published
+            # text by agreement instead of being re-implemented, so no reading that
+            # read_lane.py built is refused. Grants nothing.
+            read_entry = (load_read_manifest().get("episodes") or {}).get(episode) or {}
+            published = str(read_entry.get("citation", "")).strip()
+            if not published:
+                result["issues"].append(
+                    f"reading {episode} publishes an empty citation: the "
+                    f"read-episodes.json `citation` field that publish_feed prints "
+                    f"into <description> and <content:encoded> is blank, while the "
+                    f"show notes carry a complete citation for source {key}")
+            elif not entry.startswith(published):
+                result["issues"].append(
+                    f"reading {episode} publishes a citation this gate did not score: "
+                    f"read-episodes.json's `citation` ({published[:60]}) is the text "
+                    f"shipped in the feed item, and it is not the numbered entry for "
+                    f"source {key} in episode-notes.md")
+            else:
+                result["checks"]["published_citation"] = published
     result["checks"]["numbered_source_entries"] = len(numbered)
     if len(keys) != len(set(keys)):
         result["issues"].append("duplicate Zotero links in notes")

@@ -2838,3 +2838,38 @@ The render-plan path is resolved from the lane the record belongs to
 093 both read the interview lane's `parts-robust`, so a genuine reading with a correct
 plan in `parts-read` was refused at publish and the plan the read lane wrote was read by
 nothing on the publish path. A missing or unreadable plan remains a refusal, not a waiver.
+
+## The published citation surface must have a reader (run 095)
+
+`preflight()` scores `episode-notes.md`'s numbered citation entry (key, year,
+>= 8 words after link-stripping, Zotero host). For an **interview** that file IS
+the published surface: `notes_html()` builds the feed item's `<content:encoded>`
+from those numbered lines. For a **reading** it is not — `read_notes_html()`
+prints `read-episodes.json`'s `citation` field verbatim into `<content:encoded>`,
+and the item `<description>` is synthesized from the same field. `citation` had
+exactly one reader in the pipeline (the publisher) and no gate, so the gate could
+score one copy of the citation while the feed shipped another.
+
+Two reachable defects, both proved on the unmodified module (scratch reading 990,
+preflight + `verify_feed` + `coverage` + `registry` all `ok: true`):
+
+- an entry with an empty `citation` publishes "reading of the body text of  Not
+  an interview..." with an empty citation list, while the show notes still carry a
+  complete, gated citation. Run 038's non-empty-`<description>` gate cannot see it,
+  because the sentence wrapped around the blank slot is still non-empty.
+- an entry whose `citation` names a different paper publishes that paper's citation
+  under a reading of this one, sending listeners to the wrong Zotero item. Run 075's
+  show-notes-link gate cannot see it either: it scores the href, not the citation.
+
+The fix is one reader, not a second standard: in `preflight()`, a reading's
+`citation` must be non-empty and must be the exact prefix of the numbered entry this
+gate already scored, so the key/year/length/link requirements transfer to the
+published text by agreement instead of being re-implemented. It grants nothing — a
+reading built by `read_lane.py` already satisfies it. Covered by
+`tests/test_published_citation_surface_gate.py` (7 tests; 5 fail against the
+pre-fix backup, so they are load-bearing).
+
+Generalizable: **the artifact a gate scores must be the artifact that ships.** When
+a publisher reads a registry field directly instead of the file the gate scored, the
+gate validates a copy. Pair the run-042 grep (`grep -rn '<field>' pipeline/*.py`,
+one hit = write-only) with "does the gate score the same string the publisher prints?"
