@@ -2670,7 +2670,9 @@
             }
           ],
           "deadline_at": "2026-11-22T17:46:03.681615Z",
-          "outcome": null,
+          "detail": "run 097: move-evidence reader read one path while the committed evidence lived at pipeline/; harvest both, match on (key,episode); 12 tests, suite 595 green; mover re-run live-verified 10 claims with no Zotero writes; registry now ok",
+          "finished_at": "2026-11-22T17:35:18.112960Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-22T17:21:03.681615Z"
         }
@@ -2681,5 +2683,5 @@
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-22T17:21:03Z"
+  "updated_at": "2026-11-22T17:35:18Z"
 }
