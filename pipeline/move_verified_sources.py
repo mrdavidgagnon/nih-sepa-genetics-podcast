@@ -52,6 +52,7 @@ import json
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib.error
 import urllib.request
@@ -194,6 +195,64 @@ def move_one(item, get, put):
     raise RuntimeError('unreachable: retry loop exhausted without a verdict')
 
 
+def read_existing_results():
+    """The evidence file as it stands, before this run.
+
+    A corrupt file is NOT overwritten: it is the only proof that earlier moves
+    happened, and destroying it to record this run's move is what run 096
+    closed. A missing file is legitimately empty (first run).
+    """
+    try:
+        data = json.loads(RESULTS_PATH.read_text())
+    except FileNotFoundError:
+        return []
+    except ValueError as exc:
+        raise SystemExit('refusing to overwrite unparseable evidence file '
+                         f'{RESULTS_PATH}: {exc}')
+    if isinstance(data, dict):
+        data = data.get('results') or []
+    if not isinstance(data, list):
+        raise SystemExit(f'refusing to overwrite {RESULTS_PATH}: not a list of records')
+    return [r for r in data if isinstance(r, dict)]
+
+
+def merge_results(existing, new):
+    """Durable per-episode evidence, not a last-run snapshot.
+
+    Run 096: main() replaced the WHOLE file with the records the current run
+    touched. Any run whose plan was a subset -- a manifest missing an episode
+    (run 041's class), a reading whose fidelity gate was revoked -- silently
+    destroyed the proof for episodes the ledger still claims as moved, while
+    the claim itself was read by nothing. Keyed on (episode, key) so a re-run
+    refreshes its own record and preserves every other episode's.
+    """
+    merged = list(existing)
+    index = {(str(r.get('episode', '')), str(r.get('key', ''))): i
+            for i, r in enumerate(merged)}
+    for rec in new:
+        key = (str(rec.get('episode', '')), str(rec.get('key', '')))
+        if key in index:
+            merged[index[key]] = rec
+        else:
+            index[key] = len(merged)
+            merged.append(rec)
+    return merged
+
+
+def atomic_write_json(path, value):
+    """Tree convention: temp + fsync + replace, never a bare write_text."""
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix='.mover-', suffix='.tmp')
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(json.dumps(value, indent=2) + '\n')
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, str(path))
+    finally:
+        if os.path.exists(tmp):
+            os.unlink(tmp)
+
+
 def main(argv=None):
     argv = list(sys.argv[1:] if argv is None else argv)
     dry_run = '--dry-run' in argv
@@ -206,7 +265,9 @@ def main(argv=None):
     get, put = make_client(resolve_key())
     results = [move_one(item, get, put) for item in plan]
     print(json.dumps(results, indent=2))
-    RESULTS_PATH.write_text(json.dumps(results, indent=2) + '\n')
+    # Run 096: merge into the durable record instead of replacing it with this
+    # run's plan, so a subset run cannot destroy another episode's proof.
+    atomic_write_json(RESULTS_PATH, merge_results(read_existing_results(), results))
     return 0
 
 

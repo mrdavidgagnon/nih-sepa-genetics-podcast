@@ -911,3 +911,44 @@ against `pipeline/robust_pipeline.py.bak-run095`). Suite 576 -> 583 OK. `coverag
 Harness bugs, not code defects: `Path.mkdir(exist=True)`, a dict-of-tuples unpacked as
 two strings, and a scratch tree that resolved ROOT to the shared parent instead of its
 own pipeline dir (run 066).
+## Run 097 — the move-evidence reader read one path; the committed evidence lived at another
+
+Run 096 made `registry` the first reader of `move-results.json`, and the real state
+still came back red: all ten `published_and_moved` claims reported
+`move_evidence_missing`. The reason is a path split, not missing proof. Run 004 moved
+the mover's write path to the tree root, but the evidence this tree actually committed
+is `pipeline/move-results.json` (tracked in git since run 011, written 2026-11-06) — a
+two-path artifact with a single-path reader. Every true claim asserted a defect.
+
+Fix: `load_move_results` now harvests BOTH paths, unioned by (key, episode), and the
+report names the contributing files under `evidence_paths`. Roles kept distinct so the
+audit can still go green: the canonical file is **demanded** (its absence is a real,
+clearable defect — running the mover regenerates it), the legacy file is a **harvest
+source**, so its absence reports nothing. A legacy file that exists and cannot be read
+still refuses, and a genuine disagreement between the two copies about the same key is
+an issue — the harvest must not paper it over.
+
+Second finding, caught by the test I wrote for the dual-use case: the reader matched
+records by **key**, not by the **(key, episode)** pair the mover itself writes.
+`build_plan()` emits one entry per (key, intake) and `merge_results()` keys on
+(episode, key), so a dual-use paper published in both lanes legitimately holds two
+records for one key. Checking every record against every claim made those two records
+contradict each other — the mover's own output shape against its reader. Now a record
+is evidence for a claim only if it names that episode, or names no episode at all
+(pre-run-054 records stay tolerated); a record naming another episode is no longer
+evidence and falls through to `move_records_unclaimed`, so nothing is granted.
+
+Proof (both sides, on the pre-fix module `pipeline/robust_pipeline.py.bak-run097`):
+legacy-only evidence reported a false `move_evidence_missing` pre-fix and satisfies the
+claim post-fix; the legal dual-use pair produced 2 contradictions pre-fix and 0 post-fix;
+a record naming episode 777 is still refused as missing + unclaimed. New tests
+`tests/test_move_evidence_gate.py` (12), suite 583 -> 595, all green. Two harness bugs,
+not code defects: an absent-harvest-source expectation and a dual-use fixture that put
+the interview lane back in the record.
+
+State: ran `move_verified_sources.py --dry-run` (10 entries, all single-lane interviews)
+then the mover — **no Zotero writes**, every item verified already-moved by live read —
+which regenerated the canonical `move-results.json` with episode/lane attribution.
+`coverage` 3/3, `registry` ok (10 claims verified, both paths contributing),
+`feedsync` ok, `status` healthy, `reconcile --write` 0/0/0, intake lanes empty, 18 items
+unfiled in `YF84AUZK` awaiting David's lane call.

@@ -52,6 +52,17 @@ ROLES = {"host", "rowan", "guest"}
 MAX_RETRIES = 4
 RENDER_TEXT_VERSION = 2
 
+# Run 096: the mover's evidence file had a writer and no reader. These are the
+# collection keys a `published_and_moved` claim is checked against.
+SUMMERIZE_COLLECTION = "V4WXTY8M"
+READ_COLLECTION = "DV6F4ILX"
+PRODUCED_COLLECTION = "6P2KVFKQ"
+MOVE_RESULTS_PATH = ROOT / "move-results.json"
+# Run 097: the reader read only the canonical path. The durable evidence
+# this tree actually committed lives at the pre-run-004 path, so ten true
+# move claims reported missing evidence while real proof sat in the repo.
+LEGACY_MOVE_RESULTS_PATH = ROOT / "pipeline" / "move-results.json"
+
 STATES = {
     "planned", "review_pending", "reviewed", "rendering", "rendered",
     "verified", "published", "blocked", "failed",
@@ -511,6 +522,213 @@ def reconcile(episode: str | None = None, write: bool = False) -> dict[str, Any]
     return report
 
 
+def _read_move_records(target: Path, demanded: bool = True) -> tuple[list[dict[str, Any]], list[str]]:
+    """One evidence file. Unreadable is a refusal, not a waiver.
+
+    Run 042's rule applied up front: a field stored precisely because a gate was
+    blind to that property is worthless until something reads it.
+    `move_evidence_report` is that reader; this is its per-path loader, kept
+    separate so a harness can point it at a scratch copy without touching the
+    real evidence.
+
+    `demanded` separates the two roles. The canonical path is the file the writer
+    declares, so its absence is an issue. The legacy path is a harvest source: an
+    absent harvest source reports nothing, because a tree that never wrote there
+    could then never go green -- a defect that pins the audit red forever is the
+    waiver-shaped inverse of run 036 (run 059's unreachable-healthy class).
+    Present-and-unparseable refuses on both.
+    """
+    try:
+        data = json.loads(target.read_text())
+    except FileNotFoundError:
+        if demanded:
+            return [], [f"cannot read {target.name}: no such file"]
+        return [], []
+    except (OSError, json.JSONDecodeError) as exc:
+        return [], [f"cannot read {target.name}: {exc}"]
+    if isinstance(data, dict):
+        data = data.get("results") or []
+    if not isinstance(data, list):
+        return [], [f"{target.name} is not a list of move records"]
+    records = [r for r in data if isinstance(r, dict)]
+    issues = []
+    dropped = len(data) - len(records)
+    if dropped:
+        issues.append(f"{target.name} contains {dropped} non-record entries")
+    return records, issues
+
+
+def load_move_results(path: Path | None = None) -> tuple[list[dict[str, Any]], list[str]]:
+    """Read the mover's evidence, harvesting BOTH paths it has ever written.
+
+    Run 097: the writer's path was moved to the tree root in run 004, but the
+    evidence this tree committed lives at the pre-run-004 path (`pipeline/`) and
+    nothing reads it. A claim whose only proof is in the legacy file reported
+    `move_evidence_missing` -- the audit asserted a defect that did not exist.
+    Reading only the canonical path is a single-path gate over a two-path
+    artifact.
+
+    Both files are read; records are unioned by (key, episode). The canonical
+    path wins for a record both files hold, and a genuine disagreement between
+    the two copies about the same key is an issue -- the harvest must not paper
+    over it. A missing legacy file is not an issue (nothing was ever written
+    there); a missing canonical file is, as before.
+    """
+    if path is not None:
+        return _read_move_records(path)
+
+    canonical, issues = _read_move_records(MOVE_RESULTS_PATH, demanded=True)
+    legacy, legacy_issues = _read_move_records(LEGACY_MOVE_RESULTS_PATH, demanded=False)
+    issues.extend(legacy_issues)
+    if not legacy:
+        return canonical, issues
+
+    by_pair = {(str(r.get("key", "")), str(r.get("episode", ""))): r for r in canonical}
+    for rec in legacy:
+        pair = (str(rec.get("key", "")), str(rec.get("episode", "")))
+        if pair not in by_pair:
+            by_pair[pair] = rec
+            continue
+        held = by_pair[pair]
+        if sorted(str(c) for c in (held.get("collections") or [])) != \
+           sorted(str(c) for c in (rec.get("collections") or [])):
+            issues.append(
+                f"evidence for key {pair[0]} disagrees between {MOVE_RESULTS_PATH.name} "
+                f"and {LEGACY_MOVE_RESULTS_PATH.name}: {sorted(str(c) for c in (held.get('collections') or []))} "
+                f"vs {sorted(str(c) for c in (rec.get('collections') or []))}")
+    return list(by_pair.values()), issues
+
+
+def move_evidence_report(ledger: dict[str, Any], manifest: dict[str, Any],
+                         records: list[dict[str, Any]] | None = None,
+                         path: Path | None = None) -> dict[str, Any]:
+    """Check the ledger's Zotero-move CLAIM against the mover's recorded EVIDENCE.
+
+    `published_and_moved` is the only status that asserts the move happened. The
+    other published statuses do not: `published` and `published_pending_zotero_move`
+    are the pre-move states, so they are NOT demanded here -- demanding them would
+    fire on correct behaviour (run 031's status-string class read in the other
+    direction).
+
+    Three findings:
+
+    ``move_evidence_missing``
+        An episode claims its sources were moved and no record names that key.
+        Reachable shape: the status is set after a move that failed (a 412 on the
+        last retry raises and writes nothing), or after a run whose plan was a
+        subset.
+    ``move_evidence_contradiction``
+        A record exists and contradicts the claim: Produced absent, the episode's
+        own intake lane still present (run 054's defect expressed as evidence), or
+        a record attributing the move to a different episode or lane. Fields absent
+        from pre-run-054 records are tolerated -- only present-and-wrong refuses.
+    ``move_records_unclaimed``
+        Evidence for a key no published episode claims: something moved that the
+        ledger does not account for.
+
+    Ownership is resolved by FIELD NAME through :func:`lane_ownership` (run 033),
+    so a dual-use paper with an interview and a reading is two legal claims, not
+    one conflict, and each is checked against its own intake lane.
+    """
+    report: dict[str, Any] = {
+        "ok": True,
+        "move_evidence_checked": 0,
+        "move_evidence_missing": [],
+        "move_evidence_contradiction": [],
+        "move_records_unclaimed": [],
+        "evidence_paths": [],
+        "issues": [],
+    }
+    if records is None:
+        records, issues = load_move_results(path)
+        report["issues"].extend(issues)
+        report["evidence_paths"] = [str(MOVE_RESULTS_PATH) if path is None else str(path)]
+        if path is None and LEGACY_MOVE_RESULTS_PATH.exists():
+            report["evidence_paths"].append(str(LEGACY_MOVE_RESULTS_PATH))
+
+    by_key: dict[str, list[dict[str, Any]]] = {}
+    for rec in records:
+        by_key.setdefault(str(rec.get("key", "")), []).append(rec)
+
+    interview_owners, read_owners = lane_ownership(manifest)
+    claimed: set[str] = set()
+    claimed_episodes: dict[str, set[str]] = {}
+
+    for number in sorted(manifest):
+        entry = manifest[number]
+        status = str(entry.get("status", ""))
+        if status != "published_and_moved":
+            continue
+        is_read = str(entry.get("kind", "")) == "read"
+        lane = READ_COLLECTION if is_read else SUMMERIZE_COLLECTION
+        field = "read_source" if is_read else "sources"
+        for key in entry.get(field) or []:
+            key = str(key)
+            if not key:
+                continue
+            claimed.add(key)
+            claimed_episodes.setdefault(key, set()).add(number)
+            report["move_evidence_checked"] += 1
+            hits = by_key.get(key, [])
+            own = [r for r in hits
+                   if not str(r.get("episode", "")) or str(r.get("episode", "")) == number]
+            if not own:
+                report["move_evidence_missing"].append(
+                    {"episode": number, "key": key, "lane": lane})
+                report["issues"].append(
+                    f"episode {number} claims source {key} was moved to Produced "
+                    f"(status published_and_moved) but {MOVE_RESULTS_PATH.name} has "
+                    "no record for it")
+                continue
+            # Run 097: the mover keys evidence on (episode, key), so a dual-use
+            # paper published in both lanes holds two legal records for one key.
+            # Matching by key alone made those two records contradict each other.
+            # A record is evidence for THIS claim only if it names this episode --
+            # or names no episode at all (pre-run-054 records are tolerated).
+            for rec in own:
+                rec_ep = str(rec.get("episode", ""))
+                colls = [str(c) for c in (rec.get("collections") or [])]
+                rec_key = str(rec.get("key", ""))
+                rec_lane = str(rec.get("intake", ""))
+                problems = []
+                if PRODUCED_COLLECTION not in colls:
+                    problems.append("record does not show Produced")
+                if lane in colls:
+                    problems.append(f"record still shows the intake lane {lane}")
+                if rec_lane and rec_lane != lane:
+                    problems.append(f"record's intake {rec_lane!r} disagrees with the "
+                                    f"lane the key is registered under ({lane!r})")
+                if rec_ep and rec_ep != number:
+                    problems.append(f"record attributes the move to episode {rec_ep!r}, "
+                                    f"not {number!r}")
+                if rec_key and rec_key != key:
+                    problems.append("record is filed under a different key")
+                if problems:
+                    report["move_evidence_contradiction"].append(
+                        {"episode": number, "key": key, "lane": lane,
+                         "record_status": str(rec.get("status", "")),
+                         "record_collections": colls, "problems": problems})
+                    report["issues"].append(
+                        f"move evidence for episode {number} source {key} contradicts "
+                        f"the claim: {'; '.join(problems)}")
+
+    for key in sorted(by_key):
+        if not key:
+            continue
+        for rec in by_key[key]:
+            rec_ep = str(rec.get("episode", ""))
+            if key in claimed and (not rec_ep or rec_ep in claimed_episodes.get(key, set())):
+                continue
+            report["move_records_unclaimed"].append(
+                {"key": key, "episode": rec_ep})
+            report["issues"].append(
+                f"move evidence exists for source {key} (episode {rec_ep!r}) but no "
+                "published episode claims it")
+
+    report["ok"] = not report["issues"]
+    return report
+
+
 def registry_audit() -> dict[str, Any]:
     """Audit that the durable registries agree about every episode.
 
@@ -564,6 +782,11 @@ def registry_audit() -> dict[str, Any]:
         "status_divergence": [],
         "benign_move_lag": [],
         "duplicate_sources": {},
+        "move_evidence_checked": 0,
+        "move_evidence_missing": [],
+        "move_evidence_contradiction": [],
+        "move_records_unclaimed": [],
+        "evidence_paths": [],
         "issues": [],
     }
 
@@ -616,6 +839,16 @@ def registry_audit() -> dict[str, Any]:
         report["duplicate_sources"][key] = owners
         report["issues"].append(
             f"source {key} is assigned to multiple episodes: {owners}")
+
+    # Run 096: the audit knew the registries agree about a move CLAIM and had no
+    # reader for the evidence the mover recorded. Wired here rather than left as
+    # the operator habit of "confirm the live collections field" (run 041's rule).
+    evidence = move_evidence_report(ledger, manifest)
+    for field in ("move_evidence_checked", "move_evidence_missing",
+                  "move_evidence_contradiction", "move_records_unclaimed",
+                  "evidence_paths"):
+        report[field] = evidence[field]
+    report["issues"].extend(evidence["issues"])
 
     report["ok"] = not report["issues"]
     return report

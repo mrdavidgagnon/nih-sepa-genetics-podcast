@@ -2,8 +2,11 @@
   "episodes": {
     "001": {
       "artifacts": {
-        "audio": "episodes/001/episode-001.mp3",
+        "audio": [
+          "episodes/001/episode-001.mp3"
+        ],
         "audio_sha256": "e8c10533a33ed591b67853185381fcaa344931de1bb9c17820322e5cf9dec836",
+        "notes": "episodes/001/episode-notes.md",
         "turns": 43
       },
       "attempt_log": [
@@ -2638,13 +2641,45 @@
           "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-22T08:56:54.106453Z"
+        },
+        {
+          "attempt_id": "501-1795353289",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-22T13:14:49.546324Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-22T13:39:49.546324Z",
+          "detail": "superseded by a new attempt",
+          "finished_at": "2026-11-22T17:21:03.681615Z",
+          "outcome": "stopped",
+          "run_id": "",
+          "started_at": "2026-11-22T13:14:49.546324Z"
+        },
+        {
+          "attempt_id": "501-1795368063",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-22T17:21:03.681615Z",
+              "detail": "",
+              "stage": "started"
+            }
+          ],
+          "deadline_at": "2026-11-22T17:46:03.681615Z",
+          "outcome": null,
+          "run_id": "",
+          "started_at": "2026-11-22T17:21:03.681615Z"
         }
       ],
-      "attempts": 89,
+      "attempts": 91,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-22T09:11:41Z"
+  "updated_at": "2026-11-22T17:21:03Z"
 }
