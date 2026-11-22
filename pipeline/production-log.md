@@ -952,3 +952,31 @@ which regenerated the canonical `move-results.json` with episode/lane attributio
 `coverage` 3/3, `registry` ok (10 claims verified, both paths contributing),
 `feedsync` ok, `status` healthy, `reconcile --write` 0/0/0, intake lanes empty, 18 items
 unfiled in `YF84AUZK` awaiting David's lane call.
+
+
+## Run 098 — voice-lock agreement gate (defect slice, nothing published)
+
+Defect: the locked voice config (David, 2026-11-03) exists as three
+hand-kept declarations (read_lane.py, render_from_script.py,
+robust_pipeline.py's render path); nothing read the lock itself, and
+every existing comparison derives both sides from the same copy, so a
+partial edit — the documented failure mode — was undetectable: the plan
+records the drifted voice, the notes claim it, fidelity_gate agrees,
+preflight ships green.
+
+Closed: voice_config_agreement() (the `voice` subcommand, added to the
+opening audit set) plus plan_voice_agreement() wired into preflight.
+Present-and-wrong refused in both lanes; absent reported, not refused,
+with the asymmetry named (interview 002/003 predate the field — genuine
+history; read-lane absence reported as unverified provenance). No
+waivers.
+
+Proofs: pre-fix green on a drifted read_lane copy + drifted plan + notes
+claiming it; post-fix refuses naming the file and the plan-vs-lock
+disagreement. Load-bearing against .bak-run098 (the constants did not
+exist pre-fix). Fixture debt: the run-093 read baseline asserted ok for
+Andrew@-3% where the lock says Ava — fixture wrong, moved to the lock;
+honesty test restructured. Suite 595 -> 612, exit 0. Feed md5 unchanged
+(3570d744126e2d3ac136ce275443ad29). Environment: /opt/data hit "No
+space left on device" mid-suite; stale >24h test scratch dirs cleaned
+(~1GB); suite green on re-run. Budget overrun noted (1500s).

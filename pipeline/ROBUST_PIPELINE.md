@@ -2873,3 +2873,42 @@ Generalizable: **the artifact a gate scores must be the artifact that ships.** W
 a publisher reads a registry field directly instead of the file the gate scored, the
 gate validates a copy. Pair the run-042 grep (`grep -rn '<field>' pipeline/*.py`,
 one hit = write-only) with "does the gate score the same string the publisher prints?"
+
+
+## Run 098 — the voice lock had no reader
+
+The locked voice configuration (David, 2026-11-03) is declared in three
+independent hand-kept copies — `read_lane.py`, `render_from_script.py`,
+and `robust_pipeline.py`'s own render path — with no single source of
+truth, which the style guide acknowledges by telling the operator to
+patch all three roles together. Nothing read the lock. Every existing
+comparison derived both sides from the same copy: the run-032 cache
+guard compares the render plan against the dict that generates the
+plan; run 093 compares the show notes' claimed voice against the plan
+that same dict wrote. A partial edit — the documented failure mode —
+produced a plan recording the drifted voice, notes claiming the drifted
+voice, and a gate agreeing with itself while episodes shipped in a
+voice contradicting the lock (run 057's shape plus run 030's shape in
+the one configuration the show's sound depends on).
+
+Closed by `voice_config_agreement()` (the `voice` subcommand, now part
+of the opening audit set) and `plan_voice_agreement()` wired into
+`preflight` — the gate publish_local runs. Present-and-wrong is refused
+in both lanes. An absent recording is reported, not refused, and the
+asymmetry is named: interview plans 002/003 predate run 032, so absence
+there is genuine history (run 045's absent-digest policy); absence in a
+read plan is reported as unverified provenance. The refusal that matters
+is the one on the shipping path: a plan that records a voice must record
+the show's voice.
+
+Fixture debt fixed: the run-093 read-lane fixture asserted preflight-ok
+for a plan recording Andrew at -3% — the gate is right (the lock says
+the read lane is Ava), the fixture was wrong; the baseline moved to the
+locked voice, and the writer-honesty test was restructured to prove
+naming honesty with a plan recording a voice the default is not.
+
+Proven load-bearing against `pipeline/robust_pipeline.py.bak-run098`:
+pre-fix, a partial edit of read_lane.py's declaration produces a plan
+recording the drifted voice, notes claim it, and preflight ships green;
+post-fix, the same fixture is refused naming the plan-vs-lock
+disagreement, and the tree audit names the drifted file. Suite: 612.

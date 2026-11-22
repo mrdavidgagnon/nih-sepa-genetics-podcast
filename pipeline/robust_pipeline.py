@@ -8,6 +8,7 @@ network publication outside the rendering step.
 from __future__ import annotations
 
 import argparse
+import ast
 import asyncio
 import contextlib
 import email.utils
@@ -1553,6 +1554,136 @@ def record_review(episode: str, panel: Path | None = None) -> dict[str, Any]:
     return result
 
 
+# ----------------------------------------------------------------------
+# The LOCKED voice configuration (David, 2026-11-03): Host Ava at -3%,
+# Dr. Rowan Field Andrew at +18%, the read lane single-voice Ava. The
+# lock lives in THREE independent hand-kept declarations -- read_lane.py,
+# render_from_script.py, and robust_pipeline.py's own render path -- and
+# until run 098 NOTHING read the lock itself. Every existing comparison
+# derives BOTH sides from the same copy: the run-032 cache guard
+# compares the render plan against the dict that generates the plan, and
+# run 093 compares the show notes' claimed voice against the plan that
+# same dict wrote. A partial edit -- the documented failure mode, since
+# the style guide itself says to patch all three roles together with no
+# single source of truth -- therefore produced a plan recording the
+# drifted voice, notes claiming the drifted voice, and a gate agreeing
+# with itself while episodes shipped in a voice contradicting the lock.
+# Run 057's shape (hand-kept copies, closed by an agreement gate) plus
+# run 030's shape (a gate deriving both sides of its comparison from the
+# same write validates internal consistency, not provenance) in the one
+# configuration the show's sound depends on.
+#
+# Present-and-wrong is refused in both lanes. An ABSENT recording is
+# reported, not refused, and the asymmetry is named: interview plans
+# 002/003 predate run 032, so absence there is genuine history (run
+# 045's absent-digest policy); absence in a read plan is reported as
+# unverified provenance. The refusal that matters is the one on the
+# shipping path: a plan that records a voice must record the show's
+# voice, and preflight -- the gate publish_local runs -- now reads it.
+# ----------------------------------------------------------------------
+LOCKED_VOICES = {
+    "host": "en-US-AvaMultilingualNeural",
+    "rowan": "en-US-AndrewMultilingualNeural",
+    "guest": "en-US-AndrewMultilingualNeural",
+}
+LOCKED_RATES = {"host": "-3%", "rowan": "+18%", "guest": "+18%"}
+VOICE_DECL_FILES = {
+    "read_lane.py": ("VOICE", "RATE"),
+    "render_from_script.py": ("VOICE", "RATE"),
+    "robust_pipeline.py": ("voices", "rates"),
+}
+
+
+def _literal_decl(text: str, name: str):
+    """Read one voice/rate assignment as a literal (dict or string)."""
+    match = re.search(rf"^\s*{name} = (\{{[^}}]*\}}|\"[^\"]*\")", text, re.M)
+    if match is None:
+        return None
+    try:
+        return ast.literal_eval(match.group(1))
+    except (ValueError, SyntaxError):
+        return None
+
+
+def plan_voice_agreement(plan: dict, is_read: bool) -> dict:
+    """Compare a render plan's recorded voice against the lock."""
+    lock = {r: f"{LOCKED_VOICES[r]}@{LOCKED_RATES[r]}" for r in sorted(LOCKED_VOICES)}
+    out: dict = {"name": "plan_voice", "expected": lock, "recorded": None, "issues": []}
+    if is_read:
+        if plan.get("voice") or plan.get("rate"):
+            recorded = {"host": f"{plan.get('voice')}@{plan.get('rate')}"}
+            out["recorded"] = recorded
+            if recorded != {"host": lock["host"]}:
+                out["issues"].append(
+                    f"the read render plan records a voice the lock does not "
+                    f"(plan {recorded['host']}, lock {lock['host']}); "
+                    f"re-render before publishing")
+        else:
+            out["recorded"] = "absent (unverified provenance)"
+    else:
+        recorded = plan.get("voices")
+        if recorded is None:
+            out["recorded"] = "absent (historical, pre-run-032 plan)"
+        else:
+            out["recorded"] = recorded
+            if recorded != lock:
+                out["issues"].append(
+                    f"the interview render plan records voices the lock does not "
+                    f"(plan {sorted(recorded.items())}, lock {sorted(lock.items())}); "
+                    f"re-render before publishing")
+    out["ok"] = not out["issues"]
+    return out
+
+
+def voice_config_agreement(pipeline_dir: Path | None = None) -> dict:
+    """The three hand-kept declarations must agree with the lock.
+
+    Call-time resolution (run 501): the pipeline dir is never a default
+    argument value, so a patched caller audits its own tree.
+    """
+    pipeline_dir = pipeline_dir or PIPELINE
+    lock = {r: f"{LOCKED_VOICES[r]}@{LOCKED_RATES[r]}" for r in sorted(LOCKED_VOICES)}
+    report: dict = {"name": "voice_config", "expected": lock, "files": {}, "issues": []}
+    for fname, (vname, rname) in sorted(VOICE_DECL_FILES.items()):
+        path = pipeline_dir / fname
+        entry: dict = {"declared": None, "issues": []}
+        if not path.is_file():
+            entry["issues"].append(f"{fname}: no readable file to audit")
+            report["files"][fname] = entry
+            report["issues"].extend(entry["issues"])
+            continue
+        text = path.read_text(encoding="utf-8", errors="replace")
+        declared_v = _literal_decl(text, vname)
+        declared_r = _literal_decl(text, rname)
+        if declared_v is None or declared_r is None:
+            entry["issues"].append(f"{fname}: no parseable {vname}/{rname} declaration")
+            report["files"][fname] = entry
+            report["issues"].extend(entry["issues"])
+            continue
+        declared_as_dict = isinstance(declared_v, dict)
+        if isinstance(declared_v, str):
+            declared_v = {"host": declared_v}
+        if isinstance(declared_r, str):
+            declared_r = {"host": declared_r}
+        entry["declared"] = {r: f"{declared_v[r]}@{declared_r.get(r)}" for r in sorted(declared_v)}
+        if declared_as_dict:  # a role dict must carry the show's two voices
+            for role in ("host", "rowan"):
+                if role not in declared_v:
+                    entry["issues"].append(f"{fname}: role dict declares no '{role}'")
+        for role, voice in sorted(declared_v.items()):
+            if role not in LOCKED_VOICES:
+                entry["issues"].append(f"{fname}: role '{role}' is not in the lock")
+                continue
+            pair = f"{voice}@{declared_r.get(role)}"
+            if pair != lock[role]:
+                entry["issues"].append(
+                    f"{fname}: role '{role}' declares {pair}, the lock says {lock[role]}")
+        report["files"][fname] = entry
+        report["issues"].extend(entry["issues"])
+    report["ok"] = not report["issues"]
+    return report
+
+
 def preflight(episode: str, require_audio: bool = False, enforce_review: bool = True) -> dict[str, Any]:
     """Deterministic publication gate.
 
@@ -1906,6 +2037,10 @@ def preflight(episode: str, require_audio: bool = False, enforce_review: bool = 
                     f"audio was rendered from a different script.md "
                     f"(plan records {plan['script_sha256'][:12]}..., current script "
                     f"is {script_digest[:12]}...); re-run render before publishing")
+            if plan is not None:
+                voice_check = plan_voice_agreement(plan, is_read)
+                result["checks"]["plan_voice"] = voice_check
+                result["issues"].extend(voice_check["issues"])
     result["ok"] = not result["issues"]
     return result
 
@@ -5562,6 +5697,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("status")
     p = sub.add_parser("coverage"); p.add_argument("feed", nargs="?", default=None)
     sub.add_parser("registry")
+    sub.add_parser("voice", help="audit the three hand-kept voice declarations against the locked configuration")
     p = sub.add_parser("drift", help="audit the live site against local feed-site bytes")
     p.add_argument("--remote", default=None)
     p.add_argument("--text-only", action="store_true", dest="text_only")
@@ -5608,6 +5744,7 @@ def main(argv: list[str] | None = None) -> int:
         elif args.command == "status": result = status()
         elif args.command == "coverage": result = feed_coverage(args.feed)
         elif args.command == "registry": result = registry_audit()
+        elif args.command == "voice": result = voice_config_agreement()
         elif args.command == "drift": result = deploy_drift(args.remote, text_only=args.text_only)
         elif args.command == "feedsync": result = feed_sync()
         elif args.command == "watchdog": result = watchdog(args.max_render_minutes, args.stall_seconds)
@@ -5625,7 +5762,7 @@ def main(argv: list[str] | None = None) -> int:
             else:
                 result = {"ok": True, "attempts": attempts_report(load_ledger())}
         print_result(result)
-        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry", "drift", "feedsync"}:
+        if args.command in {"reconcile", "preflight", "review", "verify", "publish", "push", "status", "watchdog", "attempt", "coverage", "registry", "drift", "feedsync", "voice"}:
             return 0 if result.get("ok", result.get("healthy", True)) else 1
         return 0
     except Exception as exc:

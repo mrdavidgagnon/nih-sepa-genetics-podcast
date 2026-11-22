@@ -33,7 +33,9 @@ import read_lane, robust_pipeline
 BODY = ("The machine decided to spare the five and sacrifice the one. Readers disagree "
         "about whether an aggregate preference is a decision. A voting rule is not the "
         "same thing as a moral fact, and the sample is a convenience sample.")
-PLAN_VOICE = "en-US-AndrewMultilingualNeural"
+PLAN_VOICE = "en-US-AvaMultilingualNeural"  # run 098: the read-lane baseline
+# must be the LOCKED voice; the old Andrew baseline asserted preflight ok for a
+# plan contradicting the documented lock.
 
 
 class Fixture:
@@ -131,10 +133,16 @@ class WriterHonestyTests(unittest.TestCase):
         self.assertIn("Rendered: not rendered yet", self.f.record_block())
 
     def test_record_names_the_voice_the_render_plan_records(self):
+        # run 098: the fixture baseline is now the LOCKED voice, so
+        # "names the recorded voice, not the module default" needs a plan
+        # that records something the default is not. Meaning preserved.
+        drifted = "en-US-AriNeural"
+        self.f.plan["voice"] = drifted
+        (self.f.ep / "parts-read" / "render-plan.json").write_text(json.dumps(self.f.plan))
         read_lane.record_verdict("990", self.f.post)
         read_lane.refresh_notes_record("990")
         block = self.f.record_block()
-        self.assertIn(PLAN_VOICE, block)
+        self.assertIn(drifted, block)
         self.assertNotIn(read_lane.VOICE, block)
         self.assertIn(self.f.plan["rendered_at"], block)
 
