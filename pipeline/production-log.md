@@ -980,3 +980,44 @@ honesty test restructured. Suite 595 -> 612, exit 0. Feed md5 unchanged
 (3570d744126e2d3ac136ce275443ad29). Environment: /opt/data hit "No
 space left on device" mid-suite; stale >24h test scratch dirs cleaned
 (~1GB); suite green on re-run. Budget overrun noted (1500s).
+
+
+## Run 099 — disk-hygiene slice (nothing published)
+
+Both intake lanes empty (Summerize `V4WXTY8M` 0, Read `DV6F4ILX` 0; the 18
+unfiled items still sit directly in `YF84AUZK` awaiting David's lane call —
+unchanged standing blocker, already reported). Opening audits green:
+`coverage ok` 3/3, `registry ok`, `feedsync ok`. Subcommand census against the
+sibling (`--help` diff, run 053's cheap check): HITL-only `register` (by
+design — its hardcoded EP list needs it, this tree's derived
+`interview_episodes()` does not) and MM-only `voice` (run 098). No port owed.
+
+**Slice unit: disk hygiene.** `/opt/data` was at 100% (1.3G free) — the same
+pressure that gave run 098 ENOSPC mid-suite. Freed **1.04 GB** strictly inside
+this agent's own scratch areas, each deletion verified recoverable first:
+
+- `tmp/pitl-push` (834 MB): stale HITL push clone from 2026-09-22, HEAD
+  `25a04ac` ("Publish episodes 027-031 and 033"), an ancestor of remote main
+  (workflow never force-pushes). Every non-git file either md5-matches the
+  live tree or is tracked at that commit; sole untracked content was
+  `__pycache__`. No live process held a cwd inside it (the first liveness
+  count of 5 was the checking shell's own cwd — re-checked from a neutral
+  dir).
+- `tmp/Zavala_Podcast.mp3` (52 MB) and `tmp/drive034.bin` (45 MB): md5-identical
+  to the canonical `episodes/033/episode-033.mp3` / `episodes/034/episode-034.mp3`
+  in the HITL tree before deletion.
+- Completed proof-scratch dirs (`mm_scratch_run034_*`,
+  `mm_status_repro_run059_*` 98 MB, `sepa-voicecheck*`). **Kept**: every
+  `mm_*.py` harness the skill references (36 run-09x files confirmed present),
+  `sepa_audition.py` + audition audio (David may revisit), and
+  `tmp/EIUADNKU.pdf` (focal-source download, 11 MB, cheap to keep).
+- **Not touched**: `tmp/upgrade` (2.9 GB) — Hermes devops territory, documented
+  in its own backup-strategy skill reference; planka/vault worktrees and
+  backups likewise. The partition's remaining pressure is outside this
+  agent's remit.
+
+Post-cleanup the partition showed 29G free (other processes freed space
+concurrently). Validation after the cleanup: `reconcile --write` ok, 0 issues;
+`status healthy: true`; `feed-site/feed.xml` md5
+`3570d744126e2d3ac136ce275443ad29` unchanged and byte-identical to the live
+feed. No tree code, gate or feed byte moved; no Zotero writes.

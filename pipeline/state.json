@@ -2692,16 +2692,40 @@
             }
           ],
           "deadline_at": "2026-11-22T22:05:57.224322Z",
-          "outcome": null,
+          "detail": "",
+          "finished_at": "2026-11-22T21:55:54.584380Z",
+          "outcome": "completed",
           "run_id": "",
           "started_at": "2026-11-22T21:40:57.224322Z"
+        },
+        {
+          "attempt_id": "501-1795399236",
+          "budget_seconds": 1500,
+          "checkpoints": [
+            {
+              "at": "2026-11-23T02:00:36.799302Z",
+              "detail": "",
+              "stage": "started"
+            },
+            {
+              "at": "2026-11-23T02:02:47.325277Z",
+              "detail": "freed 1.04GB stale tmp (pitl-push clone verified ancestor of remote, 033/034 md5-identical canonical copies, completed proof scratch); harness .py files kept",
+              "stage": "disk_hygiene"
+            }
+          ],
+          "deadline_at": "2026-11-23T02:25:36.799302Z",
+          "detail": "disk-hygiene slice: 1.04GB stale scratch freed with recoverability proofs; audits green, feed md5 unchanged, lanes empty",
+          "finished_at": "2026-11-23T02:03:40.328597Z",
+          "outcome": "completed",
+          "run_id": "",
+          "started_at": "2026-11-23T02:00:36.799302Z"
         }
       ],
-      "attempts": 92,
+      "attempts": 93,
       "status": "planned",
       "transitions": []
     }
   },
   "schema_version": 1,
-  "updated_at": "2026-11-22T21:55:27Z"
+  "updated_at": "2026-11-23T02:03:40Z"
 }
